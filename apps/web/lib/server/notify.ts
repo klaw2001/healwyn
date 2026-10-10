@@ -1,5 +1,6 @@
 import 'server-only';
 import { BRAND } from '@healwyn/core';
+import { sendEmail } from '@healwyn/messaging';
 import { errorFields, log } from './log';
 
 export interface LeadNotification {
@@ -50,8 +51,9 @@ export function buildLeadEmail(notification: LeadNotification, env: NotifyEnv): 
 
 /**
  * Emails the team about a new lead through Resend. Without RESEND_API_KEY (or
- * a recipient) the email is logged instead. Never throws: a notification
- * problem must never fail a submission.
+ * a recipient) the email is logged instead; it carries no personal data, so the
+ * whole email can be printed. Never throws: a notification problem must never
+ * fail a submission.
  */
 export async function sendLeadNotification(
   notification: LeadNotification,
@@ -60,30 +62,21 @@ export async function sendLeadNotification(
 ): Promise<NotifyResult> {
   try {
     const email = buildLeadEmail(notification, env);
-    if (!env.RESEND_API_KEY || !env.LEAD_NOTIFY_EMAIL) {
-      const reason = env.RESEND_API_KEY ? 'LEAD_NOTIFY_EMAIL is not set' : 'RESEND_API_KEY is not set';
+    if (!env.LEAD_NOTIFY_EMAIL) {
       console.info(
-        `[email:console] ${reason}, so the email is printed here instead.\nSubject: ${email.subject}\n${email.text}`,
+        `[email:console] LEAD_NOTIFY_EMAIL is not set, so the email is printed here instead.\nSubject: ${email.subject}\n${email.text}`,
       );
       return 'logged';
     }
-
-    const response = await fetchImpl('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'content-type': 'application/json',
-        'idempotency-key': `lead-${notification.leadId}`,
-      },
-      body: JSON.stringify({ from: email.from, to: [email.to], subject: email.subject, text: email.text }),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) {
-      log.warn('notify.failed', { reference: notification.reference, status: response.status });
-      return 'failed';
-    }
-    log.info('notify.sent', { reference: notification.reference });
-    return 'sent';
+    const result = await sendEmail(
+      { to: email.to, subject: email.subject, text: email.text, idempotencyKey: `lead-${notification.leadId}` },
+      { RESEND_API_KEY: env.RESEND_API_KEY, EMAIL_FROM: env.EMAIL_FROM },
+      fetchImpl,
+    );
+    if (result.status === 'failed')
+      log.warn('notify.failed', { reference: notification.reference, error: result.error });
+    else log.info(result.status === 'sent' ? 'notify.sent' : 'notify.logged', { reference: notification.reference });
+    return result.status;
   } catch (error) {
     log.warn('notify.failed', { reference: notification.reference, ...errorFields(error) });
     return 'failed';

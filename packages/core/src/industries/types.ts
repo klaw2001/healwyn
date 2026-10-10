@@ -1,3 +1,5 @@
+import type { MessageTemplate, NoteTemplate, ScoreRule, SequenceDefinition, SlaTargets } from '../crm/types';
+
 /**
  * An industry pack is the complete configuration for one vertical (clinic today;
  * real estate, wealth advisory and home interiors in Phase 4). Forms, pipeline
@@ -83,12 +85,10 @@ export interface StaffLevel {
   readonly rank: number;
 }
 
-export interface NurtureSequenceDefinition {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  /** Stage that enrols a lead into this sequence (Phase 2 adds steps and stop rules). */
-  readonly enrolOnStage: string | null;
+/** Which qualifying answer flags a lead for the billing desk (clinic: has insurance). */
+export interface BillingRule {
+  readonly questionId: string;
+  readonly equals: string;
 }
 
 /** A thing a lead can be routed to: a specialty for clinics, a service line elsewhere. */
@@ -123,5 +123,13 @@ export interface IndustryPack {
   readonly stages: readonly PipelineStage[];
   readonly initialStageId: string;
   readonly staffLevels: readonly StaffLevel[];
-  readonly sequences: readonly NurtureSequenceDefinition[];
+  readonly billingRule: BillingRule | null;
+  /** Nurture sequences: steps, enrolment stage and the stages that stop them. */
+  readonly sequences: readonly SequenceDefinition[];
+  readonly crm: {
+    readonly templates: readonly MessageTemplate[];
+    readonly noteTemplates: readonly NoteTemplate[];
+    readonly sla: SlaTargets;
+    readonly scoring: readonly ScoreRule[];
+  };
 }

@@ -39,6 +39,14 @@ export function createPostgresLeadStore(url: string): LeadStore {
         throw new LeadStoreError('Could not check the rate limit', { cause: error });
       }
     },
+    async optOut(leadId, source) {
+      try {
+        const [row] = await sql<{ changed: boolean }[]>`select public.opt_out_lead(${leadId}, ${source}) as changed`;
+        return row?.changed ?? false;
+      } catch (error) {
+        throw new LeadStoreError('Could not record the unsubscribe', { cause: error });
+      }
+    },
     async close() {
       await sql.end({ timeout: 5 });
     },

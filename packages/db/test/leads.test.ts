@@ -55,7 +55,7 @@ describe.skipIf(!databaseUrl)('lead storage (Postgres store)', () => {
     for (const consent of consents) expect(consent.text_hash).toMatch(/^[0-9a-f]{64}$/);
 
     const events = await sql`select type, payload from public.lead_events where lead_id = ${id} order by id`;
-    expect(events.map((e) => e.type)).toEqual(['lead.created', 'consent.recorded']);
+    expect(events.map((e) => e.type)).toEqual(['lead.created', 'consent.recorded', 'sequence.enrolled']);
     // Audit payloads never contain personal data or free text.
     const eventText = JSON.stringify(events);
     expect(eventText).not.toContain('Test Person');
@@ -151,7 +151,14 @@ describe.skipIf(!databaseUrl)('lead storage (Postgres store)', () => {
     });
     expect(lead?.erased_at).toBeInstanceOf(Date);
     const events = await sql`select type from public.lead_events where lead_id = ${id} order by id`;
-    expect(events.map((e) => e.type)).toEqual(['lead.created', 'consent.recorded', 'consent.withdrawn', 'lead.erased']);
+    expect(events.map((e) => e.type)).toEqual([
+      'lead.created',
+      'consent.recorded',
+      'sequence.enrolled',
+      'consent.withdrawn',
+      'sequence.stopped',
+      'lead.erased',
+    ]);
     // Erasing twice is a no-op.
     const [again] = await sql`select public.erase_lead(${id}, 'again') as erased`;
     expect(again?.erased).toBe(false);
@@ -196,7 +203,7 @@ describe.skipIf(!databaseUrl)('lead storage (Postgres store)', () => {
              (select count(*)::int from public.specialties) as specialties,
              (select count(*)::int from public.leads where is_demo and source = 'seed') as demo_leads,
              (select count(*)::int from public.leads where id = ${id}) as real_lead`;
-    expect(counts).toEqual({ staff: 11, specialties: 6, demo_leads: 8, real_lead: 1 });
+    expect(counts).toEqual({ staff: 12, specialties: 6, demo_leads: 40, real_lead: 1 });
     const stages = await sql`select distinct stage from public.leads where source = 'seed' order by stage`;
     expect(stages.map((s) => s.stage)).toHaveLength(7);
   });

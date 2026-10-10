@@ -1,0 +1,23 @@
+{
+  "name": "@healwyn/messaging",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Email (Resend), simulated SMS/WhatsApp, unsubscribe tokens and the nurture worker",
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "worker": "tsx --env-file-if-exists=../../.env scripts/worker.ts"
+  },
+  "dependencies": {
+    "@healwyn/core": "workspace:*",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3"
+  }
+}

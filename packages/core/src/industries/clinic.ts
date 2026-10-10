@@ -1,3 +1,4 @@
+import { clinicCrm, clinicSequences } from './clinic-crm';
 import type { IndustryPack } from './types';
 
 /**
@@ -236,46 +237,17 @@ export const clinicPack = {
       description: 'Leads a specialty and takes urgent or complex cases.',
       rank: 3,
     },
+    {
+      id: 'clinic_manager',
+      label: 'Clinic manager',
+      description: 'Runs the clinic team. Not routed patients directly.',
+      rank: 4,
+    },
   ],
 
-  sequences: [
-    {
-      id: 'new-lead-welcome',
-      name: 'New lead welcome',
-      description: 'Confirms the enquiry was received and explains what happens next.',
-      enrolOnStage: 'new',
-    },
-    {
-      id: 'appointment-reminder',
-      name: 'Appointment reminder',
-      description: 'Reminds the patient before a booked visit.',
-      enrolOnStage: 'appointment_booked',
-    },
-    {
-      id: 'no-show-recovery',
-      name: 'No-show recovery',
-      description: 'Offers a new slot when a booked visit was missed.',
-      enrolOnStage: null,
-    },
-    {
-      id: 'post-visit-check-in',
-      name: 'Post-visit check-in',
-      description: 'Asks how the visit went and whether anything is unclear.',
-      enrolOnStage: 'visited',
-    },
-    {
-      id: 'follow-up-due',
-      name: 'Follow-up due',
-      description: 'Nudges the patient to book the follow-up their doctor asked for.',
-      enrolOnStage: 'follow_up_due',
-    },
-    {
-      id: 'package-renewal',
-      name: 'Package renewal',
-      description: 'Reminds the patient before a health package ends.',
-      enrolOnStage: 'package_active',
-    },
-  ],
+  billingRule: { questionId: 'has_insurance', equals: 'yes' },
+  sequences: clinicSequences,
+  crm: clinicCrm,
 } as const satisfies IndustryPack;
 
 export type ClinicPack = typeof clinicPack;

@@ -14,6 +14,7 @@ export interface MemoryLeadStore extends LeadStore {
 export function createMemoryLeadStore(): MemoryLeadStore {
   const leads = new Map<string, NewLeadPayload & { createdAt: Date }>();
   const windows = new Map<string, number>();
+  const optedOut = new Set<string>();
 
   return {
     kind: 'memory',
@@ -30,6 +31,11 @@ export function createMemoryLeadStore(): MemoryLeadStore {
       const hits = (windows.get(bucket) ?? 0) + 1;
       windows.set(bucket, hits);
       return hits <= limit;
+    },
+    async optOut(leadId) {
+      if (!leads.has(leadId) || optedOut.has(leadId)) return false;
+      optedOut.add(leadId);
+      return true;
     },
     async close() {},
   };

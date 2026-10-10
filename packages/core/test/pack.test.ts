@@ -82,7 +82,7 @@ describe('clinic pack', () => {
       'Lost',
     ]);
     expect(clinicPack.staffLevels.map((l) => l.id).sort()).toEqual(
-      ['billing_desk', 'care_coordinator', 'senior_consultant', 'specialist_doctor'].sort(),
+      ['billing_desk', 'care_coordinator', 'clinic_manager', 'senior_consultant', 'specialist_doctor'].sort(),
     );
     expect(clinicPack.sequences.map((s) => s.id)).toEqual([
       'new-lead-welcome',
@@ -139,7 +139,7 @@ describe('clinic content and demo data', () => {
   it('uses only demo-range phone numbers and valid stages for demo leads', () => {
     const staffIds = clinicDemoStaff.map((m) => m.id);
     for (const lead of clinicDemoLeads) {
-      expect(lead.phone).toMatch(/^\+9170000000\d{2}$/);
+      expect(lead.phone).toMatch(/^\+9170000\d{5}$/);
       expect(stages).toContain(lead.stage);
       if (lead.assignedStaffId) expect(staffIds).toContain(lead.assignedStaffId);
       for (const stage of lead.stageHistory) expect(stages).toContain(stage);

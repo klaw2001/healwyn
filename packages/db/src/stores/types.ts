@@ -9,6 +9,8 @@ export interface LeadStore {
   submitLead(payload: NewLeadPayload): Promise<{ id: string }>;
   /** Counts a hit for a hashed key; resolves true while within the limit. */
   hitRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean>;
+  /** Unsubscribes a lead from nurture messages. Resolves false if already out (or erased). */
+  optOut(leadId: string, source: string): Promise<boolean>;
   close(): Promise<void>;
 }
 

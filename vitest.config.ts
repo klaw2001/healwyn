@@ -16,6 +16,14 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'messaging',
+          root: './packages/messaging',
+          include: ['test/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        test: {
           name: 'ui',
           root: './packages/ui',
           include: ['test/**/*.test.ts'],
@@ -43,6 +51,8 @@ export default defineConfig({
           include: ['test/**/*.test.ts'],
           environment: 'node',
           globalSetup: ['test/global-setup.ts'],
+          // Test files share one database; run them one after another.
+          fileParallelism: false,
           testTimeout: 20_000,
           hookTimeout: 120_000,
         },

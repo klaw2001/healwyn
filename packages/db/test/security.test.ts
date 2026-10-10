@@ -13,11 +13,13 @@ describe.skipIf(!databaseUrl)('database security', () => {
     expect(rows.map((r) => r.relname)).toEqual([]);
   });
 
-  it('grants anon and authenticated nothing on any table or view', async () => {
-    const rows = await sql`
+  it('grants anon nothing, and authenticated (staff) only SELECT, on any table or view', async () => {
+    const rows = await sql<{ table_name: string; grantee: string; privilege_type: string }[]>`
       select table_name, grantee, privilege_type from information_schema.role_table_grants
       where table_schema = 'public' and grantee in ('anon', 'authenticated')`;
-    expect(rows).toEqual([]);
+    expect(rows.filter((r) => r.grantee === 'anon')).toEqual([]);
+    expect(rows.filter((r) => r.privilege_type !== 'SELECT')).toEqual([]);
+    expect(rows.map((r) => r.table_name)).not.toContain('rate_limits');
   });
 
   it('gives no API role TRUNCATE, TRIGGER or REFERENCES on any table', async () => {
@@ -40,13 +42,17 @@ describe.skipIf(!databaseUrl)('database security', () => {
     }
   });
 
-  it('lets the website role run only submit_lead and hit_rate_limit', async () => {
+  it('lets the website role run only submit_lead, hit_rate_limit and opt_out_lead', async () => {
     const rows = await sql<{ fn: string }[]>`
       select p.oid::regprocedure::text as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and has_function_privilege('web_submitter', p.oid, 'execute')
       order by 1`;
-    expect(rows.map((r) => r.fn)).toEqual(['hit_rate_limit(text,integer,integer)', 'submit_lead(jsonb)']);
+    expect(rows.map((r) => r.fn)).toEqual([
+      'hit_rate_limit(text,integer,integer)',
+      'opt_out_lead(uuid,text)',
+      'submit_lead(jsonb)',
+    ]);
   });
 
   it('a login role in web_submitter can submit but cannot read or change anything', async () => {
@@ -72,7 +78,23 @@ describe.skipIf(!databaseUrl)('database security', () => {
     }
   });
 
-  it('lets only the service role execute public functions', async () => {
+  it('lets anon execute nothing, staff only the CRM functions, and the service role everything', async () => {
+    const STAFF_FUNCTIONS = [
+      'add_note(uuid,text,text)',
+      'assign_lead(uuid,uuid,text,jsonb)',
+      'change_lead_stage(uuid,text,jsonb,text)',
+      'complete_task(uuid)',
+      'create_task(uuid,text,timestamp with time zone,uuid,timestamp with time zone)',
+      'current_staff_id()',
+      'current_staff_role()',
+      'enroll_lead(uuid,jsonb)',
+      'mark_replied(uuid)',
+      'record_consent_withdrawal(uuid,text,boolean)',
+      'save_lead_score(uuid,integer,text,jsonb)',
+      'set_sequence_paused(text,text,boolean)',
+      'staff_can_see_lead(uuid,boolean,text)',
+      'stop_enrollment(uuid)',
+    ];
     const rows = await sql<{ fn: string; anon: boolean; authed: boolean; service: boolean; is_trigger: boolean }[]>`
       select p.oid::regprocedure::text as fn,
              has_function_privilege('anon', p.oid, 'execute') as anon,
@@ -83,18 +105,29 @@ describe.skipIf(!databaseUrl)('database security', () => {
       where n.nspname = 'public'`;
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
-      expect({ fn: row.fn, anon: row.anon, authed: row.authed }).toEqual({ fn: row.fn, anon: false, authed: false });
+      expect({ fn: row.fn, anon: row.anon }).toEqual({ fn: row.fn, anon: false });
+      const name = row.fn.replace(/^public\./, '');
+      expect({ fn: row.fn, authed: row.authed }).toEqual({ fn: row.fn, authed: STAFF_FUNCTIONS.includes(name) });
       if (!row.is_trigger) expect({ fn: row.fn, service: row.service }).toEqual({ fn: row.fn, service: true });
     }
+    // Internal helpers are not reachable through the API at all.
+    const [internal] = await sql<{ n: number }[]>`
+      select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'app_private'
+        and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))`;
+    expect(internal?.n).toBe(0);
   });
 
-  it.each(['anon', 'authenticated'])('denies %s reading or writing leads directly', async (role) => {
+  it('denies anon reading or writing leads directly', async () => {
     await expect(
       sql.begin(async (tx) => {
-        await tx.unsafe(`set local role ${role}`);
+        await tx.unsafe('set local role anon');
         await tx`select count(*) from public.leads`;
       }),
     ).rejects.toThrow(/permission denied/);
+  });
+
+  it.each(['anon', 'authenticated'])('denies %s writing leads directly', async (role) => {
     await expect(
       sql.begin(async (tx) => {
         await tx.unsafe(`set local role ${role}`);
@@ -113,14 +146,11 @@ describe.skipIf(!databaseUrl)('database security', () => {
     ).rejects.toThrow(/permission denied/);
   });
 
-  it('even with table grants, RLS blocks authenticated (no policies yet)', async () => {
+  it('shows signed-in users who are not active staff nothing', async () => {
     const rows = await sql.begin(async (tx) => {
-      await tx`grant select on public.leads to authenticated`;
       await tx.unsafe('set local role authenticated');
-      const result = await tx<{ count: number }[]>`select count(*)::int as count from public.leads`;
-      await tx.unsafe('reset role');
-      await tx`revoke select on public.leads from authenticated`;
-      return result;
+      await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: '00000000-0000-4000-8000-0000000000ff', role: 'authenticated' })}, true)`;
+      return tx<{ count: number }[]>`select count(*)::int as count from public.leads`;
     });
     expect(rows[0]?.count).toBe(0);
   });

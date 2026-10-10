@@ -30,3 +30,16 @@ export async function samplePayload(overrides: Record<string, unknown> = {}): Pr
   });
   return intakeToLeadPayload(submission, clinicPack, { isDemo: true });
 }
+
+/** Runs fn inside a transaction as a signed-in Supabase user (RLS applies), like PostgREST does. */
+export async function asUser<T>(
+  sql: ReturnType<typeof postgres>,
+  authUserId: string,
+  fn: (tx: postgres.TransactionSql) => Promise<T>,
+): Promise<T> {
+  return sql.begin(async (tx) => {
+    await tx.unsafe('set local role authenticated');
+    await tx`select set_config('request.jwt.claims', ${JSON.stringify({ sub: authUserId, role: 'authenticated' })}, true)`;
+    return fn(tx);
+  }) as Promise<T>;
+}

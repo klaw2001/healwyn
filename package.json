@@ -21,7 +21,8 @@
     "db:migrate": "pnpm --filter @healwyn/db migrate",
     "db:seed": "pnpm --filter @healwyn/db seed",
     "db:types": "pnpm --filter @healwyn/db types",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "worker": "pnpm --filter @healwyn/messaging worker"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

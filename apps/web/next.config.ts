@@ -17,7 +17,7 @@ const securityHeaders = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ['@healwyn/core', '@healwyn/db', '@healwyn/ui'],
+  transpilePackages: ['@healwyn/core', '@healwyn/db', '@healwyn/messaging', '@healwyn/ui'],
   serverExternalPackages: ['postgres'],
   turbopack: { root: repoRoot },
   async headers() {

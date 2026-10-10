@@ -36,6 +36,11 @@ export function createSupabaseLeadStore(
       if (error) throw new LeadStoreError(`Could not check the rate limit (${error.code})`, { cause: error });
       return data === true;
     },
+    async optOut(leadId, source) {
+      const { data, error } = await client.rpc('opt_out_lead', { p_lead_id: leadId, p_source: source });
+      if (error) throw new LeadStoreError(`Could not record the unsubscribe (${error.code})`, { cause: error });
+      return data === true;
+    },
     async close() {},
   };
 }

@@ -16,6 +16,7 @@
     "@fontsource-variable/fraunces": "5.3.0",
     "@healwyn/core": "workspace:*",
     "@healwyn/db": "workspace:*",
+    "@healwyn/messaging": "workspace:*",
     "@healwyn/ui": "workspace:*",
     "next": "16.4.0",
     "react": "19.3.0",

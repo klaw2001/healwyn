@@ -16,6 +16,7 @@ export type Database = {
           text_hash: string | null;
           source: string;
           recorded_at: string;
+          required: boolean;
         };
         Insert: {
           id?: never;
@@ -26,6 +27,7 @@ export type Database = {
           text_hash?: string | null;
           source: string;
           recorded_at?: string;
+          required?: boolean;
         };
         Update: {
           id?: never;
@@ -36,6 +38,7 @@ export type Database = {
           text_hash?: string | null;
           source?: string;
           recorded_at?: string;
+          required?: boolean;
         };
         Relationships: [
           {
@@ -85,6 +88,20 @@ export type Database = {
           },
         ];
       };
+      lead_scores: {
+        Row: { lead_id: string; score: number; band: string; factors: Json; computed_at: string };
+        Insert: { lead_id: string; score: number; band: string; factors?: Json; computed_at?: string };
+        Update: { lead_id?: string; score?: number; band?: string; factors?: Json; computed_at?: string };
+        Relationships: [
+          {
+            foreignKeyName: 'lead_scores_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: true;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       leads: {
         Row: {
           id: string;
@@ -106,6 +123,10 @@ export type Database = {
           updated_at: string;
           erased_at: string | null;
           erasure_reason: string | null;
+          first_response_at: string | null;
+          last_inbound_at: string | null;
+          opted_out_at: string | null;
+          billing_flag: boolean;
         };
         Insert: {
           id?: string;
@@ -127,6 +148,10 @@ export type Database = {
           updated_at?: string;
           erased_at?: string | null;
           erasure_reason?: string | null;
+          first_response_at?: string | null;
+          last_inbound_at?: string | null;
+          opted_out_at?: string | null;
+          billing_flag?: boolean;
         };
         Update: {
           id?: string;
@@ -148,6 +173,10 @@ export type Database = {
           updated_at?: string;
           erased_at?: string | null;
           erasure_reason?: string | null;
+          first_response_at?: string | null;
+          last_inbound_at?: string | null;
+          opted_out_at?: string | null;
+          billing_flag?: boolean;
         };
         Relationships: [
           {
@@ -166,11 +195,275 @@ export type Database = {
           },
         ];
       };
+      messages: {
+        Row: {
+          id: string;
+          lead_id: string;
+          channel: string;
+          direction: string;
+          status: string;
+          template_id: string | null;
+          subject: string | null;
+          body: string | null;
+          scheduled_message_id: string | null;
+          enrollment_id: string | null;
+          provider_message_id: string | null;
+          error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          channel: string;
+          direction: string;
+          status: string;
+          template_id?: string | null;
+          subject?: string | null;
+          body?: string | null;
+          scheduled_message_id?: string | null;
+          enrollment_id?: string | null;
+          provider_message_id?: string | null;
+          error?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          channel?: string;
+          direction?: string;
+          status?: string;
+          template_id?: string | null;
+          subject?: string | null;
+          body?: string | null;
+          scheduled_message_id?: string | null;
+          enrollment_id?: string | null;
+          provider_message_id?: string | null;
+          error?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'messages_enrollment_id_fkey';
+            columns: ['enrollment_id'];
+            isOneToOne: false;
+            referencedRelation: 'sequence_enrollments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'messages_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'messages_scheduled_message_id_fkey';
+            columns: ['scheduled_message_id'];
+            isOneToOne: true;
+            referencedRelation: 'scheduled_messages';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      notes: {
+        Row: {
+          id: string;
+          lead_id: string;
+          author_staff_id: string | null;
+          template_id: string | null;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          author_staff_id?: string | null;
+          template_id?: string | null;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          author_staff_id?: string | null;
+          template_id?: string | null;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notes_author_staff_id_fkey';
+            columns: ['author_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notes_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       rate_limits: {
         Row: { key: string; window_start: string; hits: number };
         Insert: { key: string; window_start: string; hits?: number };
         Update: { key?: string; window_start?: string; hits?: number };
         Relationships: [];
+      };
+      scheduled_messages: {
+        Row: {
+          id: string;
+          enrollment_id: string;
+          lead_id: string;
+          sequence_id: string;
+          step_index: number;
+          channel: string;
+          template_id: string;
+          due_at: string;
+          status: string;
+          attempts: number;
+          locked_at: string | null;
+          processed_at: string | null;
+          skip_reason: string | null;
+          last_error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          enrollment_id: string;
+          lead_id: string;
+          sequence_id: string;
+          step_index: number;
+          channel: string;
+          template_id: string;
+          due_at: string;
+          status?: string;
+          attempts?: number;
+          locked_at?: string | null;
+          processed_at?: string | null;
+          skip_reason?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          enrollment_id?: string;
+          lead_id?: string;
+          sequence_id?: string;
+          step_index?: number;
+          channel?: string;
+          template_id?: string;
+          due_at?: string;
+          status?: string;
+          attempts?: number;
+          locked_at?: string | null;
+          processed_at?: string | null;
+          skip_reason?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'scheduled_messages_enrollment_id_fkey';
+            columns: ['enrollment_id'];
+            isOneToOne: false;
+            referencedRelation: 'sequence_enrollments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'scheduled_messages_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      sequence_enrollments: {
+        Row: {
+          id: string;
+          lead_id: string;
+          industry: string;
+          sequence_id: string;
+          status: string;
+          stop_reason: string | null;
+          enrolled_by_staff_id: string | null;
+          enrolled_at: string;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          industry?: string;
+          sequence_id: string;
+          status?: string;
+          stop_reason?: string | null;
+          enrolled_by_staff_id?: string | null;
+          enrolled_at?: string;
+          ended_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          industry?: string;
+          sequence_id?: string;
+          status?: string;
+          stop_reason?: string | null;
+          enrolled_by_staff_id?: string | null;
+          enrolled_at?: string;
+          ended_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sequence_enrollments_enrolled_by_staff_id_fkey';
+            columns: ['enrolled_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sequence_enrollments_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      sequence_settings: {
+        Row: {
+          industry: string;
+          sequence_id: string;
+          paused: boolean;
+          updated_by_staff_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          industry?: string;
+          sequence_id: string;
+          paused?: boolean;
+          updated_by_staff_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          industry?: string;
+          sequence_id?: string;
+          paused?: boolean;
+          updated_by_staff_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sequence_settings_updated_by_staff_id_fkey';
+            columns: ['updated_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       specialties: {
         Row: {
@@ -219,6 +512,7 @@ export type Database = {
           auth_user_id: string | null;
           created_at: string;
           updated_at: string;
+          role: string;
         };
         Insert: {
           id?: string;
@@ -236,6 +530,7 @@ export type Database = {
           auth_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          role: string;
         };
         Update: {
           id?: string;
@@ -253,8 +548,85 @@ export type Database = {
           auth_user_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          role?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'staff_auth_user_fk';
+            columns: ['auth_user_id'];
+            isOneToOne: true;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      tasks: {
+        Row: {
+          id: string;
+          lead_id: string;
+          assignee_staff_id: string | null;
+          created_by_staff_id: string | null;
+          title: string;
+          due_at: string;
+          remind_at: string | null;
+          completed_at: string | null;
+          completed_by_staff_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          assignee_staff_id?: string | null;
+          created_by_staff_id?: string | null;
+          title: string;
+          due_at: string;
+          remind_at?: string | null;
+          completed_at?: string | null;
+          completed_by_staff_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          assignee_staff_id?: string | null;
+          created_by_staff_id?: string | null;
+          title?: string;
+          due_at?: string;
+          remind_at?: string | null;
+          completed_at?: string | null;
+          completed_by_staff_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'tasks_assignee_staff_id_fkey';
+            columns: ['assignee_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'tasks_completed_by_staff_id_fkey';
+            columns: ['completed_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'tasks_created_by_staff_id_fkey';
+            columns: ['created_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'tasks_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Views: {
@@ -270,16 +642,106 @@ export type Database = {
       };
     };
     Functions: {
+      add_note: {
+        Args: { p_lead_id: string; p_body: string; p_template_id: string };
+        Returns: string;
+      };
+      assign_lead: {
+        Args: { p_lead_id: string; p_staff_id: string; p_reason: string; p_routing: Json };
+        Returns: undefined;
+      };
+      change_lead_stage: {
+        Args: { p_lead_id: string; p_to_stage: string; p_plan: Json; p_reason: string };
+        Returns: Json;
+      };
+      claim_due_messages: {
+        Args: { p_limit: number; p_stale_after: string };
+        Returns: unknown[];
+      };
+      complete_task: {
+        Args: { p_task_id: string };
+        Returns: undefined;
+      };
+      create_task: {
+        Args: {
+          p_lead_id: string;
+          p_title: string;
+          p_due_at: string;
+          p_assignee_staff_id: string;
+          p_remind_at: string;
+        };
+        Returns: string;
+      };
+      current_staff_id: {
+        Args: never;
+        Returns: string;
+      };
+      current_staff_role: {
+        Args: never;
+        Returns: string;
+      };
+      enroll_lead: {
+        Args: { p_lead_id: string; p_plan: Json };
+        Returns: Json;
+      };
       erase_lead: {
         Args: { p_lead_id: string; p_reason: string };
         Returns: boolean;
+      };
+      finish_scheduled_message: {
+        Args: { p_id: string; p_outcome: string; p_message: Json; p_detail: string };
+        Returns: undefined;
       };
       hit_rate_limit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
       };
+      mark_replied: {
+        Args: { p_lead_id: string };
+        Returns: number;
+      };
+      opt_out_lead: {
+        Args: { p_lead_id: string; p_source: string };
+        Returns: boolean;
+      };
+      purge_stale_leads: {
+        Args: { p_months: number };
+        Returns: number;
+      };
+      record_consent_withdrawal: {
+        Args: { p_lead_id: string; p_purpose: string; p_erase: boolean };
+        Returns: undefined;
+      };
+      record_inbound_message: {
+        Args: { p_lead_id: string; p_channel: string; p_body: string; p_source: string };
+        Returns: string;
+      };
+      save_lead_score: {
+        Args: { p_lead_id: string; p_score: number; p_band: string; p_factors: Json };
+        Returns: undefined;
+      };
+      set_sequence_paused: {
+        Args: { p_industry: string; p_sequence_id: string; p_paused: boolean };
+        Returns: undefined;
+      };
+      staff_can_see_lead: {
+        Args: { p_assigned_staff_id: string; p_billing_flag: boolean; p_stage: string };
+        Returns: boolean;
+      };
+      staff_for_auth_user: {
+        Args: { p_auth_user_id: string };
+        Returns: unknown[];
+      };
+      stop_enrollment: {
+        Args: { p_enrollment_id: string };
+        Returns: undefined;
+      };
       submit_lead: {
         Args: { payload: Json };
+        Returns: string;
+      };
+      verify_staff_password: {
+        Args: { p_email: string; p_password: string };
         Returns: string;
       };
       withdraw_consent: {

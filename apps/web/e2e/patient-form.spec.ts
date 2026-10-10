@@ -113,7 +113,8 @@ test('a valid enquiry creates a lead with its consent records', async ({ page })
     ['contact', true],
   ]);
   for (const consent of stored?.consents ?? []) expect(consent.text_hash).toMatch(/^[0-9a-f]{64}$/);
-  expect(stored?.events.map((e) => e.type)).toEqual(['lead.created', 'consent.recorded']);
+  // The welcome sequence starts in the same transaction as the lead.
+  expect(stored?.events.map((e) => e.type)).toEqual(['lead.created', 'consent.recorded', 'sequence.enrolled']);
 });
 
 test('can be completed with the keyboard alone', async ({ page }) => {

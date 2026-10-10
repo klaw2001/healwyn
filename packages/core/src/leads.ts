@@ -1,4 +1,5 @@
 import { consentPlainText, sha256Hex } from './consent';
+import { planStageEntry, type SequencePlan } from './crm/sequences';
 import type { IndustryPack } from './industries/types';
 import type { IntakeSubmission, PartnerSubmission } from './schemas/intake';
 
@@ -40,6 +41,11 @@ export interface NewLeadPayload {
   message: string | null;
   answers: Record<string, string>;
   consents: ConsentEvidence[];
+  /** The pack's billing rule matched (clinic: has insurance); the billing desk sees the lead. */
+  billingFlag: boolean;
+  urgency: Urgency;
+  /** Nurture sequences to start with the lead (enrolled in the same transaction). */
+  sequencePlan: SequencePlan | null;
   isDemo: boolean;
 }
 
@@ -61,9 +67,12 @@ async function consentEvidence(
 export async function intakeToLeadPayload(
   submission: IntakeSubmission,
   pack: IndustryPack,
-  options: { source?: LeadSource; isDemo?: boolean } = {},
+  options: { source?: LeadSource; isDemo?: boolean; now?: Date } = {},
 ): Promise<NewLeadPayload> {
   const { offeringQuestionId, offeringUnsureValue, messageQuestionId } = pack.intake;
+  const billingFlag = pack.billingRule
+    ? submission.answers[pack.billingRule.questionId] === pack.billingRule.equals
+    : false;
   const { [messageQuestionId]: message, ...answers } = submission.answers;
   const offering = answers[offeringQuestionId];
   const specialtySlug =
@@ -82,6 +91,9 @@ export async function intakeToLeadPayload(
     message: message ?? null,
     answers,
     consents: await consentEvidence(pack.intake.consents, submission.consents),
+    billingFlag,
+    urgency: 'normal',
+    sequencePlan: planStageEntry(pack.sequences, pack.initialStageId, [], options.now ?? new Date()),
     isDemo: options.isDemo ?? false,
   };
 }
@@ -108,6 +120,10 @@ export async function partnerToLeadPayload(
       partner_type: submission.partnerType,
     },
     consents: await consentEvidence(pack.partnerIntake.consents, submission.consents),
+    billingFlag: false,
+    urgency: 'normal',
+    // Patient nurture sequences do not fit partner enquiries; the team replies by email.
+    sequencePlan: null,
     isDemo: options.isDemo ?? false,
   };
 }
