@@ -106,11 +106,7 @@ export function PartnerForm() {
             {text(PARTNER_FIELDS.role, 'Your role', 'organization-title')}
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
-            {text(PARTNER_FIELDS.phone, 'Mobile number', 'tel', {
-              type: 'tel',
-              inputMode: 'tel',
-              placeholder: '98765 43210',
-            })}
+            {text(PARTNER_FIELDS.phone, 'Mobile number', 'tel', { type: 'tel', inputMode: 'tel' })}
             {text(PARTNER_FIELDS.email, 'Work email', 'email', { type: 'email', inputMode: 'email' })}
           </div>
         </FormSection>

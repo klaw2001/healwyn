@@ -181,7 +181,7 @@ export function PatientForm() {
           <Field
             id={fieldId(INTAKE_FIELDS.phone)}
             label="Mobile number"
-            hint="A 10-digit Indian mobile number. We use it only to contact you about this enquiry."
+            hint="A 10-digit Indian mobile number, for example 98765 43210. We use it only to contact you about this enquiry."
             error={errors[INTAKE_FIELDS.phone]}
             required
           >
@@ -192,7 +192,6 @@ export function PatientForm() {
                 type="tel"
                 inputMode="tel"
                 autoComplete="tel"
-                placeholder="98765 43210"
                 defaultValue={valueOf(state, INTAKE_FIELDS.phone)}
               />
             )}
