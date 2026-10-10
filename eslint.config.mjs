@@ -3,7 +3,11 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-const reactFiles = ['apps/web/**/*.{ts,tsx,js,jsx,mjs}', 'packages/ui/**/*.{ts,tsx}'];
+const reactFiles = [
+  'apps/web/**/*.{ts,tsx,js,jsx,mjs}',
+  'apps/crm/**/*.{ts,tsx,js,jsx,mjs}',
+  'packages/ui/**/*.{ts,tsx}',
+];
 
 export default tseslint.config(
   {
@@ -18,6 +22,7 @@ export default tseslint.config(
       '.local/**',
       '.lighthouse/**',
       'packages/db/src/database.types.ts',
+      'apps/crm/netlify/**',
     ],
   },
   js.configs.recommended,
@@ -47,7 +52,7 @@ export default tseslint.config(
   ...nextVitals.map((config) => ({ ...config, files: reactFiles })),
   {
     files: reactFiles,
-    settings: { next: { rootDir: 'apps/web' }, react: { version: 'detect' } },
+    settings: { next: { rootDir: ['apps/web', 'apps/crm'] }, react: { version: 'detect' } },
     languageOptions: { globals: { ...globals.browser } },
   },
 );

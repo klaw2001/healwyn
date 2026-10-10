@@ -47,6 +47,16 @@ export function staffEmail(fullName: string): string {
 
 const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60_000);
 
+/** Moves a time into clinic hours (9:00 to 18:30 India time), on the half hour. */
+function inClinicHours(date: Date): Date {
+  const ist = new Date(date.getTime() + 330 * 60_000); // shift so UTC getters read India time
+  const minutes = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  const clamped = Math.min(Math.max(minutes, 9 * 60), 18 * 60 + 30);
+  const rounded = Math.round(clamped / 30) * 30;
+  ist.setUTCHours(Math.floor(rounded / 60), rounded % 60, 0, 0);
+  return new Date(ist.getTime() - 330 * 60_000);
+}
+
 interface SeedEvent {
   at: Date;
   type: string;
@@ -290,7 +300,7 @@ values (${lit(noteId)}, ${lit(lead.id)}, ${lit(note.authorStaffId)}, ${lit(note.
 
     lead.tasks.forEach((task, index) => {
       const taskId = uuid(`${lead.id}:task:${index}`);
-      const dueAt = addMinutes(now, task.dueInMinutes);
+      const dueAt = inClinicHours(addMinutes(now, task.dueInMinutes));
       const taskCreatedAt = addMinutes(createdAt, Math.min(60, Math.round(lead.createdMinutesAgo / 3)));
       statements.push(
         `insert into public.tasks (id, lead_id, assignee_staff_id, created_by_staff_id, title, due_at, completed_at, completed_by_staff_id, created_at)

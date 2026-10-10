@@ -1,11 +1,13 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadEnvConfig } from '@next/env';
 import type { NextConfig } from 'next';
 
 // One .env at the repo root serves every package. Variables already set in the
-// environment (CI, hosting dashboard) win over the file.
+// environment (CI, hosting dashboard) win over the file. (Next's own loader
+// only reads the app folder, and caches its first result.)
 const repoRoot = join(import.meta.dirname, '../..');
-loadEnvConfig(repoRoot, process.env.NODE_ENV !== 'production');
+const rootEnv = join(repoRoot, '.env');
+if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },

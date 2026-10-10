@@ -8,6 +8,7 @@
 #   pnpm db:local reset   delete the cluster and start fresh
 #   pnpm db:local url     print the DATABASE_URL to use (database owner: migrations, seed, tests)
 #   pnpm db:local web-url ensure the least-privilege login role exists (after migrating) and print WEB_DATABASE_URL
+#   pnpm db:local crm-url ensure the CRM's login role (crm_server + authenticated) and print CRM_DATABASE_URL
 #   pnpm db:local status
 #
 # Then: DATABASE_URL="$(pnpm -s db:local url)" pnpm db:migrate && pnpm db:seed
@@ -80,12 +81,33 @@ SQL
   echo "postgresql://$web_user@127.0.0.1:$PORT/$DB"
 }
 
+# The CRM's login role: crm_server (sign-in, webhooks, worker) and a member of
+# `authenticated`, so it can act as a signed-in staff member under RLS.
+crm_url() {
+  local crm_user="${LOCAL_PG_CRM_USER:-healwyn_crm}"
+  "$BIN/psql" "$URL" -q -v ON_ERROR_STOP=1 >/dev/null <<SQL
+do \$\$
+begin
+  if not exists (select from pg_roles where rolname = 'crm_server') then
+    raise exception 'Run the migrations first: DATABASE_URL="$URL" pnpm db:migrate';
+  end if;
+  if not exists (select from pg_roles where rolname = '$crm_user') then
+    create role $crm_user login;
+  end if;
+end
+\$\$;
+grant crm_server, authenticated to $crm_user;
+SQL
+  echo "postgresql://$crm_user@127.0.0.1:$PORT/$DB"
+}
+
 case "${1:-start}" in
   start) start ;;
   stop) stop ;;
   reset) stop; rm -rf "$DATA"; start ;;
   url) echo "$URL" ;;
   web-url) web_url ;;
+  crm-url) crm_url ;;
   status) if [[ -d "$DATA" ]] && running; then echo "running: $URL"; else echo "stopped"; fi ;;
-  *) echo "usage: $0 start|stop|reset|url|web-url|status" >&2; exit 2 ;;
+  *) echo "usage: $0 start|stop|reset|url|web-url|crm-url|status" >&2; exit 2 ;;
 esac

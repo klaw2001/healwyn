@@ -107,7 +107,8 @@ describe('partnerToLeadPayload', () => {
 });
 
 describe('formatLeadReference', () => {
-  it('shortens a uuid', () => {
-    expect(formatLeadReference('3f2a91bc-1234-4000-8000-000000000000')).toBe('3F2A-91BC');
+  it('shortens a uuid to its last 8 hex digits', () => {
+    expect(formatLeadReference('00000000-1234-4000-8000-00003f2a91bc')).toBe('3F2A-91BC');
+    expect(formatLeadReference('1ead0000-0000-4000-8000-000000000028')).toBe('0000-0028');
   });
 });

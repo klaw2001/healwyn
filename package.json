@@ -8,21 +8,23 @@
   },
   "scripts": {
     "dev": "pnpm --filter @healwyn/web dev",
-    "build": "pnpm --filter @healwyn/web build",
+    "build": "pnpm --filter @healwyn/web --filter @healwyn/crm build",
     "start": "pnpm --filter @healwyn/web start",
     "lint": "eslint . --max-warnings=0 && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "pnpm --filter @healwyn/web test:e2e",
+    "test:e2e": "pnpm --filter @healwyn/web test:e2e && pnpm --filter @healwyn/crm test:e2e",
     "lighthouse": "node scripts/lighthouse.mjs",
     "db:local": "bash scripts/local-db.sh",
     "db:migrate": "pnpm --filter @healwyn/db migrate",
     "db:seed": "pnpm --filter @healwyn/db seed",
     "db:types": "pnpm --filter @healwyn/db types",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "worker": "pnpm --filter @healwyn/messaging worker"
+    "worker": "pnpm --filter @healwyn/messaging worker",
+    "dev:crm": "pnpm --filter @healwyn/crm dev",
+    "start:crm": "pnpm --filter @healwyn/crm start"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

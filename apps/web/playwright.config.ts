@@ -29,6 +29,7 @@ async function reachable(url: string): Promise<boolean> {
 const useLocal = !process.env.E2E_DATABASE_URL && (await reachable(LOCAL_DB));
 const databaseUrl = process.env.E2E_DATABASE_URL ?? (useLocal ? LOCAL_DB : '');
 process.env.E2E_DB = databaseUrl;
+process.env.E2E_STARTED_AT = new Date().toISOString();
 
 // Against the local cluster, the site connects as the least-privilege website
 // role (it may only run submit_lead and hit_rate_limit), as in production.
@@ -43,6 +44,7 @@ const baseURL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: './e2e',
+  globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

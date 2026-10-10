@@ -42,13 +42,13 @@ export function db() {
   return postgres(databaseUrl, { max: 1, onnotice: () => {} });
 }
 
-/** Finds a lead by the reference shown to the person (first 8 hex digits of its id). */
+/** Finds a lead by the reference shown to the person (last 8 hex digits of its id). */
 export async function findLeadByReference(reference: string) {
   const sql = db();
   try {
-    const prefix = reference.replace('-', '').toLowerCase();
+    const suffix = reference.replace('-', '').toLowerCase();
     const leads = await sql`
-      select * from public.leads where replace(id::text, '-', '') like ${prefix + '%'}`;
+      select * from public.leads where replace(id::text, '-', '') like ${'%' + suffix} and created_at > now() - interval '1 hour'`;
     const lead = leads[0];
     if (!lead) return null;
     const consents = await sql`

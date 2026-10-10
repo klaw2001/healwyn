@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import '../../../packages/ui/src/tokens.css';
+
+@source '../../../packages/ui/src';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@layer base {
+  /* The CRM is a working tool: slightly smaller, denser type than the site. */
+  body {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+  html {
+    scroll-padding-top: 4rem;
+  }
+}

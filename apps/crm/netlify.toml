@@ -1,0 +1,15 @@
+# Netlify (Free plan), a second site from the same repository. In the UI set:
+#   Base directory:    (empty, the repo root)
+#   Package directory: /apps/crm
+# Scheduled function netlify/functions/nurture-cron.mts runs the nurture worker.
+
+[build]
+  command = "pnpm --filter @healwyn/crm build"
+  publish = "apps/crm/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[functions]
+  directory = "apps/crm/netlify/functions"

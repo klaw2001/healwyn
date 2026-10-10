@@ -128,8 +128,8 @@ export async function partnerToLeadPayload(
   };
 }
 
-/** A short, human-friendly reference for a lead id, e.g. "3F2A-91BC". */
+/** A short, human-friendly reference for a lead id: its last 8 hex digits, e.g. "3F2A-91BC". */
 export function formatLeadReference(id: string): string {
-  const hex = id.replaceAll('-', '').toUpperCase();
+  const hex = id.replaceAll('-', '').toUpperCase().slice(-8);
   return `${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
 }

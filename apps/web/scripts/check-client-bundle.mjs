@@ -8,7 +8,7 @@ import nextEnv from '@next/env';
 // Load the same root .env the app uses, so real secret values are checked too.
 nextEnv.loadEnvConfig(join(import.meta.dirname, '../../..'), false, { info: () => {}, error: console.error });
 
-const staticDir = join(import.meta.dirname, '../.next/static');
+const staticDir = process.argv[2] ? join(process.cwd(), process.argv[2]) : join(import.meta.dirname, '../.next/static');
 const SECRET_VARS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'DATABASE_URL',
@@ -17,7 +17,14 @@ const SECRET_VARS = [
   'GEMINI_API_KEY',
   'LIVEKIT_API_SECRET',
 ];
-const MARKERS = ['submit_lead', 'hit_rate_limit', 'service_role', ...SECRET_VARS];
+const MARKERS = [
+  'submit_lead',
+  'hit_rate_limit',
+  'service_role',
+  'verify_staff_password',
+  'set_config',
+  ...SECRET_VARS,
+];
 const values = SECRET_VARS.map((name) => process.env[name]).filter((value) => value && value.length >= 8);
 
 function* files(dir) {
