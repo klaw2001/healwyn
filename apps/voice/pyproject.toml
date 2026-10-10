@@ -1,0 +1,21 @@
+[project]
+name = "healwyn-voice"
+version = "0.1.0"
+description = "AI voice assistant for the Healwyn demo: LiveKit Agents, Gemini, pack-driven intake with fixed safety rules."
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["healwyn_voice/contracts.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # Devanagari and typographic quotes in strings are intended
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

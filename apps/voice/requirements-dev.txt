@@ -1,0 +1,5 @@
+# Core logic, tests, linting and contract generation. No LiveKit needed.
+pydantic==2.13.5
+pytest==8.4.2
+ruff==0.14.3
+datamodel-code-generator==0.83.0

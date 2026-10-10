@@ -9,4 +9,5 @@ export * from './industries/clinic-demo-leads';
 export * from './leads';
 export * from './permissions';
 export * from './routing';
+export * from './voice';
 export * from './schemas';

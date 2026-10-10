@@ -42,7 +42,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
     }
   });
 
-  it('lets the website role run only submit_lead, hit_rate_limit and opt_out_lead', async () => {
+  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead and start_web_call', async () => {
     const rows = await sql<{ fn: string }[]>`
       select p.oid::regprocedure::text as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -51,6 +51,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
     expect(rows.map((r) => r.fn)).toEqual([
       'hit_rate_limit(text,integer,integer)',
       'opt_out_lead(uuid,text)',
+      'start_web_call(uuid,text,jsonb)',
       'submit_lead(jsonb)',
     ]);
   });
@@ -81,6 +82,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
   it('lets anon execute nothing, staff only the CRM functions, and the service role everything', async () => {
     const STAFF_FUNCTIONS = [
       'add_note(uuid,text,text)',
+      'add_verified_number(text,text)',
       'assign_lead(uuid,uuid,text,jsonb)',
       'change_lead_stage(uuid,text,jsonb,text)',
       'complete_task(uuid)',
@@ -89,7 +91,9 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'current_staff_role()',
       'enroll_lead(uuid,jsonb)',
       'mark_replied(uuid)',
+      'place_assistant_call(uuid,text,jsonb)',
       'record_consent_withdrawal(uuid,text,boolean)',
+      'remove_verified_number(text)',
       'routing_context(uuid,text[])',
       'save_lead_score(uuid,integer,text,jsonb)',
       'set_sequence_paused(text,text,boolean)',

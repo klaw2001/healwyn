@@ -169,8 +169,24 @@ export interface EnrollmentRow {
   steps: { step_index: number; channel: string; template_id: string; due_at: string; status: string }[];
 }
 
+export interface CallRow {
+  id: string;
+  channel: string;
+  status: 'started' | 'completed';
+  started_at: Date;
+  duration_seconds: number | null;
+  language: string | null;
+  outcome: string | null;
+  urgency: string | null;
+  answers: Record<string, string>;
+  safety_flags: { kind: string; code: string; turn: number }[];
+  summary: string[];
+  transcript: { speaker: 'assistant' | 'caller'; text: string; atSeconds: number }[];
+}
+
 export interface LeadProfile {
   lead: LeadRow;
+  calls: CallRow[];
   factors: { id: string; label: string; points: number }[];
   events: TimelineEvent[];
   notes: NoteRow[];
@@ -218,7 +234,11 @@ export async function getLeadProfile(session: Session, id: string): Promise<Lead
                         'template_id', s.template_id, 'due_at', s.due_at, 'status', s.status) order by s.step_index)
                        from public.scheduled_messages s where s.enrollment_id = e.id), '[]') as steps
       from public.sequence_enrollments e where e.lead_id = ${id} order by e.enrolled_at desc`;
-    return { lead, factors: score?.factors ?? [], events, notes, tasks, messages, consents, enrollments };
+    const calls = await tx<CallRow[]>`
+      select id, channel, status, started_at, duration_seconds, language, outcome, urgency, answers, safety_flags,
+             summary, transcript
+      from public.call_sessions where lead_id = ${id} order by started_at desc limit 10`;
+    return { lead, calls, factors: score?.factors ?? [], events, notes, tasks, messages, consents, enrollments };
   });
 }
 

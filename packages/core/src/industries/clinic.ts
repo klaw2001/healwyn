@@ -1,3 +1,4 @@
+import { clinicVoice } from './clinic-voice';
 import { clinicCrm, clinicSequences } from './clinic-crm';
 import type { IndustryPack } from './types';
 
@@ -258,6 +259,7 @@ export const clinicPack = {
     fallbackRole: 'care_coordinator',
     billingRole: 'billing_desk',
   },
+  voice: clinicVoice,
   sequences: clinicSequences,
   crm: clinicCrm,
 } as const satisfies IndustryPack;

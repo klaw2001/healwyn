@@ -16,6 +16,8 @@ const SKIP_DIRS = new Set([
 ]);
 const CODE_FILE = /\.(ts|tsx|js|mjs|cjs|css|sql|py|json)$/;
 const ALLOWED = new Set(['packages/core/src/brand.ts']);
+// Generated from BRAND by `pnpm contracts` (the voice script data file).
+const GENERATED = /^packages\/core\/contracts\//;
 
 function* walk(dir: string): Generator<string> {
   for (const entry of readdirSync(dir)) {
@@ -37,7 +39,7 @@ describe('brand name', () => {
     for (const dir of SCAN_DIRS) {
       for (const file of walk(join(repoRoot, dir))) {
         const rel = relative(repoRoot, file);
-        if (ALLOWED.has(rel) || rel.endsWith('package.json')) continue;
+        if (ALLOWED.has(rel) || GENERATED.test(rel) || rel.endsWith('package.json')) continue;
         if (pattern.test(readFileSync(file, 'utf8'))) offenders.push(rel);
       }
     }

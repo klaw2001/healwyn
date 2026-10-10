@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "callId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "leadId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "browser",
+        "phone",
+        "simulated",
+        "text"
+      ],
+      "title": "CallChannel"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7200
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[a-z]{2}$"
+    },
+    "consentToContinue": {
+      "type": "boolean"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "consent_declined",
+        "emergency",
+        "caller_ended",
+        "limit_reached",
+        "error"
+      ],
+      "title": "CallOutcome"
+    },
+    "urgency": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "title": "Urgency"
+    },
+    "answers": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,49}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 500
+      }
+    },
+    "safetyFlags": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "red_flag",
+              "advice_request",
+              "prompt_injection"
+            ],
+            "title": "SafetyFlagKind"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.:-]{1,64}$"
+          },
+          "turn": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "kind",
+          "code",
+          "turn"
+        ],
+        "additionalProperties": false,
+        "title": "SafetyFlag"
+      }
+    },
+    "summary": {
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "transcript": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "speaker": {
+            "type": "string",
+            "enum": [
+              "assistant",
+              "caller"
+            ],
+            "title": "Speaker"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "atSeconds": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "speaker",
+          "text",
+          "atSeconds"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "llmRequests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sttSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ttsCharacters": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "llmRequests",
+        "sttSeconds",
+        "ttsCharacters"
+      ],
+      "additionalProperties": false
+    },
+    "agentVersion": {
+      "type": "string",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "version",
+    "callId",
+    "leadId",
+    "channel",
+    "startedAt",
+    "endedAt",
+    "durationSeconds",
+    "language",
+    "consentToContinue",
+    "outcome",
+    "urgency",
+    "answers",
+    "safetyFlags",
+    "summary",
+    "transcript",
+    "usage",
+    "agentVersion"
+  ],
+  "additionalProperties": false,
+  "title": "VoiceCallResult",
+  "description": "What the voice agent posts to the CRM at the end of every call."
+}

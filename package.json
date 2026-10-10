@@ -21,10 +21,18 @@
     "db:migrate": "pnpm --filter @healwyn/db migrate",
     "db:seed": "pnpm --filter @healwyn/db seed",
     "db:types": "pnpm --filter @healwyn/db types",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "check": "pnpm lint && pnpm lint:voice && pnpm typecheck && pnpm contracts:check && pnpm test && pnpm test:voice && pnpm build",
     "worker": "pnpm --filter @healwyn/messaging worker",
     "dev:crm": "pnpm --filter @healwyn/crm dev",
-    "start:crm": "pnpm --filter @healwyn/crm start"
+    "start:crm": "pnpm --filter @healwyn/crm start",
+    "contracts": "bash scripts/voice.sh setup && pnpm --filter @healwyn/core contracts",
+    "contracts:check": "bash scripts/voice.sh setup && pnpm --filter @healwyn/core contracts:check",
+    "lint:voice": "bash scripts/voice.sh run sh -c \"ruff check . && ruff format --check .\"",
+    "test:voice": "bash scripts/voice.sh run python -m pytest",
+    "voice:setup": "bash scripts/voice.sh setup-agent",
+    "voice:serve": "bash scripts/voice.sh run python -m healwyn_voice.server",
+    "voice:agent": "bash scripts/voice.sh run python -m healwyn_voice.agent",
+    "eval:voice": "bash scripts/voice.sh run python -m healwyn_voice.eval"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

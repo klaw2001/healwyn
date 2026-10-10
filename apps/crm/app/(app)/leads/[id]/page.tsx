@@ -21,7 +21,6 @@ import {
   UrgencyBadge,
 } from '@/components/badges';
 import { EmptyState } from '@/components/empty-state';
-import { SparkIcon } from '@/components/icons';
 import {
   AcceptRoutingButton,
   AssignControl,
@@ -31,6 +30,7 @@ import {
   StopEnrollmentButton,
   WithdrawalControl,
 } from '@/components/profile/controls';
+import { AiSummary } from '@/components/profile/ai-summary';
 import { CompleteTaskButton, NoteForm, TaskForm } from '@/components/profile/forms';
 import {
   answerLabel,
@@ -79,7 +79,9 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const { id } = await params;
   const [profile, staff] = await Promise.all([getLeadProfile(session, id), listStaff(session)]);
   if (!profile) notFound();
-  const { lead, events, notes, tasks, messages, consents, enrollments, factors } = profile;
+  const { lead, calls, events, notes, tasks, messages, consents, enrollments, factors } = profile;
+  const routed = events.find((e) => e.type === 'lead.assigned' && e.payload.method === 'routing');
+  const routingExplanation = routed ? assignmentExplanation(routed.type, routed.payload) : [];
   const now = new Date();
   const erased = lead.erased_at !== null;
   const name = lead.full_name ?? 'Erased lead';
@@ -187,18 +189,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="grid min-w-0 content-start gap-6">
-          <section
-            aria-labelledby="ai-summary"
-            className="rounded-lg border border-dashed border-line-strong bg-surface-teal p-4"
-          >
-            <h2 id="ai-summary" className="flex items-center gap-2 font-sans text-sm font-bold">
-              <SparkIcon className="text-primary" /> AI summary
-            </h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              No summary yet. When the voice assistant (Phase 3) qualifies this lead, a three-to-five line summary, its
-              answers and any safety flags appear here, with the routing explanation.
-            </p>
-          </section>
+          <AiSummary calls={calls} routingExplanation={routingExplanation} />
 
           {suggestion ? (
             <section aria-labelledby="routing-title" className="rounded-lg border border-line bg-surface p-4">

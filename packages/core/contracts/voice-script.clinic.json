@@ -1,0 +1,1294 @@
+{
+  "version": 1,
+  "packId": "clinic",
+  "brand": "Healwyn Clinics",
+  "assistantName": "Healwyn Clinics assistant",
+  "languages": [
+    {
+      "code": "en",
+      "label": "English",
+      "nativeLabel": "English"
+    },
+    {
+      "code": "hi",
+      "label": "Hindi",
+      "nativeLabel": "हिन्दी"
+    }
+  ],
+  "greeting": {
+    "en": "Hello, I'm the Healwyn Clinics AI assistant. I'm an automated assistant, not a person. I'll ask a few short questions so the right doctor's team can call you back, and I'll share a short summary with our care team. I can't give medical advice. You can speak in English or Hindi. Is it okay to continue?",
+    "hi": "नमस्ते, मैं Healwyn Clinics की AI सहायक हूँ। मैं एक स्वचालित सहायक हूँ, इंसान नहीं। मैं कुछ छोटे सवाल पूछूँगी ताकि सही डॉक्टर की टीम आपको वापस कॉल कर सके, और मैं हमारी केयर टीम के साथ एक छोटा सारांश साझा करूँगी। मैं चिकित्सा सलाह नहीं दे सकती। क्या हम आगे बढ़ें?"
+  },
+  "consentQuestion": {
+    "en": "Is it okay to continue? Please say yes or no.",
+    "hi": "क्या हम आगे बढ़ें? कृपया हाँ या नहीं कहें।"
+  },
+  "consentDeclined": {
+    "en": "That's completely fine. I won't collect anything. If you'd like, you can use the form on our website instead. Goodbye, and take care.",
+    "hi": "बिल्कुल ठीक है। मैं कुछ भी नहीं लूँगी। चाहें तो आप हमारी वेबसाइट पर फ़ॉर्म भर सकते हैं। धन्यवाद, अपना ध्यान रखिए।"
+  },
+  "goodbye": {
+    "en": "Thank you for calling Healwyn Clinics. Our care team will follow up on what you shared. Goodbye.",
+    "hi": "Healwyn Clinics को कॉल करने के लिए धन्यवाद। आपने जो बताया, उस पर हमारी केयर टीम संपर्क करेगी। नमस्ते।"
+  },
+  "limitReached": {
+    "en": "We've reached the time I have for this call. Thank you; our care team will call you back to finish. If anything feels urgent, please call 112.",
+    "hi": "इस कॉल का समय पूरा हो गया है। धन्यवाद; हमारी केयर टीम बाकी बात के लिए आपको वापस कॉल करेगी। अगर कुछ ज़रूरी लगे, तो कृपया 112 पर कॉल करें।"
+  },
+  "questions": [
+    {
+      "id": "concern_category",
+      "kind": "select",
+      "required": true,
+      "prompt": {
+        "en": "What would you like help with today? For example skin, teeth, a general check-up, or something else.",
+        "hi": "आज आपको किस चीज़ में मदद चाहिए? जैसे त्वचा, दाँत, सामान्य जाँच, या कुछ और।"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "you would like help with {answer}",
+        "hi": "आपको {answer} के लिए मदद चाहिए"
+      },
+      "options": [
+        {
+          "value": "general-medicine",
+          "label": {
+            "en": "General medicine",
+            "hi": "सामान्य चिकित्सा"
+          },
+          "synonyms": {
+            "en": [
+              "general",
+              "general medicine",
+              "check-up",
+              "checkup",
+              "check up",
+              "fever",
+              "cold",
+              "cough",
+              "flu",
+              "family doctor",
+              "gp",
+              "physician",
+              "health check",
+              "blood pressure",
+              "diabetes",
+              "sugar"
+            ],
+            "hi": [
+              "सामान्य",
+              "बुखार",
+              "जुकाम",
+              "खांसी",
+              "खाँसी",
+              "जाँच",
+              "जांच",
+              "शुगर",
+              "bukhar",
+              "khansi",
+              "jukam",
+              "general checkup",
+              "sugar"
+            ]
+          }
+        },
+        {
+          "value": "dermatology",
+          "label": {
+            "en": "Dermatology (skin, hair, nails)",
+            "hi": "त्वचा रोग (डर्मेटोलॉजी)"
+          },
+          "synonyms": {
+            "en": [
+              "skin",
+              "skin doctor",
+              "dermatology",
+              "dermatologist",
+              "rash",
+              "acne",
+              "pimples",
+              "hair",
+              "hair fall",
+              "hair loss",
+              "nails",
+              "itching",
+              "eczema"
+            ],
+            "hi": [
+              "त्वचा",
+              "चमड़ी",
+              "स्किन",
+              "बाल",
+              "बाल झड़",
+              "खुजली",
+              "मुँहासे",
+              "मुंहासे",
+              "दाने",
+              "twacha",
+              "skin",
+              "baal",
+              "khujli"
+            ]
+          }
+        },
+        {
+          "value": "dental",
+          "label": {
+            "en": "Dental",
+            "hi": "दाँतों की देखभाल"
+          },
+          "synonyms": {
+            "en": [
+              "teeth",
+              "tooth",
+              "toothache",
+              "dental",
+              "dentist",
+              "gums",
+              "cavity",
+              "braces",
+              "root canal",
+              "cleaning"
+            ],
+            "hi": [
+              "दाँत",
+              "दांत",
+              "दाढ़",
+              "मसूड़े",
+              "daant",
+              "dant",
+              "daat",
+              "dentist"
+            ]
+          }
+        },
+        {
+          "value": "physiotherapy",
+          "label": {
+            "en": "Physiotherapy",
+            "hi": "फ़िज़ियोथेरेपी"
+          },
+          "synonyms": {
+            "en": [
+              "physio",
+              "physiotherapy",
+              "back pain",
+              "neck pain",
+              "knee",
+              "shoulder",
+              "joint",
+              "posture",
+              "sprain",
+              "stiffness",
+              "exercise"
+            ],
+            "hi": [
+              "फ़िज़ियो",
+              "फिजियो",
+              "कमर दर्द",
+              "पीठ दर्द",
+              "घुटने",
+              "घुटना",
+              "कंधे",
+              "जोड़ों",
+              "kamar dard",
+              "ghutne",
+              "physio"
+            ]
+          }
+        },
+        {
+          "value": "womens-health",
+          "label": {
+            "en": "Women's health",
+            "hi": "महिला स्वास्थ्य"
+          },
+          "synonyms": {
+            "en": [
+              "women's health",
+              "womens health",
+              "gynaecologist",
+              "gynecologist",
+              "gynaecology",
+              "periods",
+              "period",
+              "pregnancy",
+              "menstrual",
+              "pcos",
+              "lady doctor",
+              "woman doctor"
+            ],
+            "hi": [
+              "महिला",
+              "स्त्री रोग",
+              "पीरियड",
+              "माहवारी",
+              "गर्भ",
+              "mahila",
+              "lady doctor",
+              "periods"
+            ]
+          }
+        },
+        {
+          "value": "diagnostics",
+          "label": {
+            "en": "Diagnostics (tests and scans)",
+            "hi": "जाँच और स्कैन"
+          },
+          "synonyms": {
+            "en": [
+              "test",
+              "tests",
+              "blood test",
+              "scan",
+              "x-ray",
+              "xray",
+              "ultrasound",
+              "diagnostics",
+              "lab",
+              "report"
+            ],
+            "hi": [
+              "टेस्ट",
+              "खून की जाँच",
+              "स्कैन",
+              "एक्स-रे",
+              "एक्सरे",
+              "test",
+              "scan",
+              "xray"
+            ]
+          }
+        },
+        {
+          "value": "not-sure",
+          "label": {
+            "en": "I'm not sure",
+            "hi": "अभी पक्का नहीं"
+          },
+          "synonyms": {
+            "en": [
+              "not sure",
+              "don't know",
+              "do not know",
+              "no idea",
+              "unsure",
+              "something else",
+              "other"
+            ],
+            "hi": [
+              "पता नहीं",
+              "मालूम नहीं",
+              "पक्का नहीं",
+              "कुछ और",
+              "pata nahi",
+              "maloom nahi"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "description",
+      "kind": "textarea",
+      "required": false,
+      "prompt": {
+        "en": "In a sentence or two, what would you like the doctor to know? Please do not share test results or ID numbers.",
+        "hi": "एक-दो वाक्यों में, आप डॉक्टर को क्या बताना चाहेंगे? कृपया टेस्ट रिपोर्ट या पहचान संख्या न बताएँ। अगर कुछ नहीं, तो \"कुछ नहीं\" कहें।"
+      },
+      "maxLength": 500,
+      "confirm": null,
+      "options": []
+    },
+    {
+      "id": "preferred_time",
+      "kind": "radio",
+      "required": true,
+      "prompt": {
+        "en": "What time of day suits you best for a call or a visit: morning, afternoon or evening?",
+        "hi": "कॉल या मुलाक़ात के लिए आपको कौन सा समय ठीक रहेगा: सुबह, दोपहर या शाम?"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "the best time to call is: {answer}",
+        "hi": "कॉल का सही समय: {answer}"
+      },
+      "options": [
+        {
+          "value": "morning",
+          "label": {
+            "en": "Morning",
+            "hi": "सुबह"
+          },
+          "synonyms": {
+            "en": [
+              "morning",
+              "mornings",
+              "am",
+              "early",
+              "before noon"
+            ],
+            "hi": [
+              "सुबह",
+              "subah",
+              "savere"
+            ]
+          }
+        },
+        {
+          "value": "afternoon",
+          "label": {
+            "en": "Afternoon",
+            "hi": "दोपहर"
+          },
+          "synonyms": {
+            "en": [
+              "afternoon",
+              "afternoons",
+              "after lunch",
+              "noon",
+              "midday"
+            ],
+            "hi": [
+              "दोपहर",
+              "dopahar",
+              "dopehar"
+            ]
+          }
+        },
+        {
+          "value": "evening",
+          "label": {
+            "en": "Evening",
+            "hi": "शाम"
+          },
+          "synonyms": {
+            "en": [
+              "evening",
+              "evenings",
+              "after work",
+              "night",
+              "pm"
+            ],
+            "hi": [
+              "शाम",
+              "shaam",
+              "sham",
+              "raat"
+            ]
+          }
+        },
+        {
+          "value": "any",
+          "label": {
+            "en": "Any time",
+            "hi": "कभी भी"
+          },
+          "synonyms": {
+            "en": [
+              "any",
+              "any time",
+              "anytime",
+              "whenever",
+              "all day",
+              "doesn't matter",
+              "flexible"
+            ],
+            "hi": [
+              "कभी भी",
+              "किसी भी समय",
+              "kabhi bhi",
+              "koi bhi"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "visit_type",
+      "kind": "radio",
+      "required": true,
+      "prompt": {
+        "en": "Have you visited us before, or would this be your first visit?",
+        "hi": "क्या आप पहले हमारे यहाँ आ चुके हैं, या यह आपकी पहली मुलाक़ात होगी?"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "this is your {answer}",
+        "hi": "यह आपकी {answer} है"
+      },
+      "options": [
+        {
+          "value": "first",
+          "label": {
+            "en": "First visit",
+            "hi": "पहली मुलाक़ात"
+          },
+          "synonyms": {
+            "en": [
+              "first",
+              "first time",
+              "first visit",
+              "new",
+              "never",
+              "not been",
+              "haven't",
+              "no i have not"
+            ],
+            "hi": [
+              "पहली",
+              "पहली बार",
+              "नया",
+              "नई",
+              "कभी नहीं",
+              "pehli",
+              "pehli baar",
+              "pahli baar"
+            ]
+          }
+        },
+        {
+          "value": "follow-up",
+          "label": {
+            "en": "Follow-up",
+            "hi": "फ़ॉलो-अप"
+          },
+          "synonyms": {
+            "en": [
+              "follow up",
+              "follow-up",
+              "before",
+              "again",
+              "returning",
+              "been there",
+              "visited",
+              "yes i have",
+              "came last"
+            ],
+            "hi": [
+              "पहले आ",
+              "दोबारा",
+              "फिर से",
+              "फ़ॉलो",
+              "pehle aa",
+              "dobara",
+              "phir se"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "has_insurance",
+      "kind": "radio",
+      "required": true,
+      "prompt": {
+        "en": "Do you have health insurance you would like to use for this visit?",
+        "hi": "क्या आपके पास स्वास्थ्य बीमा है जिसे आप इस मुलाक़ात के लिए इस्तेमाल करना चाहेंगे?"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "insurance to use: {answer}",
+        "hi": "बीमा इस्तेमाल करना है: {answer}"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "en": "Yes",
+            "hi": "हाँ"
+          },
+          "synonyms": {
+            "en": [
+              "insured",
+              "i have insurance",
+              "cashless",
+              "mediclaim",
+              "policy"
+            ],
+            "hi": [
+              "बीमा है",
+              "mediclaim",
+              "policy hai"
+            ]
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "en": "No",
+            "hi": "नहीं"
+          },
+          "synonyms": {
+            "en": [
+              "no insurance",
+              "not insured",
+              "self pay",
+              "pay myself",
+              "cash"
+            ],
+            "hi": [
+              "बीमा नहीं",
+              "insurance nahi"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "offeringQuestionId": "concern_category",
+  "offeringUnsureValue": "not-sure",
+  "messageQuestionId": "description",
+  "billingRule": {
+    "questionId": "has_insurance",
+    "equals": "yes"
+  },
+  "reprompts": {
+    "unclear": {
+      "en": "Sorry, I didn't quite catch that. {question}",
+      "hi": "माफ़ कीजिए, मैं ठीक से समझ नहीं पाई। {question}"
+    },
+    "moveOn": {
+      "en": "No problem, we'll leave that one for the care team to confirm with you.",
+      "hi": "कोई बात नहीं, यह बात हमारी केयर टीम आपसे पक्की कर लेगी।"
+    },
+    "skipped": {
+      "en": "That's fine, we can skip that.",
+      "hi": "ठीक है, इसे छोड़ देते हैं।"
+    },
+    "offTopic": {
+      "en": "I can only help with getting you to the right doctor's team today. {question}",
+      "hi": "मैं आज सिर्फ़ सही डॉक्टर की टीम तक पहुँचाने में मदद कर सकती हूँ। {question}"
+    }
+  },
+  "confirm": {
+    "ask": {
+      "en": "Let me check I have this right: {summary}. Is that right?",
+      "hi": "मैं एक बार दोहरा दूँ: {summary}। क्या यह सही है?"
+    },
+    "fix": {
+      "en": "Sorry about that. What should I change?",
+      "hi": "माफ़ कीजिए। क्या बदलना है?"
+    }
+  },
+  "closing": {
+    "en": "Thank you. A member of our care team will call you back, {time}. If anything gets worse or feels urgent, please call 112 or go to the nearest hospital. Goodbye, and take care.",
+    "hi": "धन्यवाद। हमारी केयर टीम का कोई सदस्य आपको {time} वापस कॉल करेगा। अगर तबीयत बिगड़े या मामला ज़रूरी लगे, तो कृपया 112 पर कॉल करें या नज़दीकी अस्पताल जाएँ। अपना ध्यान रखिए।"
+  },
+  "callback": {
+    "questionId": "preferred_time",
+    "phrases": {
+      "morning": {
+        "en": "in the morning, between 9 and 12",
+        "hi": "सुबह 9 से 12 बजे के बीच"
+      },
+      "afternoon": {
+        "en": "in the afternoon, between 12 and 4",
+        "hi": "दोपहर 12 से 4 बजे के बीच"
+      },
+      "evening": {
+        "en": "in the evening, between 4 and 8",
+        "hi": "शाम 4 से 8 बजे के बीच"
+      },
+      "any": {
+        "en": "between 9 and 8",
+        "hi": "सुबह 9 से रात 8 बजे के बीच"
+      }
+    },
+    "fallback": {
+      "en": "soon",
+      "hi": "जल्द ही"
+    }
+  },
+  "identity": {
+    "phrases": {
+      "en": [
+        "are you a human",
+        "are you human",
+        "are you a real person",
+        "am i talking to a person",
+        "are you a robot",
+        "are you a bot",
+        "are you ai",
+        "is this a recording"
+      ],
+      "hi": [
+        "क्या आप इंसान",
+        "क्या आप असली",
+        "kya aap insaan",
+        "aap robot",
+        "kya aap machine"
+      ]
+    },
+    "reply": {
+      "en": "I'm an AI assistant for Healwyn Clinics, not a person. A real member of our care team will call you back.",
+      "hi": "मैं Healwyn Clinics की AI सहायक हूँ, इंसान नहीं। हमारी केयर टीम का एक असली सदस्य आपको वापस कॉल करेगा।"
+    }
+  },
+  "safety": {
+    "emergencyNumber": "112",
+    "emergencyMessage": {
+      "en": "What you're describing could be serious, and I'm not able to help with emergencies. Please call 112 now, or go to the nearest hospital emergency department. If you can, ask someone to stay with you. I've flagged your enquiry so a person from our team follows up. I'm ending this call now so you can get help.",
+      "hi": "आप जो बता रहे हैं वह गंभीर हो सकता है, और मैं आपात स्थिति में मदद नहीं कर सकती। कृपया अभी 112 पर कॉल करें, या नज़दीकी अस्पताल के आपातकालीन विभाग में जाएँ। हो सके तो किसी को अपने साथ रहने को कहें। मैंने आपकी पूछताछ को ज़रूरी चिह्नित कर दिया है ताकि हमारी टीम का कोई व्यक्ति संपर्क करे। अब मैं यह कॉल समाप्त कर रही हूँ ताकि आप मदद ले सकें।"
+    },
+    "redFlags": [
+      {
+        "id": "chest_pain",
+        "label": "Chest pain or pressure",
+        "phrases": {
+          "en": [
+            "chest pain",
+            "pain in my chest",
+            "pain in the chest",
+            "chest is hurting",
+            "chest hurts",
+            "tight chest",
+            "chest tightness",
+            "tightness in my chest",
+            "pressure in my chest",
+            "heart attack",
+            "crushing pain"
+          ],
+          "hi": [
+            "सीने में दर्द",
+            "छाती में दर्द",
+            "सीने में जकड़न",
+            "दिल का दौरा",
+            "seene mein dard",
+            "sine me dard",
+            "chhati mein dard",
+            "chati me dard",
+            "dil ka daura"
+          ]
+        }
+      },
+      {
+        "id": "breathing",
+        "label": "Difficulty breathing",
+        "phrases": {
+          "en": [
+            "can't breathe",
+            "not breathing",
+            "stopped breathing",
+            "isn't breathing",
+            "cannot breathe",
+            "can not breathe",
+            "difficulty breathing",
+            "trouble breathing",
+            "hard to breathe",
+            "struggling to breathe",
+            "short of breath",
+            "shortness of breath",
+            "breathless",
+            "choking",
+            "gasping"
+          ],
+          "hi": [
+            "सांस नहीं",
+            "साँस नहीं",
+            "सांस लेने में तकलीफ",
+            "साँस लेने में तकलीफ़",
+            "सांस फूल",
+            "दम घुट",
+            "saans nahi",
+            "sans nahi",
+            "saans lene mein taklif",
+            "saans phool",
+            "dam ghut"
+          ]
+        }
+      },
+      {
+        "id": "severe_bleeding",
+        "label": "Severe bleeding",
+        "phrases": {
+          "en": [
+            "bleeding heavily",
+            "heavy bleeding",
+            "bleeding a lot",
+            "won't stop bleeding",
+            "will not stop bleeding",
+            "bleeding badly",
+            "lots of blood",
+            "a lot of blood",
+            "losing blood",
+            "blood everywhere"
+          ],
+          "hi": [
+            "बहुत खून",
+            "खून बह रहा",
+            "खून रुक नहीं",
+            "bahut khoon",
+            "khoon beh raha",
+            "khoon ruk nahi",
+            "khoon nikal raha"
+          ]
+        }
+      },
+      {
+        "id": "stroke_signs",
+        "label": "Signs of a stroke",
+        "phrases": {
+          "en": [
+            "stroke",
+            "face drooping",
+            "face is drooping",
+            "drooping face",
+            "slurred speech",
+            "speech is slurred",
+            "can't speak properly",
+            "cannot speak properly",
+            "arm is weak",
+            "one side numb",
+            "one side of my body",
+            "sudden numbness",
+            "can't move my arm",
+            "cannot move my arm",
+            "paralysed",
+            "paralyzed"
+          ],
+          "hi": [
+            "लकवा",
+            "मुँह टेढ़ा",
+            "मुंह टेढ़ा",
+            "बोलने में दिक्कत",
+            "एक तरफ़ सुन्न",
+            "lakwa",
+            "lakva",
+            "muh tedha",
+            "munh tedha",
+            "bolne mein dikkat",
+            "ek taraf sunn"
+          ]
+        }
+      },
+      {
+        "id": "suicidal_thoughts",
+        "label": "Thoughts of suicide or self-harm",
+        "phrases": {
+          "en": [
+            "kill myself",
+            "killing myself",
+            "suicide",
+            "suicidal",
+            "end my life",
+            "ending my life",
+            "want to die",
+            "don't want to live",
+            "do not want to live",
+            "hurt myself",
+            "harm myself",
+            "self harm",
+            "self-harm",
+            "no reason to live"
+          ],
+          "hi": [
+            "आत्महत्या",
+            "खुदकुशी",
+            "ख़ुदकुशी",
+            "मर जाना चाहता",
+            "मर जाना चाहती",
+            "मरना चाहता",
+            "मरना चाहती",
+            "जीना नहीं चाहता",
+            "जीना नहीं चाहती",
+            "aatmahatya",
+            "atmahatya",
+            "khudkushi",
+            "marna chahta",
+            "marna chahti",
+            "jeena nahi chahta",
+            "jeena nahi chahti"
+          ]
+        }
+      },
+      {
+        "id": "unconscious",
+        "label": "Unconscious or unresponsive",
+        "phrases": {
+          "en": [
+            "unconscious",
+            "passed out",
+            "not responding",
+            "unresponsive",
+            "collapsed",
+            "won't wake up",
+            "will not wake up",
+            "fainted"
+          ],
+          "hi": [
+            "बेहोश",
+            "होश नहीं",
+            "गिर पड़",
+            "behosh",
+            "hosh nahi"
+          ]
+        }
+      },
+      {
+        "id": "seizure",
+        "label": "Seizure",
+        "phrases": {
+          "en": [
+            "seizure",
+            "seizures",
+            "convulsion",
+            "convulsions",
+            "having a fit",
+            "having fits",
+            "fitting"
+          ],
+          "hi": [
+            "दौरा पड़",
+            "दौरे",
+            "मिर्गी",
+            "daura pad",
+            "daure",
+            "mirgi"
+          ]
+        }
+      },
+      {
+        "id": "severe_allergic_reaction",
+        "label": "Severe allergic reaction",
+        "phrases": {
+          "en": [
+            "throat is swelling",
+            "throat swelling",
+            "swollen throat",
+            "swollen tongue",
+            "tongue is swelling",
+            "severe allergic reaction",
+            "anaphylaxis",
+            "anaphylactic"
+          ],
+          "hi": [
+            "गला सूज",
+            "जीभ सूज",
+            "gala sooj",
+            "gala suj",
+            "jeebh sooj"
+          ]
+        }
+      },
+      {
+        "id": "poisoning_overdose",
+        "label": "Poisoning or overdose",
+        "phrases": {
+          "en": [
+            "overdose",
+            "overdosed",
+            "took too many pills",
+            "too many tablets",
+            "swallowed poison",
+            "poisoned",
+            "drank poison",
+            "took poison"
+          ],
+          "hi": [
+            "ज़हर",
+            "जहर",
+            "ज़्यादा गोलियाँ",
+            "zeher",
+            "zahar",
+            "jahar",
+            "zyada goliyan"
+          ]
+        }
+      },
+      {
+        "id": "pregnancy_emergency",
+        "label": "Bleeding or severe pain in pregnancy",
+        "phrases": {
+          "en": [
+            "pregnant and bleeding",
+            "bleeding during pregnancy",
+            "bleeding while pregnant",
+            "pregnant and severe pain",
+            "waters broke",
+            "water broke"
+          ],
+          "hi": [
+            "गर्भ में खून",
+            "प्रेगनेंसी में खून",
+            "pregnancy mein khoon",
+            "garbh mein khoon"
+          ]
+        }
+      },
+      {
+        "id": "severe_injury",
+        "label": "Serious injury or burn",
+        "phrases": {
+          "en": [
+            "head injury",
+            "hit my head and",
+            "serious accident",
+            "bad accident",
+            "badly burned",
+            "severe burn",
+            "bone sticking out",
+            "broken bone sticking"
+          ],
+          "hi": [
+            "सिर में चोट",
+            "बड़ा एक्सीडेंट",
+            "बुरी तरह जल",
+            "sir mein chot",
+            "bada accident",
+            "buri tarah jal"
+          ]
+        }
+      },
+      {
+        "id": "emergency_stated",
+        "label": "Caller says it is an emergency",
+        "phrases": {
+          "en": [
+            "emergency",
+            "ambulance",
+            "call an ambulance",
+            "dying"
+          ],
+          "hi": [
+            "इमरजेंसी",
+            "एम्बुलेंस",
+            "आपातकाल",
+            "emergency",
+            "ambulance"
+          ]
+        }
+      }
+    ],
+    "negations": {
+      "en": [
+        "no",
+        "not",
+        "don't have",
+        "do not have",
+        "haven't had",
+        "never had",
+        "without",
+        "no more",
+        "not having"
+      ],
+      "hi": [
+        "नहीं",
+        "कोई नहीं",
+        "nahi",
+        "nahin"
+      ]
+    },
+    "adviceRequests": {
+      "en": [
+        "what is wrong with me",
+        "what's wrong with me",
+        "diagnose me",
+        "give me a diagnosis",
+        "is it cancer",
+        "is this cancer",
+        "what does my report mean",
+        "read my report",
+        "interpret my",
+        "prescribe",
+        "write me a prescription",
+        "home remedy",
+        "how do i treat",
+        "how should i treat",
+        "what treatment should",
+        "should i stop taking",
+        "is it serious",
+        "is this serious"
+      ],
+      "hi": [
+        "कौन सी दवा",
+        "कौनसी दवा",
+        "दवाई बताओ",
+        "दवा बताइए",
+        "इलाज बताओ",
+        "इलाज बताइए",
+        "क्या यह गंभीर",
+        "रिपोर्ट का मतलब",
+        "मुझे क्या हुआ",
+        "kaun si dawa",
+        "kaunsi dawai",
+        "dawai batao",
+        "dawa bataiye",
+        "ilaaj batao",
+        "kya yeh serious",
+        "kya ye gambhir",
+        "report ka matlab",
+        "mujhe kya hua"
+      ]
+    },
+    "adviceCues": {
+      "en": [
+        "what",
+        "which",
+        "can i",
+        "should i",
+        "how much",
+        "how many",
+        "is it ok",
+        "is it okay",
+        "is it safe",
+        "do i need",
+        "tell me",
+        "recommend",
+        "suggest"
+      ],
+      "hi": [
+        "क्या",
+        "कौन",
+        "कितनी",
+        "बताइए",
+        "बताओ",
+        "kya",
+        "kaun",
+        "kitni",
+        "bataiye",
+        "batao"
+      ]
+    },
+    "adviceTopics": {
+      "en": [
+        "medicine",
+        "medicines",
+        "medication",
+        "tablet",
+        "tablets",
+        "pill",
+        "pills",
+        "dose",
+        "dosage",
+        "antibiotic",
+        "antibiotics",
+        "painkiller",
+        "painkillers",
+        "paracetamol",
+        "ibuprofen",
+        "crocin",
+        "syrup",
+        "ointment",
+        "cream for",
+        "drug",
+        "treatment",
+        "cure",
+        "remedy",
+        "diagnosis",
+        "report",
+        "blood sugar level",
+        "test result",
+        "test results"
+      ],
+      "hi": [
+        "दवा",
+        "दवाई",
+        "गोली",
+        "गोलियाँ",
+        "इलाज",
+        "खुराक",
+        "रिपोर्ट",
+        "dawa",
+        "dawai",
+        "goli",
+        "ilaaj",
+        "khurak"
+      ]
+    },
+    "adviceDecline": {
+      "en": "I'm sorry, I can't give medical advice, diagnoses or medicine suggestions; only a doctor can do that safely. I can get a doctor's team to call you back. Let's continue.",
+      "hi": "माफ़ कीजिए, मैं चिकित्सा सलाह, निदान या दवा के सुझाव नहीं दे सकती; यह सिर्फ़ डॉक्टर ही सुरक्षित रूप से कर सकते हैं। मैं डॉक्टर की टीम से आपको कॉल करवा सकती हूँ। आगे बढ़ते हैं।"
+    },
+    "injection": {
+      "en": [
+        "ignore your instructions",
+        "ignore all instructions",
+        "ignore all previous",
+        "ignore previous instructions",
+        "ignore the previous",
+        "ignore your rules",
+        "forget your instructions",
+        "forget your rules",
+        "forget everything",
+        "system prompt",
+        "your instructions",
+        "your prompt",
+        "reveal your prompt",
+        "repeat the text above",
+        "repeat everything above",
+        "you are now",
+        "pretend to be",
+        "pretend you are",
+        "act as a doctor",
+        "act as my doctor",
+        "roleplay",
+        "role play",
+        "developer mode",
+        "jailbreak",
+        "new instructions",
+        "override your",
+        "disregard"
+      ],
+      "hi": [
+        "निर्देश भूल",
+        "नियम भूल",
+        "अपने निर्देश बताओ",
+        "nirdesh bhool",
+        "apne instructions batao"
+      ]
+    },
+    "injectionReply": {
+      "en": "I can't change how I work or share my instructions. I'm here to help you reach the right doctor's team. Let's continue.",
+      "hi": "मैं अपने काम करने का तरीका नहीं बदल सकती और अपने निर्देश साझा नहीं कर सकती। मैं आपको सही डॉक्टर की टीम तक पहुँचाने के लिए यहाँ हूँ। आगे बढ़ते हैं।"
+    },
+    "highUrgency": {
+      "en": [
+        "getting worse",
+        "very painful",
+        "severe pain",
+        "a lot of pain",
+        "unbearable",
+        "since yesterday",
+        "can't sleep",
+        "cannot sleep",
+        "high fever",
+        "swelling",
+        "infection"
+      ],
+      "hi": [
+        "बहुत दर्द",
+        "तेज़ दर्द",
+        "बढ़ता जा रहा",
+        "तेज़ बुखार",
+        "सूजन",
+        "bahut dard",
+        "tez dard",
+        "tez bukhar",
+        "sujan"
+      ]
+    }
+  },
+  "yes": {
+    "en": [
+      "yes",
+      "yeah",
+      "yep",
+      "yup",
+      "sure",
+      "okay",
+      "ok",
+      "of course",
+      "go ahead",
+      "please do",
+      "fine",
+      "correct",
+      "that's right",
+      "that is right",
+      "right",
+      "absolutely",
+      "alright",
+      "all right"
+    ],
+    "hi": [
+      "हाँ",
+      "हां",
+      "जी हाँ",
+      "जी",
+      "ठीक है",
+      "सही है",
+      "बिल्कुल",
+      "haan",
+      "han",
+      "ji",
+      "ji haan",
+      "theek hai",
+      "thik hai",
+      "sahi hai",
+      "bilkul"
+    ]
+  },
+  "no": {
+    "en": [
+      "no",
+      "nope",
+      "nah",
+      "not really",
+      "don't",
+      "do not",
+      "not okay",
+      "that's wrong",
+      "that is wrong",
+      "wrong",
+      "incorrect",
+      "stop"
+    ],
+    "hi": [
+      "नहीं",
+      "ना",
+      "जी नहीं",
+      "गलत",
+      "nahi",
+      "nahin",
+      "na",
+      "galat"
+    ]
+  },
+  "skip": {
+    "en": [
+      "skip",
+      "nothing",
+      "nothing else",
+      "no thanks",
+      "i'd rather not",
+      "rather not say",
+      "pass",
+      "none",
+      "no comment"
+    ],
+    "hi": [
+      "कुछ नहीं",
+      "छोड़ दीजिए",
+      "छोड़ो",
+      "kuch nahi",
+      "chhod do",
+      "chodo"
+    ]
+  },
+  "hangup": {
+    "en": [
+      "goodbye",
+      "bye",
+      "hang up",
+      "end the call",
+      "stop the call",
+      "i have to go",
+      "gotta go"
+    ],
+    "hi": [
+      "अलविदा",
+      "फ़ोन रखता",
+      "फोन रखती",
+      "बाद में",
+      "bye",
+      "phone rakhta",
+      "baad mein baat"
+    ]
+  },
+  "summary": [
+    "Looking for help with {concern_category}; {visit_type}.",
+    "Best time to call back: {preferred_time}. Insurance to use: {has_insurance}.",
+    "In their words: \"{description}\""
+  ],
+  "limits": {
+    "maxCallSeconds": 300,
+    "maxTurns": 40,
+    "maxCallsPerDay": 50,
+    "callWindow": {
+      "startHour": 9,
+      "endHour": 21,
+      "timeZone": "Asia/Kolkata"
+    }
+  }
+}

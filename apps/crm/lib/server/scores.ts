@@ -1,5 +1,5 @@
 import 'server-only';
-import { getIndustryPack, isIndustryId, scoreLead, type UrgencyLevel } from '@healwyn/core';
+import { getIndustryPack, isIndustryId, scoreLead, type LeadScore, type UrgencyLevel } from '@healwyn/core';
 import type { Tx } from './db';
 
 /** Recomputes a lead's rule-based score inside the caller's transaction (as the staff member). */
@@ -36,4 +36,36 @@ export async function recomputeScore(tx: Tx, leadId: string): Promise<void> {
     optedOut: lead.opted_out_at !== null,
   });
   await tx`select public.save_lead_score(${leadId}, ${score.score}, ${score.band}, ${tx.json(score.factors as never)})`;
+}
+
+/** The inputs apply_voice_outcome returns, in its JSON shape. */
+export interface ScoreInputJson {
+  industry: string;
+  stage: string;
+  urgency: UrgencyLevel;
+  specialty_slug: string | null;
+  answers: Record<string, string>;
+  has_email: boolean;
+  has_message: boolean;
+  created_at: string;
+  replied: boolean;
+  opted_out: boolean;
+  consents: string[];
+}
+
+/** Scores a lead from the inputs a system function returned (no staff session needed). */
+export function scoreFromInput(input: ScoreInputJson): LeadScore | null {
+  if (!isIndustryId(input.industry)) return null;
+  return scoreLead(getIndustryPack(input.industry).crm.scoring, {
+    stage: input.stage,
+    urgency: input.urgency,
+    specialtySlug: input.specialty_slug,
+    answers: input.answers,
+    hasEmail: input.has_email,
+    hasMessage: input.has_message,
+    consents: input.consents,
+    createdAt: new Date(input.created_at),
+    replied: input.replied,
+    optedOut: input.opted_out,
+  });
 }

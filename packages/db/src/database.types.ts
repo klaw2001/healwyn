@@ -6,6 +6,87 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      call_sessions: {
+        Row: {
+          id: string;
+          lead_id: string;
+          channel: string;
+          status: string;
+          started_by_staff_id: string | null;
+          started_at: string;
+          ended_at: string | null;
+          duration_seconds: number | null;
+          language: string | null;
+          consent_to_continue: boolean | null;
+          outcome: string | null;
+          urgency: string | null;
+          answers: Json;
+          safety_flags: Json;
+          summary: string[];
+          transcript: Json;
+          usage: Json;
+          agent_version: string | null;
+          completed_at: string | null;
+        };
+        Insert: {
+          id: string;
+          lead_id: string;
+          channel: string;
+          status?: string;
+          started_by_staff_id?: string | null;
+          started_at?: string;
+          ended_at?: string | null;
+          duration_seconds?: number | null;
+          language?: string | null;
+          consent_to_continue?: boolean | null;
+          outcome?: string | null;
+          urgency?: string | null;
+          answers?: Json;
+          safety_flags?: Json;
+          summary?: string[];
+          transcript?: Json;
+          usage?: Json;
+          agent_version?: string | null;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          channel?: string;
+          status?: string;
+          started_by_staff_id?: string | null;
+          started_at?: string;
+          ended_at?: string | null;
+          duration_seconds?: number | null;
+          language?: string | null;
+          consent_to_continue?: boolean | null;
+          outcome?: string | null;
+          urgency?: string | null;
+          answers?: Json;
+          safety_flags?: Json;
+          summary?: string[];
+          transcript?: Json;
+          usage?: Json;
+          agent_version?: string | null;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'call_sessions_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'call_sessions_started_by_staff_id_fkey';
+            columns: ['started_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       consent_records: {
         Row: {
           id: number;
@@ -628,6 +709,20 @@ export type Database = {
           },
         ];
       };
+      verified_demo_numbers: {
+        Row: { phone: string; label: string; added_by_staff_id: string | null; created_at: string };
+        Insert: { phone: string; label: string; added_by_staff_id?: string | null; created_at?: string };
+        Update: { phone?: string; label?: string; added_by_staff_id?: string | null; created_at?: string };
+        Relationships: [
+          {
+            foreignKeyName: 'verified_demo_numbers_added_by_staff_id_fkey';
+            columns: ['added_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       current_consents: {
@@ -645,6 +740,21 @@ export type Database = {
       add_note: {
         Args: { p_lead_id: string; p_body: string; p_template_id: string };
         Returns: string;
+      };
+      add_verified_number: {
+        Args: { p_phone: string; p_label: string };
+        Returns: undefined;
+      };
+      apply_voice_outcome: {
+        Args: {
+          p_lead_id: string;
+          p_call_id: string;
+          p_to_stage: string;
+          p_plan: Json;
+          p_staff_id: string;
+          p_routing: Json;
+        };
+        Returns: Json;
       };
       assign_lead: {
         Args: { p_lead_id: string; p_staff_id: string; p_reason: string; p_routing: Json };
@@ -704,6 +814,10 @@ export type Database = {
         Args: { p_lead_id: string; p_source: string };
         Returns: boolean;
       };
+      place_assistant_call: {
+        Args: { p_lead_id: string; p_channel: string; p_rules: Json };
+        Returns: Json;
+      };
       purge_stale_leads: {
         Args: { p_months: number };
         Returns: number;
@@ -716,9 +830,21 @@ export type Database = {
         Args: { p_lead_id: string; p_channel: string; p_body: string; p_source: string };
         Returns: string;
       };
+      record_voice_call: {
+        Args: { p_call: Json; p_update: Json };
+        Returns: Json;
+      };
+      remove_verified_number: {
+        Args: { p_phone: string };
+        Returns: undefined;
+      };
       routing_context: {
         Args: { p_lead_id: string; p_open_stages: unknown };
         Returns: Json;
+      };
+      save_call_lead_score: {
+        Args: { p_lead_id: string; p_call_id: string; p_score: number; p_band: string; p_factors: Json };
+        Returns: undefined;
       };
       save_lead_score: {
         Args: { p_lead_id: string; p_score: number; p_band: string; p_factors: Json };
@@ -735,6 +861,10 @@ export type Database = {
       staff_for_auth_user: {
         Args: { p_auth_user_id: string };
         Returns: unknown[];
+      };
+      start_web_call: {
+        Args: { p_lead_id: string; p_channel: string; p_rules: Json };
+        Returns: Json;
       };
       stop_enrollment: {
         Args: { p_enrollment_id: string };

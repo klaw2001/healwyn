@@ -1,5 +1,6 @@
 import type { MessageTemplate, NoteTemplate, ScoreRule, SequenceDefinition, SlaTargets } from '../crm/types';
 import type { RoutingConfig } from '../routing/types';
+import type { VoicePackConfig } from '../voice/types';
 
 /**
  * An industry pack is the complete configuration for one vertical (clinic today;
@@ -127,6 +128,8 @@ export interface IndustryPack {
   readonly billingRule: BillingRule | null;
   /** Routing weights and rules (Phase 3): who a qualified lead goes to, and why. */
   readonly routing: RoutingConfig;
+  /** What the voice assistant says and listens for (Phase 3). */
+  readonly voice: VoicePackConfig;
   /** Nurture sequences: steps, enrolment stage and the stages that stop them. */
   readonly sequences: readonly SequenceDefinition[];
   readonly crm: {

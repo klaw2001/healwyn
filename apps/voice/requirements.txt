@@ -1,0 +1,4 @@
+# Runtime for the LiveKit agent (apps/voice/healwyn_voice/agent.py).
+pydantic==2.13.5
+livekit-agents==1.8.6
+livekit-plugins-silero==1.8.6

@@ -106,6 +106,31 @@ export function assignmentExplanation(type: string, payload: Record<string, unkn
     : [];
 }
 
+const CALL_CHANNELS: Record<string, string> = {
+  browser: 'browser voice',
+  phone: 'phone',
+  simulated: 'simulated dialer',
+  text: 'typed chat',
+};
+const CALL_OUTCOMES: Record<string, string> = {
+  completed: 'qualified',
+  consent_declined: 'caller declined',
+  emergency: 'emergency advice given',
+  caller_ended: 'caller ended early',
+  limit_reached: 'time limit reached',
+  error: 'failed',
+};
+export const CALL_REFUSALS: Record<string, string> = {
+  no_call_consent: 'no consent for assistant calls',
+  opted_out: 'the lead unsubscribed',
+  erased: 'details erased',
+  outside_call_window: 'outside 9am to 9pm India time',
+  no_phone: 'no phone number',
+  number_not_verified: 'number not on the verified demo list',
+  daily_limit: 'daily call limit reached',
+  telephony_not_configured: 'phone calling is not set up',
+};
+
 /** One readable line per audit event. Payloads hold ids and codes only. */
 export function describeEvent(
   type: string,
@@ -155,6 +180,14 @@ export function describeEvent(
       return `“${sequenceName(String(p.sequence_id))}” stopped by staff`;
     case 'message.sent':
       return `${CHANNEL_LABELS[String(p.channel)] ?? p.channel} ${p.status === 'simulated' ? 'simulated' : p.status === 'logged' ? 'logged (no provider)' : 'sent'}`;
+    case 'call.started':
+      return `Assistant call started (${CALL_CHANNELS[String(p.channel)] ?? p.channel})`;
+    case 'call.completed':
+      return `Assistant call ended: ${CALL_OUTCOMES[String(p.outcome)] ?? p.outcome}`;
+    case 'call.refused':
+      return `Assistant call not placed: ${CALL_REFUSALS[String(p.reason)] ?? p.reason}`;
+    case 'safety.flagged':
+      return `Safety flag: ${pack.voice.safety.redFlags.find((f) => f.id === p.code)?.label ?? p.code}`;
     case 'message.failed':
       return `${CHANNEL_LABELS[String(p.channel)] ?? p.channel} failed after retries`;
     default:
