@@ -64,21 +64,48 @@ describe.skipIf(!databaseUrl)('lead storage (Postgres store)', () => {
   });
 
   it('rejects a lead without any granted consent and stores nothing', async () => {
+    // Counts are scoped to this test's phone number: other test files share the database.
     const payload = await samplePayload();
-    const before = await sql`select count(*)::int as n from public.leads`;
     await expect(
       store.submitLead({ ...payload, consents: payload.consents.map((c) => ({ ...c, granted: false })) }),
     ).rejects.toThrow(/Could not store the lead/);
-    const after = await sql`select count(*)::int as n from public.leads`;
-    expect(after[0]?.n).toBe(before[0]?.n);
+    const [row] = await sql`select count(*)::int as n from public.leads where phone = ${payload.phone}`;
+    expect(row?.n).toBe(0);
+  });
+
+  it('rejects a lead whose required consent is missing, even if another consent was granted', async () => {
+    const payload = await samplePayload();
+    const consents = payload.consents.map((c) => ({ ...c, granted: !c.required }));
+    expect(consents.some((c) => c.granted)).toBe(true);
+    await expect(store.submitLead({ ...payload, consents })).rejects.toThrow(/Could not store the lead/);
+    // Evidence that does not say which consent is required is rejected too.
+    const unmarked = payload.consents.map((c) => ({ ...c, required: false }));
+    await expect(store.submitLead({ ...payload, consents: unmarked })).rejects.toThrow(/Could not store the lead/);
+  });
+
+  it('accepts only short codes as erasure reasons and withdrawal sources', async () => {
+    const { id } = await store.submitLead(await samplePayload());
+    await expect(sql`select public.erase_lead(${id}, 'Patient Asha asked by phone')`).rejects.toThrow(/short code/);
+    await expect(sql`select public.withdraw_consent(${id}, 'contact', 'called on 98765', true)`).rejects.toThrow(
+      /short code/,
+    );
+  });
+
+  it('prunes rate-limit rows older than a day on every call', async () => {
+    await sql`insert into public.rate_limits (key, window_start, hits) values ('old-key', now() - interval '2 days', 3)`;
+    await store.hitRateLimit(`prune-${Date.now()}`, 5, 60);
+    const [row] = await sql`select count(*)::int as n from public.rate_limits where key = 'old-key'`;
+    expect(row?.n).toBe(0);
   });
 
   it('rolls back everything if any part fails (invalid phone)', async () => {
     const payload = await samplePayload();
-    const before = await sql`select count(*)::int as n from public.consent_records`;
-    await expect(store.submitLead({ ...payload, phone: '12345' })).rejects.toThrow();
-    const after = await sql`select count(*)::int as n from public.consent_records`;
-    expect(after[0]?.n).toBe(before[0]?.n);
+    const marker = `rollback-${Date.now()}`;
+    await expect(
+      store.submitLead({ ...payload, phone: '12345', answers: { ...payload.answers, marker } }),
+    ).rejects.toThrow();
+    const [row] = await sql`select count(*)::int as n from public.leads where answers ->> 'marker' = ${marker}`;
+    expect(row?.n).toBe(0);
   });
 
   it('keeps lead_events and consent_records append-only', async () => {

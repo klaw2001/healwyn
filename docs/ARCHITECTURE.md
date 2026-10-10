@@ -31,10 +31,15 @@ in one transaction, and emails the team (or logs the email) after responding.
 
 1. **Browser**: `useEnquiryForm` validates with `buildIntakeSchema(pack)`. Errors go into a focusable summary. A valid
    form is posted to the server action (without JavaScript, the browser posts it natively).
-2. **Honeypot**: if the hidden `website` field is filled, the server returns a fake success and stores nothing.
-3. **Rate limit**: `hit_rate_limit(sha256(salt:form:ip), 5, 600)`, a fixed window in Postgres, so it holds across
-   serverless instances. If the check errors, the request is allowed through.
-4. **Validation**: the same schema again, on the server. Failures return field errors plus the typed values.
+2. **Honeypot**: if the hidden trap field (`hw_trap_x7`, a name autofill ignores) is filled, the server returns a
+   fake success and stores nothing.
+3. **Validation**: the same schema again, on the server. Failures return field errors plus the typed values, and do not
+   count towards the rate limit.
+4. **Rate limit**: `hit_rate_limit(key, 5, 600)`, a fixed window in Postgres, so it holds across serverless instances.
+   The key is `form:` plus the first 40 hex characters of `sha256(salt:form:subject)`, where the subject is the client
+   IPv4 address or IPv6 /64. The IP comes from `x-nf-client-connection-ip` on Netlify and `x-forwarded-for` elsewhere
+   (`TRUSTED_IP_HEADER` overrides). With no IP the limit is skipped rather than shared, and if the check errors the
+   request is allowed through.
 5. **Store**: `intakeToLeadPayload` maps answers onto columns (offering to `specialty_slug`, free text to `message`) and
    attaches consent evidence (purpose, version, SHA-256 of the exact wording). `submit_lead(payload jsonb)` inserts the
    lead, the consent records and the `lead.created` / `consent.recorded` events atomically.
@@ -64,12 +69,16 @@ in one transaction, and emails the team (or logs the email) after responding.
 | `specialties`     | Offering slugs mirrored from the pack                                                                      | Content stays in `packages/core`                                                            |
 | `rate_limits`     | Fixed-window counters keyed by salted hashes                                                               | Pruned opportunistically after a day                                                        |
 
-Functions (execute granted to `service_role` only): `submit_lead`, `withdraw_consent`, `erase_lead`, `hit_rate_limit`.
+Functions: `submit_lead` and `hit_rate_limit` (executable by `service_role` and the least-privilege `web_submitter`
+role), and `withdraw_consent` and `erase_lead` (`service_role` only). `submit_lead` rejects a lead unless every consent
+marked required is granted. Erasure reasons and withdrawal sources must be short codes, so no free text reaches the
+audit trail. The audit tables cannot be updated, deleted from directly, or truncated.
 
 Security model in Phase 1: RLS is enabled on every table with **no policies**, and all privileges are revoked from
-`anon` and `authenticated`, so the browser cannot touch the database at all. The website writes through server code
-using the service role (supabase-js over HTTPS) or a direct connection as the table owner. Tests assert all of this
-generically, so a future table without RLS fails the build.
+`anon` and `authenticated`, so the browser cannot touch the database at all. The website writes through server code,
+either as the service role (supabase-js over HTTPS) or, preferably, as a login role in `web_submitter`
+(`WEB_DATABASE_URL`). That role can execute `submit_lead` and `hit_rate_limit` and nothing else. Tests assert all of this
+generically, so a future table without RLS, or a new privilege for an API role, fails the build.
 
 ## Industry packs (how Phase 4 plugs in)
 

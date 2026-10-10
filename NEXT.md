@@ -46,15 +46,15 @@ Status at the end of **Phase 1** (2026-10-10). The next session starts here.
 
 - **`pnpm check`** (lint, typecheck, test, build) passes. The build includes a check that no server secret names or
   values, and no database code, reach `.next/static`. That check was run with the real `.env` values loaded.
-- **Vitest: 158 tests.**
-  - core (51): phone normalisation, schemas, pack integrity, consent hashing, brand usage.
+- **Vitest: 172 tests.**
+  - core (52): phone normalisation, schemas, pack integrity, consent hashing, brand usage.
   - ui (59): WCAG AA contrast for 28 colour pairings in both themes.
-  - db (36): run against a real throwaway Postgres 16 cluster with Supabase's roles emulated. They cover RLS on every
+  - db (43): run against a real throwaway Postgres 16 cluster with Supabase's roles emulated. They cover RLS on every
     table, `anon` and `authenticated` holding no privileges and unable to execute any function, atomic
     `submit_lead`, rollback on failure, append-only triggers, consent withdrawal and erasure, cascade deletion,
     concurrent rate limiting, seed idempotency, the supabase-js RPC contract (with a mocked fetch) and the Management
     API transport (also mocked).
-  - web (12): the submission pipeline (honeypot, rate limit, validation, a store failure that leaks nothing, no
+  - web (18): the submission pipeline (honeypot, rate limit, validation, a store failure that leaks nothing, no
     personal data in logs) and the notifier (no personal data in the email, console fallback, idempotency key, never
     throws).
 - **Playwright: 62 checks** (31 tests at 375 px and 1280 px), run against a production build and the local Postgres.
@@ -83,15 +83,25 @@ Status at the end of **Phase 1** (2026-10-10). The next session starts here.
 - **The Resend API key is valid**, checked with one read-only call (`GET /domains`). It has full access and no
   verified domain.
 
+- **An independent review** found no secret leaks, injection risks or high-severity defects. Its medium and low
+  findings are fixed in `20261010000004_phase1_hardening.sql` and the code; see "End-of-phase review" in
+  `DECISIONS.md`. Highlights:
+  - the website runs as a least-privilege role (`web_submitter`), and e2e exercises that path;
+  - the database rejects leads whose required consent is missing;
+  - the audit tables cannot be truncated;
+  - validation mistakes don't count towards the rate limit;
+  - line breaks no longer break the length limit.
+
 ## Not verified
 
 - **The live Supabase project has not been migrated.** This cloud sandbox has no raw TCP or DNS access to
-  `db.<ref>.supabase.co`, and no service-role key or access token was supplied. The site and tests ran against a local
-  Postgres 16 with Supabase's roles emulated.
+  `db.<ref>.supabase.co`, and no service-role key or access token was supplied. At the user's request, development
+  uses a local Postgres for now (`.env` points at `pnpm db:local`; the Supabase string is kept commented out there).
+  The site and tests ran against a local Postgres 16 with Supabase's roles emulated.
 - **The Supabase HTTPS store against real PostgREST**: only its request contract is tested, with a mocked fetch.
 - **Migrations over the Supabase Management API**: only tested with a mocked fetch.
-- **Real email delivery**: `LEAD_NOTIFY_EMAIL` is empty, because Resend's test sender only delivers to the Resend
-  account owner's address and I do not know it.
+- **Real email delivery**: the user will add a sending domain later, so the email code is tested only with a mocked
+  fetch. `LEAD_NOTIFY_EMAIL` is empty, and the Resend key is valid.
 - **A Netlify deploy**: no account access. `apps/web/netlify.toml` follows Netlify's monorepo docs but is untested.
 - **Real devices, Safari or Firefox, and screen readers**: only Chromium emulation plus automated accessibility checks
   were used.

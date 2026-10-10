@@ -155,7 +155,7 @@ test('pretends to accept a bot that fills the honeypot, but stores nothing', asy
   const phone = demoPhone();
   await page.goto('/contact');
   await fillValid(page, phone);
-  await page.locator('#website').evaluate((input: HTMLInputElement) => (input.value = 'http://spam.example'));
+  await page.locator('#hw_trap_x7').evaluate((input: HTMLInputElement) => (input.value = 'http://spam.example'));
   await submit(page);
   await expect(page.getByRole('heading', { name: 'Thank you. We have your enquiry.' })).toBeVisible();
 
@@ -163,17 +163,26 @@ test('pretends to accept a bot that fills the honeypot, but stores nothing', asy
   expect(await countLeadsWithPhone(`+91${phone.replace(' ', '')}`)).toBe(0);
 });
 
-test('rate-limits repeated submissions from one connection', async ({ browser }) => {
+test('rate-limits repeated enquiries from one connection, but not mistakes', async ({ browser }) => {
   const context = await browser.newContext({
     javaScriptEnabled: false,
     extraHTTPHeaders: { 'x-forwarded-for': uniqueIp() },
   });
   const page = await context.newPage();
+  // Mistakes do not count.
   for (let attempt = 1; attempt <= 6; attempt += 1) {
     await page.goto('/contact');
     await submit(page);
-    if (attempt <= 5)
-      await expect(page.getByRole('main').getByRole('alert')).toContainText('Please check your enquiry');
+    await expect(page.getByRole('main').getByRole('alert')).toContainText('Please check your enquiry');
+  }
+  // Five real enquiries go through; the sixth is limited.
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    await page.goto('/contact');
+    await fillValid(page, demoPhone());
+    await submit(page);
+    if (attempt <= 5) {
+      await expect(page.getByRole('heading', { name: 'Thank you. We have your enquiry.' })).toBeVisible();
+    }
   }
   await expect(page.getByRole('main').getByRole('alert')).toContainText('several enquiries in a short time');
   await context.close();

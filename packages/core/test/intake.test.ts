@@ -92,6 +92,14 @@ describe('patient enquiry schema (built from the clinic pack)', () => {
     expect(result.answers.description).toBe('Hello there');
   });
 
+  it('counts a CRLF line break as one character, as the textarea does', () => {
+    const fiveHundred = `${'a'.repeat(249)}\r\n${'b'.repeat(250)}`;
+    const result = intake.safeParse({ ...validIntake, description: fiveHundred });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.answers.description).toBe(`${'a'.repeat(249)}\n${'b'.repeat(250)}`);
+    expect(intake.safeParse({ ...validIntake, description: `${fiveHundred}c` }).success).toBe(false);
+  });
+
   it('accepts names in Devanagari', () => {
     expect(intake.safeParse({ ...validIntake, full_name: 'अनन्या शर्मा' }).success).toBe(true);
   });

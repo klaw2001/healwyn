@@ -40,8 +40,9 @@ With no database configured, `pnpm dev` stores enquiries in memory and prints no
 
 ```bash
 pnpm db:local start                                   # throwaway Postgres on :54329 with Supabase's roles
-export DATABASE_URL="$(pnpm -s db:local url)"
+export DATABASE_URL="$(pnpm -s db:local url)"            # owner: migrations and seed
 pnpm db:migrate && pnpm db:seed                       # schema + synthetic staff and demo leads
+export WEB_DATABASE_URL="$(pnpm -s db:local web-url)"   # the site's least-privilege role
 pnpm dev                                              # submissions now land in Postgres
 psql "$DATABASE_URL" -c 'select stage, full_name, specialty_slug from leads order by created_at desc limit 5'
 ```
@@ -56,8 +57,12 @@ psql "$DATABASE_URL" -c 'select stage, full_name, specialty_slug from leads orde
    - Or paste the files from `packages/db/supabase/migrations/` into the SQL editor, in order. Never run
      `local-shim.sql` against Supabase.
 2. Run `pnpm db:seed` for synthetic specialties, staff and demo leads.
-3. For the website, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Dashboard > Project Settings > API Keys).
-   The service-role key is server-only, and the build fails if it ends up in browser code.
+3. For the website, use one of these:
+   - **Least privilege (recommended):** in the SQL editor run
+     `create role healwyn_web login password '…'; grant web_submitter to healwyn_web;`, then set `WEB_DATABASE_URL` to
+     the transaction pooler (port 6543) with user `healwyn_web.<project-ref>`. This role can only submit leads.
+   - **HTTPS:** set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (Dashboard > Project Settings > API Keys). The
+     service-role key is server-only, and the build fails if it ends up in browser code.
 
 ### Quality checks
 
@@ -79,9 +84,9 @@ Netlify's Free plan allows commercial use and runs Next.js server actions as fun
 1. Create a site from this repository. In **Build settings** leave the base directory empty and set **Package
    directory** to `/apps/web`. `apps/web/netlify.toml` supplies the build command and publish directory.
 2. Set these environment variables:
-   - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, recommended because they work over HTTPS. Alternatively set
-     `DATABASE_URL` to the Supabase **transaction pooler** (port 6543); Netlify functions cannot reach the IPv6-only
-     direct host.
+   - `WEB_DATABASE_URL`: the least-privilege `healwyn_web` role through the Supabase **transaction pooler** (port
+     6543); Netlify functions cannot reach the IPv6-only direct host. Alternatively, `SUPABASE_URL` and
+     `SUPABASE_SERVICE_ROLE_KEY` work over HTTPS but with full database rights.
    - `RATE_LIMIT_SALT`: a random string.
    - `RESEND_API_KEY` and `LEAD_NOTIFY_EMAIL`. Without a verified domain, Resend only delivers to the address you
      signed up with.

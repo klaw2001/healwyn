@@ -283,12 +283,7 @@ export type Database = {
         Returns: string;
       };
       withdraw_consent: {
-        Args: {
-          p_lead_id: string;
-          p_purpose: string;
-          p_source: string;
-          p_erase: boolean;
-        };
+        Args: { p_lead_id: string; p_purpose: string; p_source: string; p_erase: boolean };
         Returns: undefined;
       };
     };

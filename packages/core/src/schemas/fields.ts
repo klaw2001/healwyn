@@ -48,11 +48,16 @@ export const requiredEmailSchema = z.preprocess(
   z.string({ error: 'Please enter an email address.' }).trim().pipe(emailSchema),
 );
 
+/** Browsers submit line breaks as CRLF; count them as one character, as the textarea does. */
+export function normalizeLineBreaks(value: string): string {
+  return value.replace(/\r\n?/g, '\n');
+}
+
 export function boundedTextSchema(opts: { required: boolean; maxLength: number; requiredMessage?: string }) {
   const base = z
     .string()
-    .trim()
-    .max(opts.maxLength, `Please keep this under ${opts.maxLength} characters.`)
+    .transform(normalizeLineBreaks)
+    .pipe(z.string().trim().max(opts.maxLength, `Please keep this under ${opts.maxLength} characters.`))
     .transform(stripControlChars);
   if (opts.required) {
     return z

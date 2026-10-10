@@ -20,8 +20,15 @@ const pack = getActivePack();
 const schema = buildPartnerSchema(pack);
 const fieldId = (name: string) => `partner-${name}`;
 
+// Page order, so the summary reads top to bottom like the form.
 const errorLinks: ErrorLink[] = [
-  ...Object.values(PARTNER_FIELDS),
+  PARTNER_FIELDS.organisation,
+  PARTNER_FIELDS.partnerType,
+  PARTNER_FIELDS.contactName,
+  PARTNER_FIELDS.role,
+  PARTNER_FIELDS.phone,
+  PARTNER_FIELDS.email,
+  PARTNER_FIELDS.message,
   ...pack.partnerIntake.consents.map((c) => consentFieldName(c.id)),
 ].map((field) => ({ field, targetId: fieldId(field) }));
 
@@ -123,12 +130,13 @@ export function PartnerForm() {
               <>
                 <Textarea
                   {...control}
+                  aria-describedby={[control['aria-describedby'], 'partner-message-count'].filter(Boolean).join(' ')}
                   name={PARTNER_FIELDS.message}
                   maxLength={maxLength}
                   defaultValue={valueOf(state, PARTNER_FIELDS.message)}
                   onInput={(event) => setLength(event.currentTarget.value.length)}
                 />
-                <p className="text-right text-sm text-ink-muted">
+                <p id="partner-message-count" className="text-right text-sm text-ink-muted">
                   {length} of {maxLength} characters
                 </p>
               </>

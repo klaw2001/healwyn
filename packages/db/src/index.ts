@@ -16,18 +16,21 @@ export interface LeadStoreEnv {
   LEAD_STORE?: string;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  /** Least-privilege connection for the website (a login role in web_submitter). Preferred over DATABASE_URL. */
+  WEB_DATABASE_URL?: string;
   DATABASE_URL?: string;
   NODE_ENV?: string;
 }
 
 /**
  * Which store `auto` picks: Supabase (HTTPS, service role) when its key is
- * set, else Postgres when DATABASE_URL is set, else memory outside production.
+ * set, else Postgres (WEB_DATABASE_URL, falling back to DATABASE_URL), else
+ * memory outside production.
  */
 export function resolveLeadStoreKind(env: LeadStoreEnv): LeadStoreKind {
   const requested = (env.LEAD_STORE ?? 'auto').trim().toLowerCase();
   const hasSupabase = Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
-  const hasPostgres = Boolean(env.DATABASE_URL);
+  const hasPostgres = Boolean(env.WEB_DATABASE_URL || env.DATABASE_URL);
   const isProduction = env.NODE_ENV === 'production';
 
   switch (requested) {
@@ -51,7 +54,7 @@ export function createLeadStore(env: LeadStoreEnv = process.env): LeadStore {
     case 'supabase':
       return createSupabaseLeadStore(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!);
     case 'postgres':
-      return createPostgresLeadStore(env.DATABASE_URL!);
+      return createPostgresLeadStore((env.WEB_DATABASE_URL || env.DATABASE_URL)!);
     case 'memory':
       return createMemoryLeadStore();
     case 'unconfigured':

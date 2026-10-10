@@ -90,12 +90,13 @@ function QuestionField({
             <>
               <Control
                 {...control}
+                aria-describedby={[control['aria-describedby'], `${id}-count`].filter(Boolean).join(' ')}
                 name={question.id}
                 maxLength={question.maxLength}
                 defaultValue={initial}
                 onInput={(event) => setLength(event.currentTarget.value.length)}
               />
-              <p className="text-right text-sm text-ink-muted">
+              <p id={`${id}-count`} className="text-right text-sm text-ink-muted">
                 {length} of {question.maxLength} characters
               </p>
             </>
@@ -117,6 +118,7 @@ export function PatientForm() {
       pack.languages.map((l) => ({
         value: l.code,
         label: l.nativeLabel,
+        lang: l.code,
         description: l.label !== l.nativeLabel ? l.label : undefined,
       })),
     [],

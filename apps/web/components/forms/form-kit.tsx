@@ -31,7 +31,7 @@ export function ErrorSummary({
   const items = links.filter((link) => errors[link.field]);
   const hasContent = items.length > 0 || Boolean(message);
   return (
-    <div ref={summaryRef} tabIndex={-1} className="focus:outline-none" aria-live="polite">
+    <div ref={summaryRef} tabIndex={-1} className="focus:outline-none">
       {hasContent ? (
         <div role="alert" className="mb-8 rounded-md border-2 border-danger bg-danger-soft p-5">
           <h2 className="flex items-center gap-2 font-sans text-lg font-semibold text-ink">
@@ -71,7 +71,18 @@ export function Honeypot() {
   return (
     <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
       <label htmlFor={HONEYPOT_FIELD}>Leave this field empty</label>
-      <input id={HONEYPOT_FIELD} name={HONEYPOT_FIELD} type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+      <input
+        id={HONEYPOT_FIELD}
+        name={HONEYPOT_FIELD}
+        type="text"
+        tabIndex={-1}
+        autoComplete="off"
+        defaultValue=""
+        data-1p-ignore=""
+        data-lpignore="true"
+        data-bwignore=""
+        data-form-type="other"
+      />
     </div>
   );
 }

@@ -15,6 +15,8 @@ export type Urgency = (typeof URGENCY_LEVELS)[number];
 export interface ConsentEvidence {
   purpose: string;
   granted: boolean;
+  /** The pack marks this consent as needed to store the lead; the database rejects the lead without it. */
+  required: boolean;
   textVersion: string;
   /** SHA-256 of the exact wording shown (see consentPlainText). */
   textHash: string;
@@ -49,6 +51,7 @@ async function consentEvidence(
     definitions.map(async (def) => ({
       purpose: def.id,
       granted: decisions[def.id] === true,
+      required: def.required,
       textVersion: def.version,
       textHash: await sha256Hex(consentPlainText(def)),
     })),

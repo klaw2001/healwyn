@@ -33,8 +33,8 @@ export default function PrivacyPage() {
       </ul>
       <p>
         We do not use analytics, advertising cookies or third-party trackers. To stop spam we keep a short-lived,
-        one-way scrambled (hashed) version of your connection&apos;s IP address, never the address itself, and delete it
-        within a day.
+        one-way scrambled (hashed) version of your connection&apos;s IP address, never the address itself, for about a
+        day before it is deleted automatically.
       </p>
 
       <h2>Why we use it, and on what basis</h2>

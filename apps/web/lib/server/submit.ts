@@ -66,26 +66,33 @@ async function processSubmission<T>(
     return { status: 'success', reference: formatLeadReference(globalThis.crypto.randomUUID()) };
   }
 
-  // 2. Rate limit per hashed client IP. If the check itself fails, carry on:
-  //    storage will report its own error if the database is down.
-  try {
-    const allowed = await deps.store.hitRateLimit(
-      await rateLimitKey(kind, clientIp(headers)),
-      RATE_LIMIT.limit,
-      RATE_LIMIT.windowSeconds,
-    );
-    if (!allowed) {
-      log.warn('form.rate_limited', { form: kind });
-      return { status: 'error', message: MESSAGES.rateLimited, values };
-    }
-  } catch (error) {
-    log.warn('form.rate_limit_unavailable', { form: kind, ...errorFields(error) });
-  }
-
-  // 3. Server-side validation with the same schema the browser uses.
+  // 2. Server-side validation with the same schema the browser uses. Mistakes
+  //    do not count towards the rate limit: only submissions that would be stored.
   const parsed = schema.safeParse(formDataToValues(formData));
   if (!parsed.success) {
     return { status: 'invalid', fieldErrors: toFieldErrors(parsed.error), values };
+  }
+
+  // 3. Rate limit per hashed client IP (IPv6 per /64). If the host gives no IP
+  //    there is nothing fair to limit on, so skip rather than share one bucket.
+  //    If the check itself fails, carry on: storage reports its own failure.
+  const ip = clientIp(headers);
+  if (!ip) {
+    log.warn('form.rate_limit_skipped', { form: kind, reason: 'no_client_ip' });
+  } else {
+    try {
+      const allowed = await deps.store.hitRateLimit(
+        await rateLimitKey(kind, ip),
+        RATE_LIMIT.limit,
+        RATE_LIMIT.windowSeconds,
+      );
+      if (!allowed) {
+        log.warn('form.rate_limited', { form: kind });
+        return { status: 'error', message: MESSAGES.rateLimited, values };
+      }
+    } catch (error) {
+      log.warn('form.rate_limit_unavailable', { form: kind, ...errorFields(error) });
+    }
   }
 
   // 4. Store the lead, its consent evidence and its first events atomically.
@@ -139,7 +146,6 @@ function partnerSummary(pack: IndustryPack, payload: NewLeadPayload): LeadNotifi
   const type = pack.partnerIntake.partnerTypes.find((t) => t.value === payload.answers.partner_type);
   return [
     { label: 'Partner type', value: type?.label ?? 'Unknown' },
-    { label: 'Organisation', value: payload.answers.organisation ?? 'Not given' },
     { label: 'Phone', value: maskPhone(payload.phone) },
   ];
 }

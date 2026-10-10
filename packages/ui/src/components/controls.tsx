@@ -58,6 +58,8 @@ export interface RadioOption {
   value: string;
   label: string;
   description?: string;
+  /** Language of the label, when it differs from the page (WCAG 3.1.2). */
+  lang?: string;
 }
 
 export interface RadioGroupProps {
@@ -134,7 +136,9 @@ export function RadioGroup({
                 className="mt-1 size-4.5 shrink-0 cursor-pointer accent-(--hw-primary) focus-visible:outline-none"
               />
               <span>
-                <span className="block leading-snug font-semibold">{option.label}</span>
+                <span className="block leading-snug font-semibold" lang={option.lang}>
+                  {option.label}
+                </span>
                 {option.description ? <span className="block text-sm text-ink-muted">{option.description}</span> : null}
               </span>
             </label>

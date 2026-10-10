@@ -1,6 +1,7 @@
 import { clinicPack, consentFieldName, HONEYPOT_FIELD } from '@healwyn/core';
 import { createMemoryLeadStore, type LeadStore } from '@healwyn/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { clientIp, rateLimitKey, rateLimitSubject, trustedIpHeader } from '@/lib/server/client-key';
 import { buildLeadEmail, sendLeadNotification, type LeadNotification } from '@/lib/server/notify';
 import { handlePartnerEnquiry, handlePatientEnquiry, RATE_LIMIT, type SubmissionDeps } from '@/lib/server/submit';
 
@@ -92,6 +93,24 @@ describe('handlePatientEnquiry', () => {
     expect((await handlePatientEnquiry(form(valid), headers('198.51.100.2'), d)).status).toBe('success');
   });
 
+  it('does not count validation mistakes towards the rate limit', async () => {
+    const { deps: d } = deps();
+    for (let i = 0; i < RATE_LIMIT.limit * 2; i += 1) {
+      expect((await handlePatientEnquiry(form({ ...valid, phone: '1' }), headers('198.51.100.3'), d)).status).toBe(
+        'invalid',
+      );
+    }
+    expect((await handlePatientEnquiry(form(valid), headers('198.51.100.3'), d)).status).toBe('success');
+  });
+
+  it('skips rate limiting, rather than sharing one bucket, when the host gives no client IP', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { deps: d } = deps();
+    for (let i = 0; i <= RATE_LIMIT.limit + 1; i += 1) {
+      expect((await handlePatientEnquiry(form(valid), new Headers(), d)).status).toBe('success');
+    }
+  });
+
   it('reports a storage failure without leaking details, and never notifies', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const failing: LeadStore = {
@@ -161,6 +180,27 @@ describe('lead notification email', () => {
     return notify.mock.calls[0]![0];
   }
 
+  it('leaves the free-text organisation out of partner emails', async () => {
+    const { tasks, notify, deps: d } = deps();
+    await handlePartnerEnquiry(
+      form({
+        organisation: 'Dr Asha Private Practice',
+        contact_name: 'Ravi Demo',
+        role: 'Owner',
+        phone: '7000000011',
+        email: 'ravi@example.com',
+        partner_type: 'referring-doctor',
+        message: 'Hello',
+        [consentFieldName('partner_contact')]: 'on',
+      }),
+      headers('198.51.100.9'),
+      d,
+    );
+    await tasks[0]!();
+    const email = buildLeadEmail(notify.mock.calls[0]![0], { LEAD_NOTIFY_EMAIL: 'team@example.com' });
+    expect(`${email.subject}\n${email.text}`).not.toContain('Asha');
+  });
+
   it('contains no name, full phone number or free text', async () => {
     const email = buildLeadEmail(await notificationFor(), { LEAD_NOTIFY_EMAIL: 'team@example.com' });
     const everything = `${email.subject}\n${email.text}`;
@@ -206,5 +246,35 @@ describe('lead notification email', () => {
     await expect(
       sendLeadNotification(notification, env, (async () => Promise.reject(new Error('network'))) as typeof fetch),
     ).resolves.toBe('failed');
+  });
+});
+
+describe('client IP and rate-limit keys', () => {
+  it('trusts the Netlify header only on Netlify, unless configured', () => {
+    expect(trustedIpHeader({ NODE_ENV: 'production' })).toBe('x-forwarded-for');
+    expect(trustedIpHeader({ NODE_ENV: 'production', NETLIFY: 'true' })).toBe('x-nf-client-connection-ip');
+    expect(trustedIpHeader({ NODE_ENV: 'production', TRUSTED_IP_HEADER: 'CF-Connecting-IP' })).toBe('cf-connecting-ip');
+    const spoofed = new Headers({ 'x-nf-client-connection-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2, 10.0.0.1' });
+    expect(clientIp(spoofed, { NODE_ENV: 'production' })).toBe('2.2.2.2');
+    expect(clientIp(spoofed, { NODE_ENV: 'production', NETLIFY: 'true' })).toBe('1.1.1.1');
+    expect(clientIp(new Headers(), { NODE_ENV: 'production' })).toBeNull();
+  });
+
+  it('groups IPv6 addresses by /64 and unwraps IPv4-mapped addresses', () => {
+    expect(rateLimitSubject('203.0.113.7')).toBe('203.0.113.7');
+    expect(rateLimitSubject('::ffff:203.0.113.7')).toBe('203.0.113.7');
+    expect(rateLimitSubject('2001:db8:85a3:12:1:2:3:4')).toBe('2001:db8:85a3:12::/64');
+    expect(rateLimitSubject('2001:db8:85a3:12::99')).toBe('2001:db8:85a3:12::/64');
+    expect(rateLimitSubject('2001:0db8::1')).toBe('2001:db8:0:0::/64');
+  });
+
+  it('hashes with the configured salt, or a random per-process one, never a known constant', async () => {
+    const a = await rateLimitKey('patient', '203.0.113.7', 'salt-a');
+    const b = await rateLimitKey('patient', '203.0.113.7', 'salt-b');
+    expect(a).not.toBe(b);
+    expect(a).not.toContain('203.0.113.7');
+    const unsalted = await rateLimitKey('patient', '203.0.113.7', '');
+    expect(unsalted).toBe(await rateLimitKey('patient', '203.0.113.7', undefined));
+    expect(unsalted).not.toBe(await rateLimitKey('patient', '203.0.113.7', 'local-development-salt'));
   });
 });

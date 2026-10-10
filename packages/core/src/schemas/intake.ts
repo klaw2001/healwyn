@@ -32,8 +32,11 @@ export const PARTNER_FIELDS = {
   message: 'message',
 } as const;
 
-/** Hidden spam trap. Real people never see or fill it. */
-export const HONEYPOT_FIELD = 'website';
+/**
+ * Hidden spam trap. Real people never see or fill it. The name is deliberately
+ * meaningless so browser and password-manager autofill leave it alone.
+ */
+export const HONEYPOT_FIELD = 'hw_trap_x7';
 
 export interface IntakeSubmission {
   fullName: string;

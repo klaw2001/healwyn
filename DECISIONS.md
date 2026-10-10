@@ -64,3 +64,28 @@ One line each: the decision, then why. Newest phase at the bottom.
 - **Doctor portraits are deterministic, featureless SVG illustrations.** The spec forbids photos of real or invented people, and illustrations read as clearly synthetic.
 - **Clinic addresses are fictional streets in real cities, labelled "(fictional address)", with no map embed.** Real cities make the demo believable, and the label plus the lack of an embed keep it honest with no third-party trackers.
 - **Health packages show no prices.** The spec says no price claims.
+
+### End-of-phase review (2026-10-10)
+
+An independent review pass found no secret leaks, no injection risks and no high-severity defects. These changes came out of it:
+
+- **Line breaks count as one character.** Browsers submit textarea line breaks as CRLF, so the server normalises them before checking length. Without this, a message at the limit passed in the browser and failed on the server.
+- **The honeypot field is named `hw_trap_x7`** and carries the password-manager ignore attributes. A field named `website` can be filled in by autofill, which would silently discard a real enquiry.
+- **Validation runs before the rate limit, and only storable submissions count.** Typing mistakes no longer lock people out.
+  - IPv6 addresses are limited per /64, since a client usually controls the whole block.
+  - The Netlify IP header is trusted only when `NETLIFY=true` (`TRUSTED_IP_HEADER` overrides this).
+  - Requests with no IP skip the limit instead of sharing one global bucket.
+- **Without `RATE_LIMIT_SALT`, the rate limiter uses a random per-process salt instead of a published constant.** A known salt would let anyone brute-force the 2^32 IPv4 addresses back out of the hashes.
+- **Rate-limit rows are pruned on every call,** so the privacy notice's one-day promise holds.
+- **The website runs as a least-privilege role.** A login role in `web_submitter` (`WEB_DATABASE_URL`) can execute only `submit_lead` and `hit_rate_limit`, which are now `security definer`. A bug in the website can therefore no longer read leads, run DDL or disable triggers.
+- **Audit tables cannot be truncated,** even by the owner, and API roles have no TRUNCATE, TRIGGER or REFERENCES privileges on any table. TRUNCATE skips row triggers, so it would bypass the append-only rule.
+- **The audit trigger's existence check is `security definer`,** so row security cannot make an event that is still attached to its lead look orphaned (and therefore deletable) in Phase 2.
+- **`submit_lead` requires every consent marked `required` to be granted.** Consent evidence now carries that flag. Previously any one granted consent was enough; this enforces the rule in the database for every caller, including the Phase 3 voice path.
+- **Erasure reasons and withdrawal sources must be short codes** (`^[a-z0-9_.:-]{1,64}$`), and partner notification emails leave out the organisation. Free text must never reach the audit trail or email.
+- **Accessibility fixes:**
+  - the Hindi option is marked `lang="hi"`;
+  - character counters are linked to their fields with `aria-describedby`;
+  - the error summary is announced once (it uses `role="alert"` and takes focus, with no extra live region);
+  - the partner error summary lists errors in page order.
+- **`.env.example` leaves `DATABASE_URL` blank,** so `cp .env.example .env && pnpm dev` really does use the in-memory store.
+- **For now, development uses the local Postgres** (`.env` points at `pnpm db:local`), at the user's request. Supabase is configured later, by swapping the connection strings.

@@ -6,7 +6,8 @@
 #   pnpm db:local start   create (first run) and start the cluster, apply the Supabase shim
 #   pnpm db:local stop    stop it
 #   pnpm db:local reset   delete the cluster and start fresh
-#   pnpm db:local url     print the DATABASE_URL to use
+#   pnpm db:local url     print the DATABASE_URL to use (database owner: migrations, seed, tests)
+#   pnpm db:local web-url ensure the least-privilege login role exists (after migrating) and print WEB_DATABASE_URL
 #   pnpm db:local status
 #
 # Then: DATABASE_URL="$(pnpm -s db:local url)" pnpm db:migrate && pnpm db:seed
@@ -59,11 +60,32 @@ stop() {
   echo "Local Postgres stopped."
 }
 
+# A login role for the website that can only run submit_lead and hit_rate_limit
+# (role web_submitter, created by the migrations). Trust auth: local only.
+web_url() {
+  local web_user="${LOCAL_PG_WEB_USER:-healwyn_web}"
+  "$BIN/psql" "$URL" -q -v ON_ERROR_STOP=1 >/dev/null <<SQL
+do \$\$
+begin
+  if not exists (select from pg_roles where rolname = 'web_submitter') then
+    raise exception 'Run the migrations first: DATABASE_URL="$URL" pnpm db:migrate';
+  end if;
+  if not exists (select from pg_roles where rolname = '$web_user') then
+    create role $web_user login;
+  end if;
+end
+\$\$;
+grant web_submitter to $web_user;
+SQL
+  echo "postgresql://$web_user@127.0.0.1:$PORT/$DB"
+}
+
 case "${1:-start}" in
   start) start ;;
   stop) stop ;;
   reset) stop; rm -rf "$DATA"; start ;;
   url) echo "$URL" ;;
+  web-url) web_url ;;
   status) if [[ -d "$DATA" ]] && running; then echo "running: $URL"; else echo "stopped"; fi ;;
-  *) echo "usage: $0 start|stop|reset|url|status" >&2; exit 2 ;;
+  *) echo "usage: $0 start|stop|reset|url|web-url|status" >&2; exit 2 ;;
 esac

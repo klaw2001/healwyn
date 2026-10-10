@@ -1,12 +1,15 @@
+import { execFileSync } from 'node:child_process';
 import { Socket } from 'node:net';
+import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
  * End-to-end tests run against a production build (`pnpm build` first).
  *
  * Database: E2E_DATABASE_URL if set, otherwise the local cluster from
- * `pnpm db:local start` if it is running. With no database the server uses
- * the in-memory store and database assertions are skipped.
+ * `pnpm db:local start` if it is running (migrated and seeded). The server
+ * then connects as the least-privilege website role. With no database the
+ * server uses the in-memory store and database assertions are skipped.
  * Email: always disabled, so tests never send real mail.
  */
 const LOCAL_DB = 'postgresql://postgres@127.0.0.1:54329/healwyn';
@@ -23,8 +26,17 @@ async function reachable(url: string): Promise<boolean> {
   });
 }
 
-const databaseUrl = process.env.E2E_DATABASE_URL ?? ((await reachable(LOCAL_DB)) ? LOCAL_DB : '');
+const useLocal = !process.env.E2E_DATABASE_URL && (await reachable(LOCAL_DB));
+const databaseUrl = process.env.E2E_DATABASE_URL ?? (useLocal ? LOCAL_DB : '');
 process.env.E2E_DB = databaseUrl;
+
+// Against the local cluster, the site connects as the least-privilege website
+// role (it may only run submit_lead and hit_rate_limit), as in production.
+const webDatabaseUrl = useLocal
+  ? execFileSync('bash', [join(import.meta.dirname, '../../scripts/local-db.sh'), 'web-url'], {
+      encoding: 'utf8',
+    }).trim()
+  : databaseUrl;
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://127.0.0.1:${PORT}`;
@@ -51,7 +63,8 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       LEAD_STORE: databaseUrl ? 'postgres' : 'memory',
-      DATABASE_URL: databaseUrl,
+      WEB_DATABASE_URL: webDatabaseUrl,
+      DATABASE_URL: '',
       SUPABASE_SERVICE_ROLE_KEY: '',
       RESEND_API_KEY: '',
       LEAD_NOTIFY_EMAIL: '',
