@@ -1,0 +1,14 @@
+# Netlify (Free plan). In the Netlify UI set:
+#   Base directory:    (empty, the repo root)
+#   Package directory: /apps/web
+# Netlify detects Next.js and applies its OpenNext adapter automatically.
+# Paths below are relative to the base directory (the repo root).
+# Environment variables to set in the UI: see README.md ("Deploy for free").
+
+[build]
+  command = "pnpm --filter @healwyn/web build"
+  publish = "apps/web/.next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"

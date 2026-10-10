@@ -27,12 +27,28 @@ alter default privileges in schema public grant all on sequences to anon, authen
 create schema if not exists auth;
 grant usage on schema auth to anon, authenticated, service_role;
 
+-- Same definitions as Supabase: claims come from the request.jwt.claims JSON
+-- setting, with the legacy per-claim settings as a fallback.
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')
+  )::jsonb
+$$;
+
 create or replace function auth.uid()
 returns uuid
 language sql
 stable
 as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid
 $$;
 
 create or replace function auth.role()
@@ -40,5 +56,8 @@ returns text
 language sql
 stable
 as $$
-  select nullif(current_setting('request.jwt.claim.role', true), '')
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role')
+  )::text
 $$;
