@@ -90,6 +90,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'enroll_lead(uuid,jsonb)',
       'mark_replied(uuid)',
       'record_consent_withdrawal(uuid,text,boolean)',
+      'routing_context(uuid,text[])',
       'save_lead_score(uuid,integer,text,jsonb)',
       'set_sequence_paused(text,text,boolean)',
       'staff_can_see_lead(uuid,boolean,text)',

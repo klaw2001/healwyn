@@ -103,7 +103,31 @@ test('adds a note from a template and a task, then completes the task', async ({
   await expect(page.getByText('Task completed')).toBeVisible();
 });
 
-test('assigns a lead from its profile with the keyboard and records why', async ({ page }) => {
+test('accepts the routing suggestion, which explains itself and copies in the billing desk', async ({ page }) => {
+  const name = await submitWebsiteEnquiry(page);
+  await signInAs(page, 'care_coordinator');
+  await page.goto(`/pipeline?view=list&q=${encodeURIComponent(name)}`);
+  await page.getByRole('link', { name }).click();
+
+  const panel = page.getByRole('region', { name: /Routing suggestion/ });
+  await expect(panel).toContainText('Specialty: Dermatology team');
+  const suggested = (await panel.getByRole('heading').innerText()).replace(/^Routing suggestion:\s*/, '').trim();
+  expect(['Dr. Meera Kulkarni', 'Dr. Sana Mirza']).toContain(suggested);
+  await panel.getByText('Score breakdown').click();
+  await expect(panel.getByRole('table', { name: 'Routing scores for each candidate' })).toBeVisible();
+
+  await panel.getByRole('button', { name: `Assign to ${suggested}` }).click();
+  await expect(page.getByRole('status', { name: 'Notification' })).toContainText(`Assigned to ${suggested}.`);
+  const event = page.getByRole('listitem').filter({ hasText: `Routed to ${suggested}` });
+  await expect(event).toContainText('Specialty: Dermatology team');
+  await expect(event).toContainText(`Chose ${suggested}`);
+  await expect(event).toContainText('Copied in Deepa Menon (billing desk) to check insurance.');
+  await expect(
+    page.getByRole('region', { name: 'Tasks' }).getByRole('button', { name: 'Mark “Check insurance cover” done' }),
+  ).toBeVisible();
+});
+
+test('overriding the suggestion with the keyboard needs a reason, which is recorded', async ({ page }) => {
   const name = await submitWebsiteEnquiry(page);
   await signInAs(page, 'care_coordinator');
   await page.goto(`/pipeline?view=list&q=${encodeURIComponent(name)}`);
@@ -112,14 +136,17 @@ test('assigns a lead from its profile with the keyboard and records why', async 
 
   const select = page.getByLabel('Assigned to');
   await select.focus();
-  await select.selectOption({ label: 'Dr. Meera Kulkarni (Specialist doctor)' });
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Assign' })).toBeFocused();
+  await select.selectOption({ label: 'Neha Joshi (Care coordinator)' });
+  await expect(page.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
+  await page.keyboard.press('Tab'); // the disabled button is skipped
+  const reason = page.getByLabel('Reason for not following the routing suggestion');
+  await expect(reason).toBeFocused();
+  await reason.selectOption({ label: 'The patient asked for this person' });
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.getByRole('button', { name: 'Assign', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
 
   await expect(page.getByRole('status', { name: 'Notification' })).toContainText('Lead assigned.');
-  const event = page.getByRole('listitem').filter({ hasText: 'Assigned to Dr. Meera Kulkarni' });
-  await expect(event).toBeVisible();
-  await expect(event).toContainText('Covers dermatology.');
-  await expect(event).toContainText("Speaks the lead's preferred language (en).");
+  const event = page.getByRole('listitem').filter({ hasText: 'Assigned to Neha Joshi (overriding the suggestion)' });
+  await expect(event).toContainText('Overrode the routing suggestion: The patient asked for this person.');
 });

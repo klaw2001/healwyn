@@ -132,7 +132,9 @@ export function describeEvent(
     case 'stage.changed':
       return `Moved from ${stageLabel(String(p.from))} to ${stageLabel(String(p.to))}${p.reason === 'undo' ? ' (undo)' : ''}`;
     case 'lead.assigned':
-      return p.to_staff_id ? `Assigned to ${staffName(p.to_staff_id)}` : 'Unassigned';
+      if (!p.to_staff_id) return 'Unassigned';
+      if (p.method === 'routing') return `Routed to ${staffName(p.to_staff_id)}`;
+      return `Assigned to ${staffName(p.to_staff_id)}${p.method === 'override' ? ' (overriding the suggestion)' : ''}`;
     case 'note.added':
       return 'Note added';
     case 'task.created':

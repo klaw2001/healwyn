@@ -4,6 +4,7 @@ import { Button } from '@healwyn/ui';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import {
+  acceptRouting,
   assignLead,
   changeStage,
   enrollInSequence,
@@ -74,44 +75,102 @@ export function AssignControl({
   leadId,
   assignedStaffId,
   staff,
+  suggestedStaffId = null,
+  overrideReasons,
 }: {
   leadId: string;
   assignedStaffId: string | null;
   staff: { id: string; label: string }[];
+  /** The routing engine's choice; picking someone else needs a reason. */
+  suggestedStaffId?: string | null;
+  overrideReasons: { value: string; label: string }[];
 }) {
   const [value, setValue] = useState(assignedStaffId ?? '');
+  const [reason, setReason] = useState('');
   const [pending, start] = useTransition();
   const { notify } = useUndo();
   const router = useRouter();
+  const overriding = suggestedStaffId !== null && value !== '' && value !== suggestedStaffId;
+  const unchanged = value === (assignedStaffId ?? '');
   return (
     <form
-      className="flex gap-2"
+      className="grid gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         start(async () => {
-          const result = await assignLead(leadId, value || null);
+          const result = await assignLead(leadId, value || null, {
+            suggestedStaffId,
+            overrideReason: overriding ? reason : null,
+          });
           if (result.ok) {
             notify(value ? 'Lead assigned.' : 'Lead unassigned.');
+            setReason('');
             router.refresh();
           } else notify(result.error, 'error');
         });
       }}
     >
-      <label className="sr-only" htmlFor="assign-select">
-        Assigned to
-      </label>
-      <select id="assign-select" value={value} onChange={(e) => setValue(e.target.value)} className={control}>
-        <option value="">Unassigned</option>
-        {staff.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.label}
-          </option>
-        ))}
-      </select>
-      <Button type="submit" size="sm" variant="secondary" disabled={pending || value === (assignedStaffId ?? '')}>
-        {pending ? 'Saving…' : 'Assign'}
-      </Button>
+      <div className="flex gap-2">
+        <label className="sr-only" htmlFor="assign-select">
+          Assigned to
+        </label>
+        <select id="assign-select" value={value} onChange={(e) => setValue(e.target.value)} className={control}>
+          <option value="">Unassigned</option>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <Button type="submit" size="sm" variant="secondary" disabled={pending || unchanged || (overriding && !reason)}>
+          {pending ? 'Saving…' : 'Assign'}
+        </Button>
+      </div>
+      {overriding && !unchanged ? (
+        <div className="grid gap-1">
+          <label htmlFor="override-reason" className="text-xs font-semibold text-ink-muted">
+            Reason for not following the routing suggestion
+          </label>
+          <select
+            id="override-reason"
+            required
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className={control}
+          >
+            <option value="">Choose a reason</option>
+            {overrideReasons.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </form>
+  );
+}
+
+export function AcceptRoutingButton({ leadId, staffName }: { leadId: string; staffName: string }) {
+  const [pending, start] = useTransition();
+  const { notify } = useUndo();
+  const router = useRouter();
+  return (
+    <Button
+      size="sm"
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const result = await acceptRouting(leadId);
+          if (result.ok) {
+            notify(`Assigned to ${result.staffName}.`);
+            router.refresh();
+          } else notify(result.error, 'error');
+        })
+      }
+    >
+      {pending ? 'Assigning…' : `Assign to ${staffName}`}
+    </Button>
   );
 }
 

@@ -716,6 +716,10 @@ export type Database = {
         Args: { p_lead_id: string; p_channel: string; p_body: string; p_source: string };
         Returns: string;
       };
+      routing_context: {
+        Args: { p_lead_id: string; p_open_stages: unknown };
+        Returns: Json;
+      };
       save_lead_score: {
         Args: { p_lead_id: string; p_score: number; p_band: string; p_factors: Json };
         Returns: undefined;
@@ -739,6 +743,10 @@ export type Database = {
       submit_lead: {
         Args: { payload: Json };
         Returns: string;
+      };
+      system_routing_context: {
+        Args: { p_lead_id: string; p_open_stages: unknown };
+        Returns: Json;
       };
       verify_staff_password: {
         Args: { p_email: string; p_password: string };

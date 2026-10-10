@@ -1,4 +1,4 @@
-import { can, getActivePack } from '@healwyn/core';
+import { can, compareQueuePriority, getActivePack } from '@healwyn/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -101,8 +101,13 @@ export default async function WorkspacePage() {
     listTasks(session, { assignee: 'me', until: endOfIndiaDay(now) }),
     listTasks(session, { assignee: 'me', until: endOfIndiaDay(now, 7) }),
   ]);
-  const myOpen = mine.filter((l) => !closedStages.has(l.stage));
-  const queue = unassigned.filter((l) => !closedStages.has(l.stage));
+  const byPriority = (a: LeadRow, b: LeadRow) =>
+    compareQueuePriority(
+      { urgency: a.urgency, createdAt: a.created_at },
+      { urgency: b.urgency, createdAt: b.created_at },
+    );
+  const myOpen = mine.filter((l) => !closedStages.has(l.stage)).sort(byPriority);
+  const queue = unassigned.filter((l) => !closedStages.has(l.stage)).sort(byPriority);
   const upcoming = weekTasks.filter((t) => new Date(t.due_at) > endOfIndiaDay(now));
   const byDay = new Map<string, TaskRow[]>();
   for (const task of upcoming) byDay.set(indiaDay(task.due_at), [...(byDay.get(indiaDay(task.due_at)) ?? []), task]);

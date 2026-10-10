@@ -3,6 +3,8 @@
 import {
   AssignmentError,
   assignLead as decideAssignment,
+  assignmentRecord,
+  isOverrideReason,
   getActivePack,
   planStageEntry,
   scheduleSteps,
@@ -12,6 +14,7 @@ import { revalidatePath } from 'next/cache';
 import { assertCapability } from '@/lib/server/auth';
 import { asStaff } from '@/lib/server/db';
 import { friendlyError, type ActionResult } from '@/lib/server/errors';
+import { routeForStaff } from '@/lib/server/routing';
 import { recomputeScore } from '@/lib/server/scores';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,11 +55,17 @@ export async function changeStage(
   }
 }
 
-export async function assignLead(leadId: string, staffId: string | null): Promise<ActionResult> {
+export async function assignLead(
+  leadId: string,
+  staffId: string | null,
+  options: { suggestedStaffId?: string | null; overrideReason?: string | null } = {},
+): Promise<ActionResult> {
   try {
     const session = await assertCapability('lead.assign');
     if (!UUID.test(leadId) || (staffId !== null && !UUID.test(staffId)))
       return { ok: false, error: 'Unknown staff member.' };
+    const suggested = options.suggestedStaffId && UUID.test(options.suggestedStaffId) ? options.suggestedStaffId : null;
+    const overrideReason = isOverrideReason(options.overrideReason) ? options.overrideReason : undefined;
     const changed = await asStaff(session, async (tx) => {
       const [lead] = await tx<
         {
@@ -83,15 +92,36 @@ export async function assignLead(leadId: string, staffId: string | null): Promis
           mode: 'manual',
           staffId,
           staff: staff.map((m) => ({ ...m, fullName: m.full_name })),
+          suggestedStaffId: suggested,
+          overrideReason,
         },
       );
       if (!decision.changed) return false;
-      const routing = { method: decision.method, explanation: decision.explanation };
-      await tx`select public.assign_lead(${leadId}, ${decision.staffId}, 'manual', ${tx.json(routing)})`;
+      const reason = decision.method === 'override' ? `override:${decision.overrideReason}` : 'manual';
+      await tx`select public.assign_lead(${leadId}, ${decision.staffId}, ${reason}, ${tx.json(assignmentRecord(decision) as never)})`;
       return true;
     });
     if (changed) refresh(leadId);
     return { ok: true };
+  } catch (error) {
+    if (error instanceof AssignmentError) return { ok: false, error: error.message };
+    return { ok: false, error: friendlyError(error) };
+  }
+}
+
+/** Assigns a lead to the routing engine's choice, recording the explanation and any copy-ins. */
+export async function acceptRouting(leadId: string): Promise<ActionResult<{ staffName: string }>> {
+  try {
+    const session = await assertCapability('lead.assign');
+    if (!UUID.test(leadId)) return { ok: false, error: 'Unknown lead.' };
+    const staffName = await asStaff(session, async (tx) => {
+      const { decision } = await routeForStaff(tx, leadId);
+      if (!decision.staffId || !decision.routing) throw new AssignmentError('Nobody is available to take this lead.');
+      await tx`select public.assign_lead(${leadId}, ${decision.staffId}, 'routing', ${tx.json(assignmentRecord(decision) as never)})`;
+      return decision.routing.staffName ?? 'the suggested person';
+    });
+    refresh(leadId);
+    return { ok: true, staffName };
   } catch (error) {
     if (error instanceof AssignmentError) return { ok: false, error: error.message };
     return { ok: false, error: friendlyError(error) };

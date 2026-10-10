@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
-import type { UrgencyLevel } from '@healwyn/core';
+import { compareQueuePriority, type UrgencyLevel } from '@healwyn/core';
 import { cx } from '@healwyn/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -357,7 +357,7 @@ export function Board({
             stages={stages}
             now={now}
             onMove={move}
-            leads={leads.filter((l) => l.stage === stage.id)}
+            leads={leads.filter((l) => l.stage === stage.id).sort((a, b) => compareQueuePriority(a, b))}
           />
         ))}
       </div>

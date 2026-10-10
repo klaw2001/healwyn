@@ -246,6 +246,18 @@ export const clinicPack = {
   ],
 
   billingRule: { questionId: 'has_insurance', equals: 'yes' },
+  routing: {
+    // Language matters most for a first call, then spare capacity. Seniority
+    // only counts for urgent and high-urgency leads. Continuity with a
+    // returning patient's clinician beats a language match or spare capacity
+    // on its own, but not both together.
+    weights: { language: 30, seniority: 25, load: 25, continuity: 35 },
+    urgencySeniority: { urgent: 1, high: 0.6, normal: 0, low: 0 },
+    urgentMinRank: 3,
+    specialistRoles: ['specialist_doctor'],
+    fallbackRole: 'care_coordinator',
+    billingRole: 'billing_desk',
+  },
   sequences: clinicSequences,
   crm: clinicCrm,
 } as const satisfies IndustryPack;

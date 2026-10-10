@@ -1,4 +1,11 @@
-import { can, formatLeadReference, formatIndianMobile, getActivePack, renderTemplate } from '@healwyn/core';
+import {
+  can,
+  formatLeadReference,
+  formatIndianMobile,
+  getActivePack,
+  OVERRIDE_REASONS,
+  renderTemplate,
+} from '@healwyn/core';
 import { Badge } from '@healwyn/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -16,6 +23,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 import { SparkIcon } from '@/components/icons';
 import {
+  AcceptRoutingButton,
   AssignControl,
   EnrolButton,
   ReplyButton,
@@ -40,6 +48,7 @@ import {
 } from '@/lib/format';
 import { requireSession } from '@/lib/server/auth';
 import { getLeadProfile, listStaff } from '@/lib/server/queries';
+import { suggestRouting } from '@/lib/server/routing';
 
 export const metadata: Metadata = { title: 'Lead' };
 
@@ -85,6 +94,9 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const offeringQuestion = pack.intake.offeringQuestionId;
   const answerEntries = Object.entries(lead.answers).filter(([key]) => key !== offeringQuestion);
   const canFrontDesk = can(session.role, 'lead.assign');
+  const stageIsOpen = pack.stages.find((s) => s.id === lead.stage)?.kind === 'open';
+  const suggestion = canFrontDesk && !erased && stageIsOpen ? await suggestRouting(session, lead.id) : null;
+  const overrideReasons = Object.entries(OVERRIDE_REASONS).map(([value, label]) => ({ value, label }));
   const tomorrowNine = `${indiaDay(new Date(now.getTime() + 86_400_000))}T09:00`;
   const sampleVars = {
     fullName: name,
@@ -146,7 +158,13 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
             <div className="grid gap-1">
               <span className="text-xs font-semibold text-ink-muted">Assigned to</span>
               {canFrontDesk ? (
-                <AssignControl leadId={lead.id} assignedStaffId={lead.assigned_staff_id} staff={assignable} />
+                <AssignControl
+                  leadId={lead.id}
+                  assignedStaffId={lead.assigned_staff_id}
+                  staff={assignable}
+                  suggestedStaffId={suggestion?.staffId ?? null}
+                  overrideReasons={overrideReasons}
+                />
               ) : (
                 <p className="flex min-h-10 items-center gap-2 text-sm">
                   <Avatar name={lead.assignee_name} />
@@ -181,6 +199,72 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
               answers and any safety flags appear here, with the routing explanation.
             </p>
           </section>
+
+          {suggestion ? (
+            <section aria-labelledby="routing-title" className="rounded-lg border border-line bg-surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 id="routing-title" className="font-sans text-sm font-bold">
+                  Routing suggestion: <span className="text-primary">{suggestion.staffName ?? 'nobody available'}</span>
+                  {suggestion.priority === 'front' ? (
+                    <Badge tone="accent" className="ml-2">
+                      Front of queue
+                    </Badge>
+                  ) : null}
+                </h2>
+                {suggestion.staffId && suggestion.staffId !== lead.assigned_staff_id ? (
+                  <AcceptRoutingButton leadId={lead.id} staffName={suggestion.staffName ?? 'suggestion'} />
+                ) : suggestion.staffId ? (
+                  <span className="text-sm text-ink-muted">Already assigned to the suggested person.</span>
+                ) : null}
+              </div>
+              <ul className="mt-2 list-disc pl-5 text-sm text-ink-muted">
+                {suggestion.explanation.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer font-semibold text-primary">Score breakdown</summary>
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full min-w-[36rem] text-left text-xs">
+                    <caption className="sr-only">Routing scores for each candidate</caption>
+                    <thead className="text-ink-muted">
+                      <tr>
+                        <th scope="col" className="py-1 pr-2 font-semibold">
+                          Candidate
+                        </th>
+                        {['Language', 'Seniority', 'Spare capacity', 'Continuity'].map((h) => (
+                          <th key={h} scope="col" className="px-2 py-1 text-right font-semibold">
+                            {h}
+                          </th>
+                        ))}
+                        <th scope="col" className="py-1 pl-2 text-right font-semibold">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {suggestion.candidates.map((c) => (
+                        <tr key={c.staffId} className="border-t border-line">
+                          <th scope="row" className="py-1 pr-2 font-semibold">
+                            {c.name}
+                            {c.excludedBecause ? (
+                              <span className="block font-normal text-ink-muted">{c.excludedBecause}</span>
+                            ) : null}
+                          </th>
+                          {c.factors.map((f) => (
+                            <td key={f.id} className="px-2 py-1 text-right" title={f.label}>
+                              {f.points} / {f.max}
+                            </td>
+                          ))}
+                          <td className="py-1 pl-2 text-right font-semibold">{c.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </section>
+          ) : null}
 
           {!erased ? <NoteForm leadId={lead.id} templates={[...pack.crm.noteTemplates]} /> : null}
 
