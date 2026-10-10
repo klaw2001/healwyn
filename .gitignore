@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.lighthouse/
+
+# local database cluster and scratch
+.local/
+
+# python (apps/voice, phase 3)
+__pycache__/
+.venv/
+*.pyc
+
+# os / editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# hosting
+.netlify/

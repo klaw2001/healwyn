@@ -1,0 +1,29 @@
+{
+  "name": "@healwyn/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Supabase migrations, seed data, generated types and the server-side lead store",
+  "exports": {
+    ".": "./src/index.ts",
+    "./migrations": "./src/migrations.ts",
+    "./seed": "./src/seed.ts",
+    "./target": "./src/sql-target.ts",
+    "./types": "./src/database.types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx --env-file-if-exists=../../.env scripts/migrate.ts",
+    "seed": "tsx --env-file-if-exists=../../.env scripts/seed.ts",
+    "types": "tsx --env-file-if-exists=../../.env scripts/gen-types.ts && prettier --write src/database.types.ts"
+  },
+  "dependencies": {
+    "@healwyn/core": "workspace:*",
+    "@supabase/supabase-js": "^2.117.3",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3"
+  }
+}

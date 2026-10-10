@@ -1,0 +1,193 @@
+/*
+ * Design tokens. Import after `@import "tailwindcss"` in an app stylesheet,
+ * and add `@source` for packages/ui/src so component classes are generated.
+ *
+ * Palette: warm paper, teal ink, one marigold accent. Every text pairing meets
+ * WCAG AA (4.5:1 body, 3:1 large text and UI boundaries) in both themes.
+ * Dark mode follows the system; [data-theme] on <html> overrides it.
+ */
+
+:root {
+  --hw-bg: #fbf8f3;
+  --hw-surface: #ffffff;
+  --hw-surface-muted: #f4efe6;
+  --hw-surface-teal: #e4f0ec;
+  --hw-ink: #15302e;
+  --hw-ink-muted: #4a5e5b;
+  --hw-line: #e2dbcf;
+  --hw-line-strong: #7f776a;
+  --hw-primary: #0e5e58;
+  --hw-primary-hover: #0a4a45;
+  --hw-primary-soft: #cfe5df;
+  --hw-on-primary: #ffffff;
+  --hw-accent: #eaa43c;
+  --hw-accent-soft: #fbead0;
+  --hw-accent-ink: #7f4b06;
+  --hw-on-accent: #15302e;
+  --hw-danger: #b42318;
+  --hw-danger-soft: #fdecea;
+  --hw-success: #19704a;
+  --hw-success-soft: #e3f3ea;
+  --hw-focus: #0e5e58;
+  --hw-shadow: 21 48 46;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --hw-bg: #0d1918;
+    --hw-surface: #132321;
+    --hw-surface-muted: #182b29;
+    --hw-surface-teal: #123230;
+    --hw-ink: #e9f1ef;
+    --hw-ink-muted: #a9bcb8;
+    --hw-line: #29403d;
+    --hw-line-strong: #6f8783;
+    --hw-primary: #5ec3b4;
+    --hw-primary-hover: #7fd4c7;
+    --hw-primary-soft: #1d403c;
+    --hw-on-primary: #062220;
+    --hw-accent: #f0b459;
+    --hw-accent-soft: #3a2c16;
+    --hw-accent-ink: #f4c57e;
+    --hw-on-accent: #1a1406;
+    --hw-danger: #ff9c92;
+    --hw-danger-soft: #3b1e1b;
+    --hw-success: #7fd6a8;
+    --hw-success-soft: #15342a;
+    --hw-focus: #7fd4c7;
+    --hw-shadow: 0 0 0;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --hw-bg: #0d1918;
+  --hw-surface: #132321;
+  --hw-surface-muted: #182b29;
+  --hw-surface-teal: #123230;
+  --hw-ink: #e9f1ef;
+  --hw-ink-muted: #a9bcb8;
+  --hw-line: #29403d;
+  --hw-line-strong: #6f8783;
+  --hw-primary: #5ec3b4;
+  --hw-primary-hover: #7fd4c7;
+  --hw-primary-soft: #1d403c;
+  --hw-on-primary: #062220;
+  --hw-accent: #f0b459;
+  --hw-accent-soft: #3a2c16;
+  --hw-accent-ink: #f4c57e;
+  --hw-on-accent: #1a1406;
+  --hw-danger: #ff9c92;
+  --hw-danger-soft: #3b1e1b;
+  --hw-success: #7fd6a8;
+  --hw-success-soft: #15342a;
+  --hw-focus: #7fd4c7;
+  --hw-shadow: 0 0 0;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--hw-bg);
+  --color-surface: var(--hw-surface);
+  --color-surface-muted: var(--hw-surface-muted);
+  --color-surface-teal: var(--hw-surface-teal);
+  --color-ink: var(--hw-ink);
+  --color-ink-muted: var(--hw-ink-muted);
+  --color-line: var(--hw-line);
+  --color-line-strong: var(--hw-line-strong);
+  --color-primary: var(--hw-primary);
+  --color-primary-hover: var(--hw-primary-hover);
+  --color-primary-soft: var(--hw-primary-soft);
+  --color-on-primary: var(--hw-on-primary);
+  --color-accent: var(--hw-accent);
+  --color-accent-soft: var(--hw-accent-soft);
+  --color-accent-ink: var(--hw-accent-ink);
+  --color-on-accent: var(--hw-on-accent);
+  --color-danger: var(--hw-danger);
+  --color-danger-soft: var(--hw-danger-soft);
+  --color-success: var(--hw-success);
+  --color-success-soft: var(--hw-success-soft);
+  --color-focus: var(--hw-focus);
+
+  --font-display: var(--font-fraunces), 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Type scale: 17px body for legibility; headings scale fluidly. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.65;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.6;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.4;
+  --text-2xl: clamp(1.5rem, 1.25rem + 1vw, 1.875rem);
+  --text-2xl--line-height: 1.25;
+  --text-3xl: clamp(1.875rem, 1.45rem + 1.8vw, 2.5rem);
+  --text-3xl--line-height: 1.15;
+  --text-4xl: clamp(2.25rem, 1.55rem + 3vw, 3.5rem);
+  --text-4xl--line-height: 1.08;
+  --text-display: clamp(2.6rem, 1.55rem + 4.6vw, 4.9rem);
+  --text-display--line-height: 1.02;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+
+  --shadow-soft: 0 1px 2px rgb(var(--hw-shadow) / 0.06), 0 10px 28px -14px rgb(var(--hw-shadow) / 0.22);
+  --shadow-lift: 0 2px 4px rgb(var(--hw-shadow) / 0.06), 0 22px 44px -20px rgb(var(--hw-shadow) / 0.3);
+
+  --spacing-section: clamp(4rem, 2.75rem + 5vw, 7.5rem);
+  --container-content: 72rem;
+  --container-prose: 40rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    font-weight: 560;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

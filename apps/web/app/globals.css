@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+@import '../../../packages/ui/src/tokens.css';
+
+@source '../../../packages/ui/src';
+
+@layer base {
+  html {
+    scroll-padding-top: 5.5rem;
+  }
+  a {
+    text-underline-offset: 0.2em;
+  }
+}
+
+@utility prose-legal {
+  & h2 {
+    margin-top: 2.5rem;
+    font-size: var(--text-2xl);
+    line-height: var(--text-2xl--line-height);
+  }
+  & h3 {
+    margin-top: 1.75rem;
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+  }
+  & p,
+  & ul,
+  & ol {
+    margin-top: 1rem;
+  }
+  & ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+  & ol {
+    list-style: decimal;
+    padding-left: 1.25rem;
+  }
+  & li + li {
+    margin-top: 0.4rem;
+  }
+  & a {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+}

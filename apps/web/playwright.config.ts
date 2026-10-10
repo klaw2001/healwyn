@@ -1,0 +1,61 @@
+import { Socket } from 'node:net';
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * End-to-end tests run against a production build (`pnpm build` first).
+ *
+ * Database: E2E_DATABASE_URL if set, otherwise the local cluster from
+ * `pnpm db:local start` if it is running. With no database the server uses
+ * the in-memory store and database assertions are skipped.
+ * Email: always disabled, so tests never send real mail.
+ */
+const LOCAL_DB = 'postgresql://postgres@127.0.0.1:54329/healwyn';
+
+async function reachable(url: string): Promise<boolean> {
+  const { hostname, port } = new URL(url);
+  return new Promise((resolve) => {
+    const socket = new Socket();
+    socket.setTimeout(800);
+    socket.once('connect', () => (socket.destroy(), resolve(true)));
+    socket.once('error', () => resolve(false));
+    socket.once('timeout', () => (socket.destroy(), resolve(false)));
+    socket.connect(Number(port || 5432), hostname);
+  });
+}
+
+const databaseUrl = process.env.E2E_DATABASE_URL ?? ((await reachable(LOCAL_DB)) ? LOCAL_DB : '');
+process.env.E2E_DB = databaseUrl;
+
+const PORT = Number(process.env.E2E_PORT ?? 3100);
+const baseURL = `http://127.0.0.1:${PORT}`;
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : undefined,
+  reporter: process.env.CI ? 'github' : 'list',
+  use: {
+    baseURL,
+    trace: 'retain-on-failure',
+  },
+  projects: [
+    { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 375, height: 812 } } },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+  ],
+  webServer: {
+    command: `node node_modules/next/dist/bin/next start -p ${PORT}`,
+    url: `${baseURL}/robots.txt`,
+    reuseExistingServer: false,
+    timeout: 60_000,
+    env: {
+      LEAD_STORE: databaseUrl ? 'postgres' : 'memory',
+      DATABASE_URL: databaseUrl,
+      SUPABASE_SERVICE_ROLE_KEY: '',
+      RESEND_API_KEY: '',
+      LEAD_NOTIFY_EMAIL: '',
+      RATE_LIMIT_SALT: 'e2e-salt',
+    },
+  },
+});

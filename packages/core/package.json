@@ -1,0 +1,20 @@
+{
+  "name": "@healwyn/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared domain code: brand config, industry packs, zod schemas, synthetic content",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  },
+  "sideEffects": false
+}
