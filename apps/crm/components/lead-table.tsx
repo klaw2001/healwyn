@@ -118,7 +118,7 @@ export function LeadTable({
         <tbody className="[&_td]:border-b [&_td]:border-line">
           {leads.map((lead) => (
             <tr key={lead.id} className="hover:bg-surface-muted">
-              <td className="px-3 py-2">
+              <td className="min-w-44 px-3 py-2">
                 <Link href={`/leads/${lead.id}`} className="font-semibold text-ink hover:underline">
                   {lead.full_name}
                 </Link>

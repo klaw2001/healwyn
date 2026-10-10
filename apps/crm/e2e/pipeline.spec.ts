@@ -102,3 +102,24 @@ test('adds a note from a template and a task, then completes the task', async ({
   await page.getByRole('button', { name: 'Mark “Call back after lunch” done' }).click();
   await expect(page.getByText('Task completed')).toBeVisible();
 });
+
+test('assigns a lead from its profile with the keyboard and records why', async ({ page }) => {
+  const name = await submitWebsiteEnquiry(page);
+  await signInAs(page, 'care_coordinator');
+  await page.goto(`/pipeline?view=list&q=${encodeURIComponent(name)}`);
+  await page.getByRole('link', { name }).click();
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+
+  const select = page.getByLabel('Assigned to');
+  await select.focus();
+  await select.selectOption({ label: 'Dr. Meera Kulkarni (Specialist doctor)' });
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Assign' })).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByRole('status', { name: 'Notification' })).toContainText('Lead assigned.');
+  const event = page.getByRole('listitem').filter({ hasText: 'Assigned to Dr. Meera Kulkarni' });
+  await expect(event).toBeVisible();
+  await expect(event).toContainText('Covers dermatology.');
+  await expect(event).toContainText("Speaks the lead's preferred language (en).");
+});

@@ -17,7 +17,8 @@ function delayLabel(minutes: number): string {
   if (minutes === 0) return 'Straight away';
   if (minutes < 60) return `After ${minutes} min`;
   if (minutes < 1440) return `After ${Math.round(minutes / 60)} h`;
-  return `After ${Math.round(minutes / 1440)} days`;
+  const days = Math.round(minutes / 1440);
+  return `After ${days} day${days === 1 ? '' : 's'}`;
 }
 
 const sample = {

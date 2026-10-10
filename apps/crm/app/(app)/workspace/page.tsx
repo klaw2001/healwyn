@@ -62,6 +62,7 @@ function TaskItems({ tasks, now }: { tasks: TaskRow[]; now: Date }) {
     <ul className="grid gap-2">
       {tasks.map((task) => {
         const overdue = new Date(task.due_at) < now;
+        const reminding = !overdue && task.remind_at !== null && new Date(task.remind_at) <= now;
         return (
           <li key={task.id} className="flex items-start gap-3 rounded-md border border-line bg-surface p-3">
             <CompleteTaskButton taskId={task.id} leadId={task.lead_id} title={task.title} />
@@ -72,10 +73,14 @@ function TaskItems({ tasks, now }: { tasks: TaskRow[]; now: Date }) {
                   {task.lead_name ?? 'Lead'}
                 </Link>{' '}
                 ·{' '}
-                <span className={overdue ? 'font-semibold text-danger' : undefined}>
+                <span
+                  className={overdue ? 'font-semibold text-danger' : reminding ? 'font-semibold text-ink' : undefined}
+                >
                   {overdue
                     ? `Overdue since ${formatDay(task.due_at)}, ${formatTime(task.due_at)}`
-                    : `Due ${formatTime(task.due_at)}`}
+                    : reminding
+                      ? `Reminder: due at ${formatTime(task.due_at)}`
+                      : `Due ${formatTime(task.due_at)}`}
                 </span>
               </p>
             </div>

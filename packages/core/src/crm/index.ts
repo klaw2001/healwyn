@@ -1,3 +1,4 @@
+export * from './assignment';
 export * from './scoring';
 export * from './sequences';
 export * from './sla';

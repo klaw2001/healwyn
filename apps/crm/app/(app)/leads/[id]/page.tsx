@@ -26,6 +26,7 @@ import {
 import { CompleteTaskButton, NoteForm, TaskForm } from '@/components/profile/forms';
 import {
   answerLabel,
+  assignmentExplanation,
   describeEvent,
   formatDateTime,
   formatRelative,
@@ -190,6 +191,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
             <ol className="mt-3 border-l-2 border-line pl-5">
               {events.map((event) => {
                 const note = event.type === 'note.added' ? noteById.get(String(event.payload.note_id)) : undefined;
+                const why = assignmentExplanation(event.type, event.payload);
                 return (
                   <li key={event.id} className="relative pb-4">
                     <span
@@ -205,6 +207,13 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
                         {formatDateTime(event.created_at)}
                       </time>
                     </p>
+                    {why.length ? (
+                      <ul className="mt-1 list-disc pl-4 text-xs text-ink-muted">
+                        {why.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                     {note ? (
                       <p className="mt-1 rounded-md bg-surface-muted px-3 py-2 text-sm whitespace-pre-wrap">
                         {note.body}

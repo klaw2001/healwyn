@@ -10,10 +10,24 @@ import { NavLinks, type NavItem } from './nav-links';
 import { ThemeToggle } from './theme-toggle';
 import { UndoProvider } from './undo';
 
-export async function AppShell({ session, children }: { session: Session; children: ReactNode }) {
+export async function AppShell({
+  session,
+  reminders,
+  children,
+}: {
+  session: Session;
+  /** Open tasks of this user whose reminder time has passed. */
+  reminders: number;
+  children: ReactNode;
+}) {
   const theme = (await cookies()).get('hw_theme')?.value;
   const items: NavItem[] = [
-    { href: '/workspace', label: 'My workspace', icon: <InboxIcon /> },
+    {
+      href: '/workspace',
+      label: 'My workspace',
+      icon: <InboxIcon />,
+      badge: { count: reminders, label: `task${reminders === 1 ? '' : 's'} due soon or overdue` },
+    },
     { href: '/pipeline', label: 'Pipeline', icon: <BoardIcon /> },
     ...(can(session.role, 'screen.sequences') ? [{ href: '/sequences', label: 'Sequences', icon: <FlowIcon /> }] : []),
   ];

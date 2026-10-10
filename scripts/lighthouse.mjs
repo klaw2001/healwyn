@@ -3,6 +3,10 @@
 //   pnpm build && pnpm start            (in another terminal)
 //   pnpm lighthouse                     (or BASE=https://your-site pnpm lighthouse)
 //
+// For signed-in CRM screens: BASE=http://127.0.0.1:3001 PRESET=desktop COOKIE='hw_crm_session=…'
+//   pnpm lighthouse /pipeline /workspace
+// (CATEGORIES=accessibility,best-practices limits which scores are checked.)
+//
 // Reports go to .lighthouse/ (gitignored). Exits 1 if any score is below MIN (default 90).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -34,16 +38,18 @@ const chrome = await chromeLauncher.launch({
   chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu'],
 });
 
-const categories = ['performance', 'accessibility', 'best-practices', 'seo'];
+const categories = (process.env.CATEGORIES ?? 'performance,accessibility,best-practices,seo').split(',');
+const config =
+  process.env.PRESET === 'desktop' ? (await import('lighthouse/core/config/desktop-config.js')).default : undefined;
+const extraHeaders = process.env.COOKIE ? { Cookie: process.env.COOKIE } : undefined;
 let failed = false;
 try {
   for (const path of paths) {
-    const result = await lighthouse(`${base}${path}`, {
-      port: chrome.port,
-      output: ['html', 'json'],
-      onlyCategories: categories,
-      logLevel: 'error',
-    });
+    const result = await lighthouse(
+      `${base}${path}`,
+      { port: chrome.port, output: ['html', 'json'], onlyCategories: categories, logLevel: 'error', extraHeaders },
+      config,
+    );
     const [html, json] = result.report;
     const name = path === '/' ? 'home' : path.replace(/\W+/g, '-').replace(/^-|-$/g, '');
     writeFileSync(join(outDir, `${name}.html`), html);
@@ -53,12 +59,12 @@ try {
       categories.map((id) => [id, Math.round((result.lhr.categories[id]?.score ?? 0) * 100)]),
     );
     const metrics = result.lhr.audits;
-    console.log(
-      `${path.padEnd(12)} ${categories.map((c) => `${c} ${scores[c]}`).join(' | ')}` +
-        `  (LCP ${metrics['largest-contentful-paint']?.displayValue}, TBT ${metrics['total-blocking-time']?.displayValue}, CLS ${metrics['cumulative-layout-shift']?.displayValue})`,
-    );
+    const timings = categories.includes('performance')
+      ? `  (LCP ${metrics['largest-contentful-paint']?.displayValue}, TBT ${metrics['total-blocking-time']?.displayValue}, CLS ${metrics['cumulative-layout-shift']?.displayValue})`
+      : '';
+    console.log(`${path.padEnd(12)} ${categories.map((c) => `${c} ${scores[c]}`).join(' | ')}${timings}`);
     for (const category of ['performance', 'accessibility', 'best-practices']) {
-      if (scores[category] < min) failed = true;
+      if (categories.includes(category) && scores[category] < min) failed = true;
     }
     // List failing audits that carry weight, to make fixing easy.
     for (const category of categories) {

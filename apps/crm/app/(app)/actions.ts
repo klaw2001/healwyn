@@ -1,6 +1,13 @@
 'use server';
 
-import { getActivePack, planStageEntry, scheduleSteps } from '@healwyn/core';
+import {
+  AssignmentError,
+  assignLead as decideAssignment,
+  getActivePack,
+  planStageEntry,
+  scheduleSteps,
+  type UrgencyLevel,
+} from '@healwyn/core';
 import { revalidatePath } from 'next/cache';
 import { assertCapability } from '@/lib/server/auth';
 import { asStaff } from '@/lib/server/db';
@@ -50,10 +57,43 @@ export async function assignLead(leadId: string, staffId: string | null): Promis
     const session = await assertCapability('lead.assign');
     if (!UUID.test(leadId) || (staffId !== null && !UUID.test(staffId)))
       return { ok: false, error: 'Unknown staff member.' };
-    await asStaff(session, (tx) => tx`select public.assign_lead(${leadId}, ${staffId}, 'manual', null)`);
-    refresh(leadId);
+    const changed = await asStaff(session, async (tx) => {
+      const [lead] = await tx<
+        {
+          id: string;
+          specialty_slug: string | null;
+          urgency: UrgencyLevel;
+          preferred_language: string;
+          assigned_staff_id: string | null;
+        }[]
+      >`select id, specialty_slug, urgency, preferred_language, assigned_staff_id from public.leads where id = ${leadId}`;
+      if (!lead) throw new AssignmentError('Unknown lead.');
+      const staff = await tx<
+        { id: string; full_name: string; active: boolean; specialties: string[]; languages: string[] }[]
+      >`select id, full_name, active, specialties, languages from public.staff where id = ${staffId}`;
+      const decision = decideAssignment(
+        {
+          id: lead.id,
+          specialtySlug: lead.specialty_slug,
+          urgency: lead.urgency,
+          preferredLanguage: lead.preferred_language,
+          assignedStaffId: lead.assigned_staff_id,
+        },
+        {
+          mode: 'manual',
+          staffId,
+          staff: staff.map((m) => ({ ...m, fullName: m.full_name })),
+        },
+      );
+      if (!decision.changed) return false;
+      const routing = { method: decision.method, explanation: decision.explanation };
+      await tx`select public.assign_lead(${leadId}, ${decision.staffId}, 'manual', ${tx.json(routing)})`;
+      return true;
+    });
+    if (changed) refresh(leadId);
     return { ok: true };
   } catch (error) {
+    if (error instanceof AssignmentError) return { ok: false, error: error.message };
     return { ok: false, error: friendlyError(error) };
   }
 }

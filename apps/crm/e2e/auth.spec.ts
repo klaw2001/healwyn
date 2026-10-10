@@ -75,3 +75,21 @@ test('signs in with a password, rejects a wrong one, and signs out', async ({ pa
   await page.goto('/workspace');
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test('the workspace link counts tasks whose reminder is due', async ({ page }) => {
+  const coordinator = DEMO_USERS.find((u) => u.role === 'care_coordinator')!;
+  const [row] = await query(
+    (sql) => sql<{ n: number }[]>`
+    select count(*)::int as n from public.tasks
+    where assignee_staff_id = ${coordinator.staffId} and completed_at is null and coalesce(remind_at, due_at) <= now()`,
+  );
+  expect(row!.n).toBeGreaterThan(0); // the seed includes overdue tasks for coordinators
+
+  await signInAs(page, 'care_coordinator');
+  await openMenuIfCollapsed(page);
+  await expect(
+    page
+      .getByRole('link', { name: `My workspace ${row!.n} task${row!.n === 1 ? '' : 's'} due soon or overdue` })
+      .locator('visible=true'),
+  ).toBeVisible();
+});

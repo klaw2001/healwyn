@@ -28,6 +28,7 @@ async function reachable(url: string): Promise<boolean> {
 
 const hasDb = await reachable(LOCAL_DB);
 process.env.E2E_DB = hasDb ? LOCAL_DB : '';
+process.env.E2E_STARTED_AT = new Date().toISOString();
 const role = (command: string) => (hasDb ? execFileSync('bash', [localDb, command], { encoding: 'utf8' }).trim() : '');
 
 const WEB = 3200;
@@ -49,6 +50,7 @@ Object.assign(process.env, shared);
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

@@ -1,6 +1,6 @@
 'use client';
 
-import { buttonClasses } from '@healwyn/ui';
+import { buttonClasses, cx } from '@healwyn/ui';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTransition, type FormEvent } from 'react';
 
@@ -38,12 +38,13 @@ export function Filters({ definitions }: { definitions: readonly FilterDefinitio
 
   const active = FILTER_KEYS.filter((key) => params.get(key)).length;
   const control =
-    'min-h-10 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink focus-visible:border-primary';
+    'min-h-10 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-sm text-ink focus-visible:border-primary';
+  const field = 'grid min-w-0 content-end gap-1 text-sm font-semibold';
 
   return (
-    <form onSubmit={apply} role="search" aria-label="Filter leads" className="grid gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="grid min-w-52 flex-1 gap-1 text-sm font-semibold">
+    <form onSubmit={apply} role="search" aria-label="Filter leads">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+        <label className={cx(field, 'col-span-2')}>
           Search
           <input
             name="q"
@@ -54,7 +55,7 @@ export function Filters({ definitions }: { definitions: readonly FilterDefinitio
           />
         </label>
         {definitions.map((definition) => (
-          <label key={definition.name} className="grid gap-1 text-sm font-semibold">
+          <label key={definition.name} className={field}>
             {definition.label}
             <select name={definition.name} defaultValue={params.get(definition.name) ?? ''} className={control}>
               <option value="">Any</option>
@@ -66,30 +67,32 @@ export function Filters({ definitions }: { definitions: readonly FilterDefinitio
             </select>
           </label>
         ))}
-        <label className="grid gap-1 text-sm font-semibold">
+        <label className={field}>
           From
           <input name="from" type="date" defaultValue={params.get('from') ?? ''} className={control} />
         </label>
-        <label className="grid gap-1 text-sm font-semibold">
+        <label className={field}>
           To
           <input name="to" type="date" defaultValue={params.get('to') ?? ''} className={control} />
         </label>
-        <button type="submit" className={buttonClasses({ size: 'sm' })} disabled={pending}>
-          {pending ? 'Filtering…' : 'Apply'}
-        </button>
-        {active ? (
-          <button
-            type="button"
-            className={buttonClasses({ size: 'sm', variant: 'ghost' })}
-            onClick={() => {
-              const next = new URLSearchParams(params);
-              FILTER_KEYS.forEach((key) => next.delete(key));
-              startTransition(() => router.push(`${pathname}?${next.toString()}`));
-            }}
-          >
-            Clear {active} filter{active === 1 ? '' : 's'}
+        <div className="col-span-2 flex items-end gap-2">
+          <button type="submit" className={buttonClasses({ size: 'sm' })} disabled={pending}>
+            {pending ? 'Filtering…' : 'Apply'}
           </button>
-        ) : null}
+          {active ? (
+            <button
+              type="button"
+              className={buttonClasses({ size: 'sm', variant: 'ghost' })}
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                FILTER_KEYS.forEach((key) => next.delete(key));
+                startTransition(() => router.push(`${pathname}?${next.toString()}`));
+              }}
+            >
+              Clear {active} filter{active === 1 ? '' : 's'}
+            </button>
+          ) : null}
+        </div>
       </div>
     </form>
   );

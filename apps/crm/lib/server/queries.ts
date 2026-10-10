@@ -241,6 +241,18 @@ export async function listTasks(
   );
 }
 
+/** Open tasks assigned to this user whose reminder time (or due time) has passed. */
+export async function countDueReminders(session: Session): Promise<number> {
+  const [row] = await asStaff(
+    session,
+    (tx) => tx<{ n: number }[]>`
+      select count(*)::int as n from public.tasks
+      where assignee_staff_id = ${session.staffId} and completed_at is null
+        and coalesce(remind_at, due_at) <= now()`,
+  );
+  return row?.n ?? 0;
+}
+
 export interface SequenceStats {
   sequence_id: string;
   active: number;

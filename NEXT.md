@@ -1,158 +1,176 @@
 # NEXT.md
 
-Status at the end of **Phase 1** (2026-10-10). The next session starts here.
+Status at the end of **Phase 2** (2026-10-10). The next session starts here.
 
-## Done
+## Milestones
 
-- **Monorepo**: pnpm workspaces with `apps/web`, `packages/core`, `packages/ui` and `packages/db`; `apps/crm` and
-  `apps/voice` are placeholder READMEs. TypeScript strict, ESLint (with jsx-a11y), Prettier, Vitest and Playwright.
-- **Brand**: one source of truth in `packages/core/src/brand.ts`. A test fails if the brand name is hardcoded
-  anywhere else.
-- **Design system** (`packages/ui`):
-  - Tokens for colour (light and dark), type scale, spacing, radius and shadow, as a Tailwind v4 theme.
-  - Components: button, input, select, textarea, checkbox, radio group, field, card, section, badge, notice, nav,
-    footer, skip link and brand mark.
-- **Website** (`apps/web`), all statically prerendered:
-  - Home: hero, how it works, specialties, partner strip, trust, call to action.
-  - Specialties: an overview plus six detail pages.
-  - Doctors: 8 fictional clinicians with illustrated portraits.
-  - Health packages: 4 illustrative packages, no prices.
-  - Locations: 2 fictional clinics.
-  - For partners (with its form), Contact and book (with its form), privacy notice (DPDP), terms, demo disclaimer, 404.
-  - An emergency notice in every footer and above both forms; the demo notice on every page; `noindex` by default.
-- **Forms**:
-  - The patient form is generated from the clinic industry pack.
-  - The partner form has the organisation, contact, role, phone, email, type, message and consent fields.
-  - The same zod schemas validate in the browser and on the server, and the forms work without JavaScript.
-  - Spam protection: a honeypot plus database-backed rate limiting (5 per 10 minutes per form per hashed IP).
-  - Two separate, versioned and hashed consents on the patient form.
-  - Resend notification after the response, with a console fallback. It never fails a submission and carries no name,
-    full phone number or free text.
-- **Data** (`packages/db`):
-  - Three migrations: tables `leads`, `lead_events` (append-only), `consent_records` (append-only), `staff`,
-    `specialties` and `rate_limits`; the `current_consents` view; the functions `submit_lead`, `withdraw_consent`,
-    `erase_lead` and `hit_rate_limit`.
-  - Row level security is on everywhere and grants are revoked from `anon` and `authenticated`.
-  - An idempotent seed: 6 specialties, 11 staff, 8 demo leads across all 7 stages.
-  - Generated types in `src/database.types.ts`.
-  - Lead stores (`supabase`, `postgres`, `memory`), selected automatically from the environment.
-- **Industry pack** (`packages/core/src/industries/clinic.ts`): qualifying questions (with voice prompts for Phase 3),
-  consents, 7 stages, 4 staff levels and 6 nurture sequences, all typed by `IndustryPack`.
-- **Docs**: `CLAUDE.md`, `README.md`, `DECISIONS.md`, `docs/ARCHITECTURE.md` and `docs/PROMPTS.md` (the prompt book).
-- **Local secrets**: `.env` at the repo root (gitignored) holds the supplied keys, with the database password
-  URL-encoded, and a generated `RATE_LIMIT_SALT`.
+Tag pushes are refused by the git proxy in cloud sessions (HTTP 403), so the tags exist locally and their commits are
+listed here. Recreate a tag anywhere with `git tag -a phase-N-complete <sha> -m "Phase N complete"`.
+
+| Tag                | Commit                                  | What                                         |
+| ------------------ | --------------------------------------- | -------------------------------------------- |
+| `phase-1-complete` | `10988d3`                               | Brand kit, website, intake forms, data model |
+| `phase-2-complete` | the commit titled "Phase 2 complete: …" | CRM, staff workspace, nurture sequences      |
+
+## Done in Phase 2
+
+- **Auth and roles.**
+  - Four roles from the clinic pack: manager, care coordinator, specialist doctor and billing desk.
+  - The permissions matrix lives in `packages/core/src/permissions.ts`. It is enforced in the UI, in every server
+    action, and in Postgres (RLS policies plus checks inside each `security definer` function).
+  - One demo user per role is seeded into `auth.users`. One-click demo logins appear only with `DEMO_LOGIN=true`.
+  - Sign-in is throttled per IP and email. Sessions last 8 hours. Pages the role may not open return a real 403.
+- **Pipeline.**
+  - Board columns come from the pack.
+  - Cards move by pointer, touch or keyboard drag, or with each card's Move menu. Moves are optimistic, audited
+    (`stage.changed`) and can be undone.
+  - Filters (assignee, specialty, language, urgency, source, type, date range) live in the URL.
+  - A sortable, searchable list view sits beside the board.
+- **Lead profile.**
+  - Contact details, concern, qualifying answers, consent status and history (with staff-recorded withdrawal).
+  - Assignment, with the reason shown on the timeline.
+  - A timeline built from `lead_events`, notes from templates, and tasks with due dates and reminders.
+  - Messages with channel and status (a "Simulated" badge for SMS and WhatsApp).
+  - Sequence enrolments with their steps, a lead score with its factor breakdown, and an "AI summary" placeholder.
+- **Workspace.**
+  - Today's tasks, my leads, the unassigned queue (front desk only) and a seven-day agenda.
+  - SLA timers on cards and lists (first-response targets per urgency, with overdue warnings).
+  - The workspace link counts tasks whose reminder is due.
+- **Assignment.** Manual assign and reassign through `assignLead(lead, context)` in `packages/core`. Each decision
+  carries an explanation, logged with the `lead.assigned` event.
+- **Nurture.**
+  - Six sequences in the pack: `new-lead-welcome`, `appointment-reminder`, `no-show-recovery`, `post-visit-check-in`,
+    `follow-up-due` and `package-renewal`. Each has steps (delay, channel, template) and the stages that start and
+    cancel it.
+  - Stage changes enrol and cancel in the same transaction.
+  - Sequences stop on a reply ("Mark as replied", or the signed webhook `/api/messages/inbound`), an unsubscribe (link
+    page and RFC 8058 one-click), consent withdrawal, a cancelling stage or a manager pause.
+  - The worker (`packages/messaging`) is idempotent and safe in parallel. It runs from `pnpm worker`, the cron route
+    and a Netlify scheduled function.
+  - A manager screen previews, pauses and resumes sequences and shows enrolment statistics.
+  - The 12-month retention purge runs with the worker.
+- **Data.**
+  - Migrations `20261011000001` to `…04`: `notes`, `tasks`, `sequence_enrollments`, `scheduled_messages`, `messages`,
+    `lead_scores` and `sequence_settings`, all with RLS.
+  - Staff helper functions, staff write functions, worker functions, and the `crm_server` and `nurture_worker` roles.
+  - The seed has 12 staff and 40 deterministic demo leads across all stages. Their timelines, messages, tasks and some
+    overdue SLAs are replayed through the real sequence planner.
+- **Design.**
+  - The CRM uses the same `packages/ui` tokens in a denser layout: a sidebar on laptops and a menu on tablets.
+  - Light, dark and auto themes (stored in a cookie).
+  - Designed empty, loading, error, 403 and not-found states.
 
 ## Verified, and how
 
-- **`pnpm check`** (lint, typecheck, test, build) passes. The build includes a check that no server secret names or
-  values, and no database code, reach `.next/static`. That check was run with the real `.env` values loaded.
-- **Vitest: 172 tests.**
-  - core (52): phone normalisation, schemas, pack integrity, consent hashing, brand usage.
-  - ui (59): WCAG AA contrast for 28 colour pairings in both themes.
-  - db (43): run against a real throwaway Postgres 16 cluster with Supabase's roles emulated. They cover RLS on every
-    table, `anon` and `authenticated` holding no privileges and unable to execute any function, atomic
-    `submit_lead`, rollback on failure, append-only triggers, consent withdrawal and erasure, cascade deletion,
-    concurrent rate limiting, seed idempotency, the supabase-js RPC contract (with a mocked fetch) and the Management
-    API transport (also mocked).
-  - web (18): the submission pipeline (honeypot, rate limit, validation, a store failure that leaks nothing, no
-    personal data in logs) and the notifier (no personal data in the email, console fallback, idempotency key, never
-    throws).
-- **Playwright: 62 checks** (31 tests at 375 px and 1280 px), run against a production build and the local Postgres.
-  - Every page returns 200, has one `h1`, carries the emergency and demo notices, has no horizontal scroll, and has no
-    unlabelled images or SVGs.
-  - Both forms reject bad input, in the browser and on the server with JavaScript off.
-  - A valid patient enquiry creates a lead with its consent records (hashed) and events; a valid partner enquiry
-    creates a partner lead.
-  - The patient form can be completed with the keyboard alone.
-  - The honeypot stores nothing, the rate limit triggers on the 6th attempt, and a specialty is pre-selected from a
-    link.
-- **Lighthouse** (mobile emulation, simulated throttling, local `next start`):
+- **`pnpm check`** (lint, typecheck, test, build) passes. Both apps' builds include the client-bundle secrets check,
+  which now also covers the Phase 2 secrets (every `*_DATABASE_URL` and `*_SECRET`).
+- **Vitest: 233 tests across 14 files.**
+  - core (86): permissions matrix, lead visibility, stage plans, stop conditions, scoring, SLA, templates and
+    `assignLead`.
+  - db (64, against a real Postgres 16). Highlights:
+    - RLS for every demo user compared with `canSeeLead`; a doctor cannot read another doctor's lead, even by id.
+    - Staff-function authorisation.
+    - The worker run twice and in parallel with no duplicate sends.
+    - Send-time stops, pause, retry and crash recovery.
+    - Retention, erasure of CRM data, and unsubscribe.
+  - messaging (6), ui (59) and web (18).
+- **Playwright.**
+  - Website: 62 checks at 375 px and 1280 px.
+  - CRM: 40 checks at 1366×860 laptop and 820×1180 touch tablet:
+    - sign in as each role, each seeing exactly the leads the matrix allows;
+    - a coordinator gets a 403 on manager screens, even by URL;
+    - a doctor opening another doctor's lead by URL gets "This lead is not available to you";
+    - password sign-in, rejection and sign-out;
+    - website enquiry → CRM → stage moves → undo;
+    - keyboard-only Move menu and keyboard drag-and-drop;
+    - filters and sorting;
+    - notes from templates; tasks created and completed;
+    - keyboard assignment, with its recorded reason;
+    - a sequence enrols, sends its first message and stops on reply;
+    - unsubscribe takes effect at once;
+    - the webhook rejects unsigned and stale requests;
+    - the cron route rejects a wrong secret;
+    - a manager pauses and resumes a sequence;
+    - the reminder count in the navigation.
+- **Lighthouse on the CRM** (local `next start`, signed in as the manager):
 
-  | Page             | Performance | Accessibility | Best practices |
-  | ---------------- | ----------- | ------------- | -------------- |
-  | Home             | 99          | 100           | 100            |
-  | Contact          | 96          | 100           | 100            |
-  | Every other page | 96 to 99    | 100           | 100            |
+  | Preset           | Pages                                                    | Performance | Accessibility | Best practices |
+  | ---------------- | -------------------------------------------------------- | ----------- | ------------- | -------------- |
+  | Desktop          | login, board, list, workspace, a lead profile, sequences | 100         | 100           | 100            |
+  | Mobile emulation | board, list, workspace, a lead profile, sequences        | not scored  | 100           | 100            |
 
-  CLS is 0 everywhere. SEO scores 63 only because pages are deliberately `noindex`; no other SEO audit fails.
-
-- **Visual review** from screenshots at 375 px and 1280 px, in light and dark themes. Fixes made along the way: the
-  tagline comma wrapping onto its own line, a wrapping button, notice corners, avatar scale, the dark-mode coat colour,
-  and a phone placeholder that looked like a filled-in value.
-- **Migrations and seed** run twice against a fresh database: the second runs are no-ops.
-- **The Resend API key is valid**, checked with one read-only call (`GET /domains`). It has full access and no
-  verified domain.
-
-- **An independent review** found no secret leaks, injection risks or high-severity defects. Its medium and low
-  findings are fixed in `20261010000004_phase1_hardening.sql` and the code; see "End-of-phase review" in
-  `DECISIONS.md`. Highlights:
-  - the website runs as a least-privilege role (`web_submitter`), and e2e exercises that path;
-  - the database rejects leads whose required consent is missing;
-  - the audit tables cannot be truncated;
-  - validation mistakes don't count towards the rate limit;
-  - line breaks no longer break the length limit.
+- **Visual review** from screenshots at 1366×860 and 820×1180, in light and dark. Fixes made along the way:
+  - board cards overflowing their columns;
+  - every demo reference reading `1EAD-0000`;
+  - a ragged filter row on tablets (now a grid);
+  - wrapped names in the list;
+  - "After 1 days";
+  - leftover e2e leads cluttering the demo board (both suites now clean up after themselves).
 
 ## Not verified
 
-- **The live Supabase project has not been migrated.** This cloud sandbox has no raw TCP or DNS access to
-  `db.<ref>.supabase.co`, and no service-role key or access token was supplied. At the user's request, development
-  uses a local Postgres for now (`.env` points at `pnpm db:local`; the Supabase string is kept commented out there).
-  The site and tests ran against a local Postgres 16 with Supabase's roles emulated.
-- **The Supabase HTTPS store against real PostgREST**: only its request contract is tested, with a mocked fetch.
-- **Migrations over the Supabase Management API**: only tested with a mocked fetch.
-- **Real email delivery**: the user will add a sending domain later, so the email code is tested only with a mocked
-  fetch. `LEAD_NOTIFY_EMAIL` is empty, and the Resend key is valid.
-- **A Netlify deploy**: no account access. `apps/web/netlify.toml` follows Netlify's monorepo docs but is untested.
-- **Real devices, Safari or Firefox, and screen readers**: only Chromium emulation plus automated accessibility checks
-  were used.
+- **Live Supabase, again.** Everything ran against the local Postgres 16 with Supabase's roles and `auth` schema
+  emulated. On a real project, check `auth.users` inserts from the seed, `AUTH_PROVIDER=supabase`, and the
+  `crm_server` login through the pooler.
+- **Real email.** No verified sending domain yet, so `RESEND_API_KEY` is commented out in `.env`. Emails are recorded
+  as `logged`, and the console shows a redacted copy. The Resend request (headers, idempotency key,
+  `List-Unsubscribe`) is unit-tested with a mocked fetch.
+- **Netlify deploys**, including the scheduled function (`apps/crm/netlify/functions/nurture-cron.mts`): no account
+  access.
+- **Real devices, Safari and Firefox, and screen readers.** Only Chromium emulation and automated checks were used.
+  Touch dragging was exercised only through Playwright's touch emulation, and the Move menu is the dependable touch
+  path.
 
 ## Known gaps and caveats
 
-- **Retention.** The privacy notice promises deletion 12 months after last contact, but no scheduled job does this
-  yet. Add a `pg_cron` purge (`erase_lead` for stale leads) in Phase 2, alongside the scheduler.
-- **Self-service withdrawal.** Withdrawal is by email to a placeholder `.example` address. Phase 2's unsubscribe link
-  and staff "withdraw consent" action should call `withdraw_consent`.
-- **Partner leads share the clinic pipeline.** They live in `leads` with `lead_type = 'partner'`, so the Phase 2 board
-  should filter by `lead_type` or give partners their own stages.
-- **Rate-limit IP source.** Netlify's `x-nf-client-connection-ip` is trusted first. On other hosts `x-forwarded-for`
-  can be spoofed, so the limit is best-effort there.
-- **No Content-Security-Policy header.** A strict CSP needs per-request nonces, which would make every page dynamic.
-  The other security headers are set. Revisit when the CRM (already dynamic) arrives.
-- **Footer wording.** The emergency notice text is the exact wording from the brief ("This form is not for urgent
-  care"), so it also mentions "this form" on pages without one.
-- **Pack values are not enforced in SQL.** `leads.stage` and `staff.level` are checked in SQL only for their format;
-  the pack defines the valid values. Phase 2 should validate stage changes against `getActivePack().stages` in
-  `packages/core`.
-- **Rotate the supplied keys.** They were pasted into a chat: the database password, Resend, Gemini and LiveKit. The
-  Gemini key starts with `AQ.` rather than the usual `AIza`, so check it in Phase 3.
+- **Phase 3 hooks.**
+  - The "AI summary" panel is a placeholder.
+  - The `ai_triaged` stage exists, but nothing triages automatically yet.
+  - `assignLead` supports only `mode: 'manual'`.
+- **Partner leads share the clinic board** (filter by Type). Separate partner stages may come with Phase 4's packs.
+- **Lists are not paginated.** Filtering and sorting happen on the server, in memory over the role's visible leads.
+  That is fine for hundreds of leads; add SQL pagination before thousands.
+- **No Content-Security-Policy header yet**, on either app. The CRM is fully dynamic, so a nonce-based CSP is now
+  practical; do it in Phase 4's hardening pass.
+- **Reminders are in-app only** (a count on the workspace link and a label on the task). Staff do not receive email or
+  push reminders.
+- **The inbound webhook is a stub contract** (signed JSON with `lead_id`, `channel`, `body`). A real SMS or WhatsApp
+  provider needs an adapter that maps its payload and verifies its own signature.
+- **Rotate the supplied keys.** The database password, Resend, Gemini and LiveKit keys were pasted into a chat. The
+  Gemini key starts with `AQ.` rather than the usual `AIza`; check it first thing in Phase 3.
 
-## Exact first steps for Phase 2
+## Exact first steps for Phase 3
 
-1. Read `CLAUDE.md`, this file, `DECISIONS.md` and `docs/ARCHITECTURE.md`. Then run
-   `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`. Postgres binaries make `pnpm test` cover
-   the SQL.
-2. **Get the live database migrated** with one of these:
-   - From a machine with IPv6, or with the Session pooler URL in `DATABASE_URL`: `pnpm db:migrate && pnpm db:seed`.
-   - From a cloud session: add `SUPABASE_ACCESS_TOKEN` to `.env`, blank `DATABASE_URL` for that one command, and run
-     `pnpm db:migrate`.
-   - Or paste the three migration files into the Supabase SQL editor, in order.
-3. Add `SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env` (Dashboard > Project Settings >
-   API Keys). The website then switches automatically to the HTTPS store.
-4. Scaffold `apps/crm` as a Next.js 16 app reusing `@healwyn/ui` (tokens.css plus `@source`) and `@healwyn/core`.
-   Toggle dark mode with `data-theme` on `<html>`.
-5. Add migration `20261011000001_staff_auth_and_rls.sql`:
-   - a `role` column on `staff` (manager, care_coordinator, specialist_doctor, billing_desk), linked through
-     `auth_user_id`;
-   - `security definer` helpers such as `public.current_staff_id()` and `public.current_staff_role()`, with
-     `search_path = ''`;
-   - RLS **policies** on `leads`, `lead_events`, `consent_records` and `staff` for `authenticated`, plus explicit
-     grants, because Phase 1 revoked everything. Extend `packages/db/test/security.test.ts`: it currently asserts that
-     `authenticated` has _no_ grants, so update that assertion deliberately.
-6. Put the permissions matrix in `packages/core` and test it. Prove in SQL tests (with `set local role authenticated`
-   and `set local request.jwt.claims = '{"sub": "…"}'`, which `auth.uid()` reads, as on Supabase) that a doctor cannot read another doctor's
-   leads.
-7. Seed one demo user per role through the Auth admin API (service role), behind `DEMO_LOGIN=true`.
-8. Build the remaining Phase 2 scope from `docs/PROMPTS.md`. Stage changes write `lead_events` (`stage.changed` with
-   `from`/`to`), assignment goes through `assignLead()` in `packages/core`, and the 40-lead seed extends `buildSeedSql`
-   (keep `is_demo = true`).
-9. Keep `main` and the session branch identical. Tag `phase-2-complete` at the end.
+1. Read `CLAUDE.md`, this file, `DECISIONS.md` and `docs/ARCHITECTURE.md`. Start the database with
+   `pnpm db:local start`, then run `pnpm check`, then `pnpm build && pnpm test:e2e`.
+2. **Routing engine** in `packages/core/src/routing/`.
+   - Pure functions: `routeLead(lead, roster, weights, now)` returns a choice plus an explanation with a score
+     breakdown.
+   - Weights go in the pack as a new `routing` block. A hard filter on specialty falls back to a care coordinator.
+     Score on language, urgency (rank via `staffLevels[].rank`), load against `staff.capacity`, a returning patient's
+     previous doctor, and the billing flag copying in the billing desk. Tie-breaks are deterministic.
+   - Add `mode: 'auto'` to `AssignmentContext` in `packages/core/src/crm/assignment.ts` and keep `assignLead`'s
+     signature. The CRM already stores `decision.explanation` under `payload.routing` and renders it on the timeline.
+   - Tests: table-driven cases, plus a simulated week of leads to check that nobody is starved or overloaded.
+   - The SQL `assign_lead(lead, staff, reason, routing jsonb)` already accepts the explanation. It hardcodes
+     `method: 'manual'` in the event payload, so add a migration that takes the method from `p_routing`.
+3. **Contracts.** Use zod 4's `z.toJSONSchema()` on the schemas in `packages/core`: the voice result payload and the
+   intake answers. Write the output to `packages/core/contracts/*.json`. Generate pydantic models for `apps/voice` with
+   `datamodel-code-generator`. `pnpm contracts:check` must regenerate into a temporary folder and diff; add it to
+   `pnpm check`.
+4. **`/api/voice/complete` in `apps/crm`.**
+   - Reuse `verifySignedRequest` from `lib/server/webhooks.ts`, with a new `VOICE_WEBHOOK_SECRET`.
+   - Add a `call_sessions` migration: transcript and summary under RLS, never logged.
+   - A `security definer` function records the call, moves the lead to `ai_triaged` with its sequence plan, and runs
+     routing.
+   - Fill the AI summary panel in `app/(app)/leads/[id]/page.tsx`.
+5. **`apps/voice`.**
+   - Python and LiveKit Agents, with a Gemini Flash-class model.
+   - Research the free STT and TTS tiers, and log the choice with its date in `DECISIONS.md`.
+   - Build the conversation from the pack's `voicePrompt`s. Enforce the safety rules with a tested red-flag list.
+     Refuse to run if `REAL_DATA=true`.
+   - Cost guards: maximum call length and calls per day, plus a usage counter.
+6. **Browser widget** on Home and Contact, with a typed fallback. Then a simulated dialer with the call-window,
+   consent, opt-out and daily-cap checks. Then the eval harness: at least 20 scenarios through `pnpm eval:voice`,
+   writing `docs/VOICE_EVAL.md`.
+7. Keep `main` and the session branch identical. Tag `phase-3-complete` and add its commit to the milestones table.

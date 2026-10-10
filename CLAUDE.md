@@ -10,8 +10,8 @@ platform. Synthetic data only: no real patients, no real doctors, no medical adv
 The platform is built in four phases:
 
 1. **Foundation** (done): brand kit, marketing website, intake forms, data model.
-2. **CRM**: staff and manager app, pipeline board, lead profiles, staff workspace, nurture sequences (email real,
-   SMS/WhatsApp simulated).
+2. **CRM** (done): staff and manager app, pipeline board, lead profiles, staff workspace, nurture sequences (email
+   real, SMS/WhatsApp simulated).
 3. **Routing and AI voice**: deterministic routing engine with explanations; a LiveKit + Gemini voice assistant that
    qualifies leads (browser first, then phone) and never gives medical advice.
 4. **Pitch kit**: manager dashboard, booking, Razorpay test-mode payments, an industry switcher (real estate, wealth
@@ -28,22 +28,26 @@ All from the repo root. Node 22+, pnpm 10.
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `pnpm install`                          | Install everything                                                                                              |
 | `pnpm dev`                              | Website on http://localhost:3000                                                                                |
+| `pnpm dev:crm`                          | CRM on http://localhost:3001 (`start:crm` for a production build)                                               |
+| `pnpm worker [--every N]`               | Nurture worker: send due sequence steps once, or every N seconds                                                |
 | `pnpm lint`                             | ESLint (incl. jsx-a11y) + Prettier check                                                                        |
 | `pnpm format`                           | Prettier write                                                                                                  |
 | `pnpm typecheck`                        | `tsc` in every package (`next typegen` first for the web app)                                                   |
 | `pnpm test`                             | Vitest: core, ui (WCAG contrast), db (integration, real Postgres), web (submission pipeline)                    |
-| `pnpm build`                            | Production build of the website + client-bundle secrets check                                                   |
+| `pnpm build`                            | Production build of the website and the CRM, each followed by the client-bundle secrets check                   |
 | `pnpm check`                            | lint + typecheck + test + build: **the commit gate**                                                            |
-| `pnpm test:e2e`                         | Playwright smoke tests against a production build (run `pnpm build` first)                                      |
-| `pnpm lighthouse`                       | Lighthouse (mobile) on Home and Contact against a running `pnpm start`                                          |
-| `pnpm db:local start\|stop\|reset\|url` | Throwaway local Postgres with Supabase roles (no Docker)                                                        |
+| `pnpm test:e2e`                         | Playwright: website (375/1280 px), then CRM (laptop/tablet) against production builds (run `pnpm build` first)  |
+| `pnpm lighthouse [paths]`               | Lighthouse against a running server; `BASE`, `PRESET=desktop`, `COOKIE`, `CATEGORIES` (see the script header)   |
+| `pnpm db:local start\|stop\|reset\|url` | Throwaway local Postgres with Supabase roles (no Docker); `web-url` and `crm-url` print least-privilege logins  |
 | `pnpm db:migrate`                       | Apply `packages/db/supabase/migrations` to `DATABASE_URL` (or via Supabase Management API with an access token) |
 | `pnpm db:seed`                          | Synthetic specialties, staff and demo leads (idempotent; never touches real leads)                              |
 | `pnpm db:types`                         | Regenerate `packages/db/src/database.types.ts` from a migrated database                                         |
 
 Local database loop: `pnpm db:local start`, then `DATABASE_URL="$(pnpm -s db:local url)" pnpm db:migrate`, same for
-`db:seed`, `db:types` and `pnpm dev`. `pnpm test` starts its own temporary cluster when Postgres binaries exist
-(`TEST_DATABASE_URL` overrides); `pnpm test:e2e` uses the local cluster when it is running.
+`db:seed`, `db:types` and `pnpm dev`. Both apps also load the root `.env` themselves (`process.loadEnvFile` in
+`next.config.ts`; variables already set win). `pnpm test` starts its own temporary cluster when Postgres binaries exist
+(`TEST_DATABASE_URL` overrides); `pnpm test:e2e` uses the local cluster when it is running, and the CRM suite reseeds
+it. Both e2e suites delete the leads they created when they finish.
 
 ## Repo structure
 
@@ -54,12 +58,21 @@ apps/
     components/ site chrome, forms (client), illustrations (SVG)
     lib/server/ server-only: submission pipeline, lead store singleton, Resend notifier, logger
     e2e/        Playwright;  test/  Vitest
-  crm/        Phase 2 (README only)
+    app/unsubscribe, app/api/unsubscribe   unsubscribe page + RFC 8058 one-click endpoint
+  crm/        Next.js 16 staff app (see apps/crm/README.md)
+    app/(app)/  pipeline, leads/[id], workspace, sequences; actions.ts holds every server action
+    app/api/    cron/nurture (worker trigger), messages/inbound (signed reply webhook)
+    components/ board (dnd-kit), lead table, filters, profile controls and forms, shell, undo toast
+    lib/server/ session (jose), auth, asStaff (RLS transaction), queries, scores, webhooks
+    e2e/        Playwright (laptop + tablet)
   voice/      Phase 3, Python LiveKit agent (README only)
 packages/
-  core/       brand.ts, industry packs (clinic.ts + content + demo data), zod schemas, consent, lead payloads
+  core/       brand.ts, industry packs (clinic.ts + clinic-crm.ts sequences/templates/SLA/scoring + demo staff and
+              leads), permissions.ts (roles, capabilities, lead visibility), crm/ (scoring, SLA, sequence planning,
+              templates, assignLead), zod schemas, consent, lead payloads
   ui/         tokens.css (Tailwind v4 theme, light/dark), accessible components, nav/footer
   db/         supabase/migrations, local-shim.sql, lead stores (supabase | postgres | memory), seed, type generator
+  messaging/  email (Resend or console), unsubscribe tokens, the nurture worker and its CLI
 scripts/      local-db.sh, lighthouse.mjs
 docs/         ARCHITECTURE.md and phase docs
 ```
@@ -73,8 +86,19 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
 - **Industry packs drive everything**: form questions, consents, stages, staff levels and sequences are read from the
   active pack (`getActivePack()`), never hardcoded. Phase 4 adds packs; keep new features pack-driven.
 - **One schema, both sides**: zod schemas in `packages/core` validate in the browser and again on the server.
-- **Database writes go through SQL functions** (`submit_lead`, `withdraw_consent`, `erase_lead`, `hit_rate_limit`) so
-  each operation is one transaction regardless of transport (supabase-js RPC or postgres.js).
+- **Database writes go through SQL functions** (`submit_lead`, `withdraw_consent`, `erase_lead`, `hit_rate_limit`,
+  and in the CRM `change_lead_stage`, `assign_lead`, `add_note`, …) so each operation is one transaction regardless of
+  transport. Staff functions are `security definer` with `search_path = ''`, check the caller's role themselves
+  (`app_private.acting_staff`) and only touch leads the caller can see (`app_private.visible_lead`).
+- **Staff reads go through RLS.** CRM code reads inside `asStaff(session, tx => …)`, which sets `role authenticated`
+  and the JWT claims for the transaction. Never query leads from the CRM outside `asStaff`. `staff_can_see_lead` in
+  SQL mirrors `canSeeLead` in `packages/core`; a DB test compares them for every demo user, so change both together.
+- **Permissions live in `packages/core/src/permissions.ts`** and are enforced in the UI, in the server action
+  (`assertCapability`) and in SQL. Pages behind a capability call `requireCapability`, which renders a real 403.
+- **Nurture**: sequences live in the pack. `planStageEntry` decides enrolments when a stage changes; the SQL applies
+  the plan in the same transaction. The worker claims due steps with `FOR UPDATE SKIP LOCKED`, re-checks stop
+  conditions at send time, and records exactly one message per step (unique `scheduled_message_id`; Resend idempotency
+  key `step-<id>`). SMS and WhatsApp are always `simulated`.
 - **Migrations** are append-only files in `packages/db/supabase/migrations/<14-digit version>_<name>.sql`. Every new
   table needs RLS enabled and explicit grants/revokes (a test checks every `public` table has RLS and that `anon` /
   `authenticated` hold no privileges and cannot execute functions). Run `pnpm db:types` after schema changes.
@@ -87,6 +111,24 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
   `aria-hidden`; meaningful ones get `role="img"` and a title.
 - **Copy**: calm, plain, no jargon, no medical advice, no real prices, no real people. Placeholder emails use `.example`.
 - Style: Prettier (120 cols, single quotes), TypeScript strict with `noUncheckedIndexedAccess`.
+
+## Lessons learned (do not relearn these)
+
+- `@next/env` caches its first load, which is the app folder, so a root `.env` was silently ignored. Both
+  `next.config.ts` files call `process.loadEnvFile(rootEnv)` instead.
+- `forbidden()` needs `experimental.authInterrupts`, and a `loading.tsx` above the page makes the response stream with
+  200 before the 403 is known. Keep loading skeletons on data pages that are not capability-guarded at a parent level.
+- React 19 resets a form after its action runs; return submitted values (e.g. the login email) and use them as
+  `defaultValue`.
+- React 19.2 reveals streamed Suspense content in batches, so right after `load` the content can still be in a hidden
+  container. In Playwright, assert visibility before `focus()`.
+- Next's route announcer is `role="alert"` and dnd-kit's live region is `role="status"`: scope locators (to `main`, or
+  by accessible name such as the toast's `Notification`).
+- dnd-kit's default keyboard getter moves 25 px per arrow press; `columnCoordinates` in `board.tsx` jumps a column.
+- plpgsql `UPDATE … RETURNING … INTO` fails on several rows; use a CTE.
+- Rate limits keyed only by IP lock out a whole office (and parallel tests); the CRM login limit is keyed by IP and
+  email.
+- Never `pkill -f "next start"` in a sandbox shell (it can kill the shell); kill by PID.
 
 ## Git rules (every phase)
 
@@ -101,7 +143,9 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
 
 - **Free tiers only.** Hosting: Netlify (commercial use allowed on Free; see `DECISIONS.md`). Do not call paid APIs.
 - **No real secrets in the repo.** `.env` (repo root) is gitignored; `.env.example` lists every variable. The
-  service-role key and `DATABASE_URL` are server-only; the build fails if they reach `.next/static`.
+  service-role key, every `*_DATABASE_URL` and every `*_SECRET` are server-only; the build fails if they reach
+  `.next/static`. Before each commit, grep the staged diff for the values in `.env`.
+- **`DEMO_LOGIN` must be off outside demos.** It shows one-click logins for the seeded staff.
 - **Synthetic data only.** Do not collect or log real health information. Never log the free-text concern.
 - **No analytics or third-party trackers.** Fonts are self-hosted.
 - **India's DPDP rules**: minimal collection, separate versioned consents with a hash of the exact wording,

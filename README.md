@@ -7,7 +7,7 @@ A portfolio showcase of a lead-to-doctor platform: _"The right doctor, from the 
 they need, an AI assistant qualifies them, a routing engine matches them with the right doctor's team, and staff follow
 up from a CRM with nurture sequences.
 
-It is built in four phases. **Phase 1 (this release)** is the foundation:
+It is built in four phases. **Phase 1** is the foundation:
 
 - **Brand kit and design system** (`packages/ui`): warm paper, teal ink and a marigold accent, with Fraunces and
   Atkinson Hyperlegible type. Light and dark themes, with WCAG AA contrast checked by tests.
@@ -21,8 +21,23 @@ It is built in four phases. **Phase 1 (this release)** is the foundation:
 - **Industry pack** (`packages/core`): the form, stages, staff levels and sequences all come from one typed config, so
   Phase 4 can re-skin the system for other industries.
 
-Next phases: the CRM (2), routing and the AI voice assistant (3), then the dashboard, booking, payments, industry
-switcher and pitch kit (4). See `CLAUDE.md` for the plan and `NEXT.md` for where things stand.
+**Phase 2** adds the CRM (`apps/crm`) and nurture automation (`packages/messaging`):
+
+- **Four roles** (manager, care coordinator, specialist doctor, billing desk) with a permissions matrix in
+  `packages/core`, enforced in the UI, in every server action and in Postgres row level security. Tests prove that a
+  doctor cannot read another doctor's leads and a coordinator cannot open manager-only screens.
+- **Pipeline board** with columns from the industry pack: drag with a mouse, finger or keyboard, or use each card's Move
+  menu. Every move is audited and can be undone. Filters and a sortable list view sit beside it.
+- **Lead profiles**: contact, consent history, assignment (with the reason recorded), a timeline from the audit trail,
+  notes from templates, tasks with reminders, every message with its channel and status, a rule-based score with its
+  breakdown, and a placeholder for the Phase 3 AI summary.
+- **Workspace**: my leads, today's tasks, the unassigned queue and the next seven days, with first-response SLA timers.
+- **Nurture sequences** from the pack, started and stopped by stage changes, replies, unsubscribes and consent
+  withdrawal. Email goes through Resend (logged until a domain is verified); SMS and WhatsApp are simulated. The worker
+  is idempotent and safe to run in parallel. Managers can preview and pause sequences and see enrolments.
+
+Next phases: routing and the AI voice assistant (3), then the dashboard, booking, payments, industry switcher and
+pitch kit (4). See `CLAUDE.md` for the plan and `NEXT.md` for where things stand.
 
 ## Run it locally
 
@@ -47,6 +62,21 @@ pnpm dev                                              # submissions now land in 
 psql "$DATABASE_URL" -c 'select stage, full_name, specialty_slug from leads order by created_at desc limit 5'
 ```
 
+### The CRM
+
+With the local database running and seeded (above), add `SESSION_SECRET`, `UNSUBSCRIBE_SECRET` and `CRON_SECRET` to
+`.env` (any random 32+ characters), plus `DEMO_LOGIN=true` for one-click demo logins, then:
+
+```bash
+export CRM_DATABASE_URL="$(pnpm -s db:local crm-url)"   # the CRM's least-privilege login
+pnpm dev:crm                                          # http://localhost:3001
+pnpm worker --every 60                                # sends due sequence steps once a minute
+```
+
+Demo staff sign in with `DEMO_USER_PASSWORD` (default `demo-pass-2026`): `anita.kapoor@healwyn.example` (manager),
+`neha.joshi@healwyn.example` (care coordinator), `asha.raman@healwyn.example` (specialist doctor) and
+`deepa.menon@healwyn.example` (billing desk). Submit an enquiry on the website and it appears on the board.
+
 ### With your Supabase project
 
 1. Apply the schema, choosing one of these:
@@ -68,7 +98,7 @@ psql "$DATABASE_URL" -c 'select stage, full_name, specialty_slug from leads orde
 
 ```bash
 pnpm check                    # lint + typecheck + unit/integration tests + build (the commit gate)
-pnpm build && pnpm test:e2e   # Playwright: every page, both forms, keyboard-only, no-JS, honeypot, rate limit
+pnpm build && pnpm test:e2e   # Playwright: the site (every page, both forms, no-JS, rate limit), then the CRM flows
 pnpm start & pnpm lighthouse  # Lighthouse (mobile) on Home and Contact; reports in .lighthouse/
 ```
 
@@ -94,13 +124,21 @@ Netlify's Free plan allows commercial use and runs Next.js server actions as fun
 3. Deploy. Use deploy previews to iterate: they are free, while each production deploy costs 15 of the plan's 300
    monthly credits.
 
+The CRM is a second site from the same repository, with **Package directory** `/apps/crm` (`apps/crm/netlify.toml`).
+Give it `CRM_DATABASE_URL` (a login role granted `crm_server` and `authenticated`, through the transaction pooler),
+`SESSION_SECRET`, `CRON_SECRET`, `UNSUBSCRIBE_SECRET`, `INBOUND_WEBHOOK_SECRET`, `SITE_URL` (the
+website's URL, for unsubscribe links), `RESEND_API_KEY` and `EMAIL_FROM`. Its scheduled function runs the nurture
+worker every five minutes. Leave `DEMO_LOGIN` unset unless the deployment is a demo. The website also needs
+`UNSUBSCRIBE_SECRET` (the same value) for its unsubscribe page.
+
 ## Repository layout
 
 ```
-apps/web        Next.js site and forms         packages/core   brand, industry packs, schemas
-apps/crm        Phase 2 (placeholder)          packages/ui     tokens and components
-apps/voice      Phase 3 (placeholder)          packages/db     migrations, stores, seed, types
-docs/           architecture and phase docs    scripts/        local-db.sh, lighthouse.mjs
+apps/web        Next.js site and forms         packages/core       brand, industry packs, permissions, CRM rules
+apps/crm        Next.js staff CRM              packages/ui         tokens and components
+apps/voice      Phase 3 (placeholder)          packages/db         migrations, stores, seed, types
+docs/           architecture and phase docs    packages/messaging  email, unsubscribe, nurture worker
+                                               scripts/            local-db.sh, lighthouse.mjs
 ```
 
 More detail: `docs/ARCHITECTURE.md` (lead flow, data model, security), `DECISIONS.md` (every judgement call),

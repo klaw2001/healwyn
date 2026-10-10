@@ -9,6 +9,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: ReactNode;
+  /** A count shown after the label, e.g. task reminders that are due. */
+  badge?: { count: number; label: string };
 }
 
 export function NavLinks({ items, compact = false }: { items: readonly NavItem[]; compact?: boolean }) {
@@ -29,6 +31,12 @@ export function NavLinks({ items, compact = false }: { items: readonly NavItem[]
                 {item.icon}
               </span>
               {item.label}
+              {item.badge && item.badge.count > 0 ? (
+                <span className="ml-auto rounded-full bg-accent px-2 text-xs font-bold text-on-accent">
+                  {item.badge.count}
+                  <span className="sr-only"> {item.badge.label}</span>
+                </span>
+              ) : null}
             </Link>
           </li>
         );

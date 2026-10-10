@@ -89,3 +89,54 @@ An independent review pass found no secret leaks, no injection risks and no high
   - the partner error summary lists errors in page order.
 - **`.env.example` leaves `DATABASE_URL` blank,** so `cp .env.example .env && pnpm dev` really does use the in-memory store.
 - **For now, development uses the local Postgres** (`.env` points at `pnpm db:local`), at the user's request. Supabase is configured later, by swapping the connection strings.
+
+## Phase 2 (2026-10-10)
+
+### Auth and access
+
+- **Supabase Auth's tables, our own session cookie.** Staff accounts live in `auth.users` and `auth.identities` (emulated locally by `local-shim.sql`, real on Supabase), and `staff.auth_user_id` links them. After the password check the CRM issues an 8-hour HS256 cookie (`jose`, `SESSION_SECRET`). The local Postgres has no GoTrue, and this keeps one code path for both. `AUTH_PROVIDER=supabase` sends the password check to Supabase Auth instead; that path is written but not run against a live project.
+- **RLS is applied by impersonating Supabase's API.** `asStaff()` opens a transaction, runs `set local role authenticated` and sets `request.jwt.claims`, exactly what PostgREST does, so `auth.uid()` and every RLS policy behave as they would from supabase-js. The CRM's own login role (`crm_server`) holds nothing except membership of `authenticated` and `hit_rate_limit`.
+- **Staff read through RLS and write only through `security definer` functions.** `authenticated` has SELECT and nothing else. Each function checks the caller's role (`app_private.acting_staff`) and visibility (`app_private.visible_lead`), validates codes, writes the audit event and applies side effects in one transaction. A write path that cannot skip the audit trail was worth more than direct table updates.
+- **Visibility is one rule in two languages.** `LEAD_VISIBILITY` and `canSeeLead` in `packages/core`, and `staff_can_see_lead` in SQL. A DB test signs in as every demo user and compares what RLS returns with what `canSeeLead` predicts, so the two cannot drift.
+- **Billing desk visibility:** leads assigned to them, leads flagged for billing (the pack's `billingRule`: has insurance) and leads in the won stage. A billing desk needs insured patients before the visit and every package sale after it, and nothing else.
+- **Demo users are inserted into `auth.users` directly by the seed** (bcrypt through `extensions.crypt`, cost 8). The Auth admin API needs the service-role key, which was not supplied; Supabase accepts users created this way. Demo-login buttons render only when `DEMO_LOGIN=true`; the server action checks the flag again.
+- **Login throttling: 10 attempts per 10 minutes per IP and email**, through the same `hit_rate_limit` as the forms. Keying on IP alone would lock out a whole clinic behind one office IP.
+- **`forbidden()` for capability-guarded pages** (`experimental.authInterrupts`). A coordinator who types `/sequences` gets a real 403 page, not a redirect that hides the reason. Loading skeletons sit on data pages only, because a parent `loading.tsx` starts streaming with 200 before the page can refuse.
+
+### CRM
+
+- **Board: dnd-kit, plus a Move menu on every card.** dnd-kit supports pointer, touch and keyboard sensors with screen-reader announcements. Its keyboard sensor moves 25 px per key press, so a custom coordinate getter jumps whole columns. The Move menu (a native `<details>`) is the click and keyboard path that needs no dragging at all.
+- **Optimistic moves with server confirmation.** A card moves at once; if the action fails it moves back and the toast says why.
+- **Undo is another stage change** (reason `undo`), stored on a per-tab stack in sessionStorage. The audit trail keeps both moves, and undo survives navigation within the session as the spec asks.
+- **Filters live in the URL.** Views can be bookmarked and shared, the back button works, and the server renders the filtered list.
+- **The list view sorts in memory on the server** over the filtered rows (`sortLeads`, driven by `sort` and `dir` in the URL). At demo scale (tens to hundreds of leads) that is instant and keeps the query simple; paginate in SQL when a real clinic's volume needs it.
+- **`assignLead(lead, context)` lives in `packages/core`.** Manual assignment returns a decision with a plain-language explanation (specialty and language match), stored with the `lead.assigned` event and shown on the timeline. Phase 3 adds routing as another `context.mode`.
+- **Lead score: transparent rules from the pack, stored in `lead_scores`.** Each factor (urgency, consent to a call, insurance, recency, reply, overdue SLA, …) adds or subtracts points, the total is clamped to 0–100 and banded, and the profile shows every factor. A model would be a black box for a demo whose point is explainability.
+- **SLA = time to first response, with a target per urgency** (urgent 1 h, high 4 h, normal 24 h, low 48 h). `first_response_at` is set by the first stage change, note or "mark as replied": an action that reaches or records contact with the patient. Assigning or creating a task does not count.
+- **Task reminders fire 30 minutes before the due time** and show as a count on the workspace link and a "Reminder" label on the task. In-app only: SMS or email reminders to staff would need consent and a channel the demo does not have.
+- **Theme choice is a cookie,** so the server renders the right theme with no flash; "Auto" follows the system.
+- **Partner enquiries appear on the same board,** filterable by Type. They share consent, audit and erasure handling; separate partner stages can come with Phase 4's packs if needed.
+- **Lead references use the last 8 hex digits of the id.** Demo ids share their first digits, so the first 8 made every demo reference identical.
+
+### Nurture
+
+- **Scheduling: a Netlify scheduled function calls `/api/cron/nurture` every 5 minutes** (Bearer `CRON_SECRET`); locally `pnpm worker --every 60`. `pg_cron` was rejected: rendering templates and calling Resend belong in TypeScript, and reaching them from `pg_cron` needs `pg_net` plus a public URL anyway. Netlify scheduled functions are on the Free plan.
+- **Idempotent and safe under concurrency, three ways.** `claim_due_messages` locks rows with `FOR UPDATE SKIP LOCKED` (no two workers take a step), `messages.scheduled_message_id` is unique (a step is recorded once even if a worker dies after sending), and Resend gets the idempotency key `step-<id>` (a retried email is not delivered twice). Steps stuck in `processing` for 15 minutes are reclaimed.
+- **Stop conditions are checked twice:** when they happen (reply, opt-out, withdrawal and stage changes stop enrolments in the same transaction) and again at send time (`stopReasonFor`), which also covers pausing a sequence.
+- **Retries:** up to 3 attempts with 5- and 10-minute back-off, then the step is `failed` and a `message.failed` event is written. Error codes only, never provider messages.
+- **SMS and WhatsApp are always `simulated`.** Real SMS in India needs DLT registration. The rendered text is stored so staff can see exactly what would have been sent.
+- **Email without a verified domain is `logged`, not sent.** `RESEND_API_KEY` is commented out in `.env` until the user adds a domain; the worker then prints a redacted copy (no recipient, no body) and records `logged`.
+- **Unsubscribe tokens are HMACs of the lead id (`UNSUBSCRIBE_SECRET`) with no expiry.** An unsubscribe link must keep working for as long as the email exists. The page asks for one click to confirm, because link scanners prefetch GET URLs; mail clients use the RFC 8058 one-click POST (`List-Unsubscribe-Post`).
+- **The inbound webhook is a signed stub:** HMAC-SHA256 of `timestamp.body` with `INBOUND_WEBHOOK_SECRET` and a 5-minute window against replays. A real SMS or WhatsApp provider would sit behind a small adapter that maps its payload onto this.
+- **Retention runs with the worker.** `purge_stale_leads(12)` erases leads with no activity for 12 months, which the privacy notice promises.
+- **Least-privilege roles per process:** `web_submitter` (site), `crm_server` + `authenticated` (CRM), `nurture_worker` (worker). Each can execute only its own functions.
+
+### Demo data
+
+- **40 deterministic demo leads** (`generateClinicDemoLeads`, seeded PRNG): 8 new, 6 AI-triaged, 7 booked, 6 visited, 5 follow-up due, 4 package active, 4 lost, with some overdue SLAs and tasks. The seed replays each lead's history through `planStageEntry`, so enrolments, sent messages, stop reasons and sequence statistics are real rows rather than painted numbers.
+- **Seeded times snap to clinic hours** (09:00–18:30 IST) so staff actions in the timeline look plausible.
+
+### Tooling
+
+- **Both apps load the root `.env` with `process.loadEnvFile`.** Next's `@next/env` caches its first load (the app folder), so the root file was silently ignored. Variables already in the environment still win.
+- **The CRM e2e suite reseeds the local database and both suites delete the leads they created,** so the demo board stays clean after a test run.

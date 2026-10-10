@@ -97,6 +97,15 @@ export const sourceLabel = (source: string) => SOURCE_LABELS[source] ?? source.r
 
 export const CHANNEL_LABELS: Record<string, string> = { email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp' };
 
+/** Why a lead went to someone: the explanation stored with an assignment event. */
+export function assignmentExplanation(type: string, payload: Record<string, unknown>): string[] {
+  if (type !== 'lead.assigned') return [];
+  const routing = payload.routing as { explanation?: unknown } | undefined;
+  return Array.isArray(routing?.explanation)
+    ? routing.explanation.filter((l): l is string => typeof l === 'string')
+    : [];
+}
+
 /** One readable line per audit event. Payloads hold ids and codes only. */
 export function describeEvent(
   type: string,

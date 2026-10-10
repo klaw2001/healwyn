@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AssignmentError,
+  assignLead,
   canSeeLead,
   can,
   clinicDemoLeads,
@@ -325,5 +327,45 @@ describe('new lead payload', () => {
     expect(payload.billingFlag).toBe(true);
     expect(payload.sequencePlan?.enroll.map((e) => e.sequenceId)).toEqual(['new-lead-welcome']);
     expect(payload.consents.find((c) => c.purpose === 'contact')?.required).toBe(true);
+  });
+});
+
+describe('assignLead', () => {
+  const lead = {
+    id: 'lead-1',
+    specialtySlug: 'dental',
+    urgency: 'normal' as const,
+    preferredLanguage: 'hi',
+    assignedStaffId: null,
+  };
+  const staff = [
+    { id: 's1', fullName: 'Dr. One', active: true, specialties: ['dental'], languages: ['en', 'hi'] },
+    { id: 's2', fullName: 'Dr. Two', active: true, specialties: ['dermatology'], languages: ['en'] },
+    { id: 's3', fullName: 'Former', active: false, specialties: ['dental'], languages: ['hi'] },
+  ];
+
+  it('assigns by hand and explains how well the person matches', () => {
+    const decision = assignLead(lead, { mode: 'manual', staffId: 's1', staff });
+    expect(decision).toMatchObject({ staffId: 's1', method: 'manual', changed: true });
+    expect(decision.explanation).toEqual([
+      'Assigned by hand to Dr. One.',
+      'Covers dental.',
+      "Speaks the lead's preferred language (hi).",
+    ]);
+    const mismatch = assignLead(lead, { mode: 'manual', staffId: 's2', staff });
+    expect(mismatch.explanation).toContain('Does not list dental as a specialty.');
+    expect(mismatch.explanation).toContain("Does not list the lead's preferred language (hi).");
+  });
+
+  it('refuses inactive or unknown staff', () => {
+    expect(() => assignLead(lead, { mode: 'manual', staffId: 's3', staff })).toThrow(AssignmentError);
+    expect(() => assignLead(lead, { mode: 'manual', staffId: 'nobody', staff })).toThrow(AssignmentError);
+  });
+
+  it('reports no change when the lead already sits with that person, and unassigns', () => {
+    const owned = { ...lead, assignedStaffId: 's1' };
+    expect(assignLead(owned, { mode: 'manual', staffId: 's1', staff }).changed).toBe(false);
+    expect(assignLead(owned, { mode: 'manual', staffId: null, staff })).toMatchObject({ staffId: null, changed: true });
+    expect(assignLead(lead, { mode: 'manual', staffId: null, staff }).changed).toBe(false);
   });
 });
