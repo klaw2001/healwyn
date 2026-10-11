@@ -1,10 +1,8 @@
-import { getActivePack } from '@healwyn/core';
+import type { IndustryPack } from '@healwyn/core';
 import { Badge } from '@healwyn/ui';
-import { answerLabel, formatDateTime, languageLabel } from '@/lib/format';
+import { formatDateTime, languageLabel, packLabels } from '@/lib/format';
 import type { CallRow } from '@/lib/server/queries';
 import { SparkIcon } from '../icons';
-
-const pack = getActivePack();
 
 const OUTCOMES: Record<string, string> = {
   completed: 'Qualified',
@@ -22,9 +20,9 @@ const CHANNELS: Record<string, string> = {
   text: 'Typed chat',
 };
 
-function flagLabel(flag: CallRow['safety_flags'][number]): string {
+function flagLabel(pack: IndustryPack, flag: CallRow['safety_flags'][number]): string {
   if (flag.kind === 'red_flag') return pack.voice.safety.redFlags.find((f) => f.id === flag.code)?.label ?? flag.code;
-  if (flag.kind === 'advice_request') return 'Asked for medical advice (declined)';
+  if (flag.kind === 'advice_request') return `Asked for ${flag.code.replaceAll('_', ' ')} (declined)`;
   return 'Tried to change the assistant’s instructions (refused)';
 }
 
@@ -38,7 +36,16 @@ function duration(seconds: number | null): string {
  * line summary, safety flags, what the caller answered, how the lead was
  * routed, and the transcript (folded away).
  */
-export function AiSummary({ calls, routingExplanation }: { calls: CallRow[]; routingExplanation: string[] }) {
+export function AiSummary({
+  pack,
+  calls,
+  routingExplanation,
+}: {
+  pack: IndustryPack;
+  calls: CallRow[];
+  routingExplanation: string[];
+}) {
+  const { answerLabel } = packLabels(pack);
   const latest = calls.find((c) => c.status === 'completed');
   const inProgress = calls.find((c) => c.status === 'started');
   const redFlags = latest?.safety_flags.filter((f) => f.kind === 'red_flag') ?? [];
@@ -76,8 +83,8 @@ export function AiSummary({ calls, routingExplanation }: { calls: CallRow[]; rou
         <div className="mt-3 grid gap-3 text-sm">
           {redFlags.length ? (
             <p className="rounded-md bg-surface p-2 font-semibold text-danger" role="note">
-              Safety: {redFlags.map(flagLabel).join(', ')}. The caller was told to call{' '}
-              {pack.voice.safety.emergencyNumber} or go to the nearest hospital. Call back now.
+              Safety: {redFlags.map((flag) => flagLabel(pack, flag)).join(', ')}. The caller was given the emergency
+              advice (call {pack.voice.safety.emergencyNumber}). Call back now.
             </p>
           ) : null}
           {latest.summary.length ? (
@@ -90,7 +97,12 @@ export function AiSummary({ calls, routingExplanation }: { calls: CallRow[]; rou
           {latest.safety_flags.some((f) => f.kind !== 'red_flag') ? (
             <p className="text-ink-muted">
               Also noted:{' '}
-              {[...new Set(latest.safety_flags.filter((f) => f.kind !== 'red_flag').map(flagLabel))].join('; ')}.
+              {[
+                ...new Set(
+                  latest.safety_flags.filter((f) => f.kind !== 'red_flag').map((flag) => flagLabel(pack, flag)),
+                ),
+              ].join('; ')}
+              .
             </p>
           ) : null}
           {Object.keys(latest.answers).length ? (

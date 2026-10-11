@@ -2,6 +2,8 @@ import {
   canSeeLead,
   clinicDemoStaff,
   clinicPack,
+  industryPacks,
+  type IndustryPack,
   DEMO_USERS,
   demoAuthUserId,
   planStageEntry,
@@ -14,7 +16,6 @@ import { asUser, connect, databaseUrl, samplePayload } from './helpers';
 const user = (role: StaffRole) => demoAuthUserId(DEMO_USERS.find((u) => u.role === role)!.staffId);
 const staffIdOf = (role: StaffRole) => DEMO_USERS.find((u) => u.role === role)!.staffId;
 const asha = clinicDemoStaff.find((m) => m.fullName === 'Dr. Asha Raman')!;
-const vikram = clinicDemoStaff.find((m) => m.fullName === 'Dr. Vikram Sethi')!;
 
 describe.skipIf(!databaseUrl)('CRM access control (RLS and staff functions)', () => {
   const sql = databaseUrl ? connect() : (null as never);
@@ -24,11 +25,15 @@ describe.skipIf(!databaseUrl)('CRM access control (RLS and staff functions)', ()
     await sql?.end();
   });
 
-  it('shows every staff member exactly the leads canSeeLead allows', async () => {
-    const leads = await sql<{ id: string; assigned_staff_id: string | null; billing_flag: boolean; stage: string }[]>`
-      select id, assigned_staff_id, billing_flag, stage from public.leads`;
+  it('shows every staff member exactly the leads canSeeLead allows, in every industry', async () => {
+    const leads = await sql<
+      { id: string; industry: string; assigned_staff_id: string | null; billing_flag: boolean; stage: string }[]
+    >`select id, industry, assigned_staff_id, billing_flag, stage from public.leads`;
     expect(leads.length).toBeGreaterThan(30);
-    for (const member of clinicDemoStaff) {
+    const packs = Object.values(industryPacks) as IndustryPack[];
+    const won = (industry: string, stage: string) =>
+      packs.find((p) => p.id === industry)?.stages.find((s) => s.id === stage)?.kind === 'won';
+    for (const member of packs.flatMap((p) => p.demo.staff.map((m) => ({ ...m, industry: p.id })))) {
       const visible = await asUser(
         sql,
         demoAuthUserId(member.id),
@@ -36,10 +41,11 @@ describe.skipIf(!databaseUrl)('CRM access control (RLS and staff functions)', ()
       );
       const expected = leads
         .filter((l) =>
-          canSeeLead(member.role, member.id, {
+          canSeeLead(member.role, member, {
+            industry: l.industry,
             assignedStaffId: l.assigned_staff_id,
             hasInsurance: l.billing_flag,
-            stage: l.stage,
+            stageIsWon: won(l.industry, l.stage),
           }),
         )
         .map((l) => l.id)
@@ -53,7 +59,8 @@ describe.skipIf(!databaseUrl)('CRM access control (RLS and staff functions)', ()
 
   it('never lets a doctor read another doctor’s lead, or its history and notes', async () => {
     const [lead] = await sql<{ id: string }[]>`
-      select id from public.leads where assigned_staff_id = ${vikram.id} limit 1`;
+      select l.id from public.leads l join public.staff s on s.id = l.assigned_staff_id
+      where l.industry = 'clinic' and s.role = 'specialist_doctor' and s.id <> ${asha.id} limit 1`;
     expect(lead).toBeDefined();
     const seen = await asUser(sql, demoAuthUserId(asha.id), async (tx) => ({
       lead: await tx`select id from public.leads where id = ${lead!.id}`,

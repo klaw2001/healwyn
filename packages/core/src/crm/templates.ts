@@ -1,7 +1,9 @@
-import { BRAND } from '../brand';
+import type { Brand } from '../brand';
 import type { MessageTemplate } from './types';
 
 export interface TemplateVariables {
+  /** The lead's pack brand. */
+  brand: Brand;
   fullName: string;
   specialty?: string | null;
   reference: string;
@@ -20,10 +22,10 @@ function firstName(fullName: string): string {
 function fill(text: string, vars: TemplateVariables): string {
   return text
     .replaceAll('{firstName}', firstName(vars.fullName))
-    .replaceAll('{brand}', BRAND.name)
+    .replaceAll('{brand}', vars.brand.name)
     .replaceAll('{specialty}', vars.specialty ?? 'the right specialist')
     .replaceAll('{reference}', vars.reference)
-    .replaceAll('{contactEmail}', BRAND.contactEmail);
+    .replaceAll('{contactEmail}', vars.brand.contactEmail);
 }
 
 /**
@@ -34,12 +36,12 @@ export function renderTemplate(template: MessageTemplate, vars: TemplateVariable
   const body = fill(template.body, vars);
   if (template.channel === 'email') {
     return {
-      subject: template.subject ? fill(template.subject, vars) : `${BRAND.name}: an update`,
+      subject: template.subject ? fill(template.subject, vars) : `${vars.brand.name}: an update`,
       text: [
         body,
         '',
         '--',
-        `${BRAND.name} (${BRAND.demoNotice.toLowerCase()})`,
+        `${vars.brand.name} (${vars.brand.demoNotice.toLowerCase()})`,
         `Unsubscribe from these emails: ${vars.unsubscribeUrl}`,
       ].join('\n'),
     };

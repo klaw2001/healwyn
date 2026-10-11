@@ -190,9 +190,9 @@ test('rate-limits repeated enquiries from one connection, but not mistakes', asy
 });
 
 test('pre-selects a specialty linked from another page', async ({ page }) => {
-  await page.goto('/specialties/dental');
+  await page.goto('/services/dental');
   await page.getByRole('link', { name: 'Ask about dental' }).click();
-  await expect(page).toHaveURL(/\/contact\?specialty=dental/);
+  await expect(page).toHaveURL(/\/contact\?service=dental/);
   await expect(page.getByLabel('What would you like help with?')).toHaveValue('dental');
 });
 

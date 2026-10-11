@@ -1,7 +1,6 @@
 import 'server-only';
 import {
   assignmentRecord,
-  getActivePack,
   leadUpdateFromCall,
   planStageEntry,
   shouldRouteAfterCall,
@@ -9,10 +8,9 @@ import {
   type VoiceCallResult,
 } from '@healwyn/core';
 import { system } from './db';
+import { packOf } from './pack';
 import { lockRouting, routeForSystem } from './routing';
 import { scoreFromInput, type ScoreInputJson } from './scores';
-
-const pack = getActivePack();
 
 interface Recorded {
   status: 'recorded' | 'duplicate' | 'superseded';
@@ -36,6 +34,11 @@ export interface VoiceOutcome {
  * load. Replays of the same call change nothing.
  */
 export async function applyVoiceResult(result: VoiceCallResult): Promise<VoiceOutcome> {
+  // The answers are checked against the lead's own industry pack.
+  const [found] = await system()<{ industry: string | null }[]>`
+    select public.call_lead_industry(${result.callId}, ${result.leadId}) as industry`;
+  if (!found?.industry) throw Object.assign(new Error('unknown call'), { code: 'P0002' });
+  const pack = packOf(found.industry);
   const update = leadUpdateFromCall(result, pack);
   return system().begin(async (tx) => {
     await lockRouting(tx);

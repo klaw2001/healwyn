@@ -1,3 +1,4 @@
+import { industryPacks, type IndustryPack } from '@healwyn/core';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createPostgresLeadStore } from '../src';
 import { buildSeedSql } from '../src/seed';
@@ -203,8 +204,18 @@ describe.skipIf(!databaseUrl)('lead storage (Postgres store)', () => {
              (select count(*)::int from public.specialties) as specialties,
              (select count(*)::int from public.leads where is_demo and source = 'seed') as demo_leads,
              (select count(*)::int from public.leads where id = ${id}) as real_lead`;
-    expect(counts).toEqual({ staff: 12, specialties: 6, demo_leads: 40, real_lead: 1 });
-    const stages = await sql`select distinct stage from public.leads where source = 'seed' order by stage`;
-    expect(stages.map((s) => s.stage)).toHaveLength(7);
+    const packs = Object.values(industryPacks) as IndustryPack[];
+    expect(counts).toEqual({
+      staff: packs.reduce((n, p) => n + p.demo.staff.length, 0),
+      specialties: packs.reduce((n, p) => n + p.offerings.length, 0),
+      demo_leads: packs.length * 40,
+      real_lead: 1,
+    });
+    // Every pack's demo leads cover every one of its stages.
+    const stages = await sql<{ industry: string; n: number }[]>`
+      select industry, count(distinct stage)::int as n from public.leads where source = 'seed' group by industry`;
+    expect(Object.fromEntries(stages.map((s) => [s.industry, s.n]))).toEqual(
+      Object.fromEntries(packs.map((p) => [p.id, p.stages.length])),
+    );
   });
 });

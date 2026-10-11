@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
-import { compareQueuePriority, type UrgencyLevel } from '@healwyn/core';
+import { compareQueuePriority, type SlaTargets, type UrgencyLevel } from '@healwyn/core';
 import { cx } from '@healwyn/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -119,11 +119,13 @@ function Card({
   lead,
   stages,
   now,
+  sla,
   onMove,
 }: {
   lead: BoardLead;
   stages: readonly BoardStage[];
   now: Date;
+  sla: SlaTargets;
   onMove: (lead: BoardLead, stage: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -168,7 +170,13 @@ function Card({
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         <UrgencyBadge urgency={lead.urgency} />
-        <SlaBadge createdAt={lead.createdAt} urgency={lead.urgency} firstResponseAt={lead.firstResponseAt} now={now} />
+        <SlaBadge
+          sla={sla}
+          createdAt={lead.createdAt}
+          urgency={lead.urgency}
+          firstResponseAt={lead.firstResponseAt}
+          now={now}
+        />
         {lead.optedOut ? (
           <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-ink-muted">
             Unsubscribed
@@ -211,12 +219,14 @@ function Column({
   leads,
   stages,
   now,
+  sla,
   onMove,
 }: {
   stage: BoardStage;
   leads: BoardLead[];
   stages: readonly BoardStage[];
   now: Date;
+  sla: SlaTargets;
   onMove: (lead: BoardLead, stage: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
@@ -251,7 +261,7 @@ function Column({
       <ul className="mt-1 grid max-h-[calc(100dvh-17rem)] min-h-24 gap-2 overflow-y-auto overscroll-contain p-0.5">
         {leads.map((lead) => (
           <li key={lead.id} className="min-w-0">
-            <Card lead={lead} stages={stages} now={now} onMove={onMove} />
+            <Card lead={lead} stages={stages} now={now} sla={sla} onMove={onMove} />
           </li>
         ))}
       </ul>
@@ -269,10 +279,13 @@ export function Board({
   stages,
   leads: initial,
   nowIso,
+  sla,
 }: {
   stages: readonly BoardStage[];
   leads: BoardLead[];
   nowIso: string;
+  /** The pack's first-response targets. */
+  sla: SlaTargets;
 }) {
   const [leads, setLeads] = useState(initial);
   const [, startTransition] = useTransition();
@@ -356,6 +369,7 @@ export function Board({
             stage={stage}
             stages={stages}
             now={now}
+            sla={sla}
             onMove={move}
             leads={leads.filter((l) => l.stage === stage.id).sort((a, b) => compareQueuePriority(a, b))}
           />

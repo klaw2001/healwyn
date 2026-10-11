@@ -1,10 +1,10 @@
 'use client';
 
 import {
-  BRAND,
   consentSegments,
   HONEYPOT_FIELD,
   PRIVACY_PATH,
+  type Brand,
   type ConsentDefinition,
   type FieldErrors,
 } from '@healwyn/core';
@@ -87,10 +87,10 @@ export function Honeypot() {
   );
 }
 
-export function ConsentText({ definition }: { definition: ConsentDefinition }) {
+export function ConsentText({ definition, brand }: { definition: ConsentDefinition; brand: Brand }) {
   return (
     <>
-      {consentSegments(definition).map((segment, index) =>
+      {consentSegments(definition, brand).map((segment, index) =>
         segment.type === 'privacy-link' ? (
           <a
             key={index}
@@ -114,12 +114,14 @@ export function ConsentCheckbox({
   id,
   name,
   definition,
+  brand,
   error,
   defaultChecked,
 }: {
   id: string;
   name: string;
   definition: ConsentDefinition;
+  brand: Brand;
   error?: string;
   defaultChecked?: boolean;
 }) {
@@ -130,7 +132,7 @@ export function ConsentCheckbox({
       error={error}
       defaultChecked={defaultChecked}
       aria-required={definition.required ? true : undefined}
-      label={<ConsentText definition={definition} />}
+      label={<ConsentText definition={definition} brand={brand} />}
       className="rounded-md border border-line bg-surface-muted p-4"
     />
   );
@@ -158,11 +160,13 @@ export function SuccessPanel({
   successRef,
   title,
   steps,
+  privacyEmail,
 }: {
   reference: string;
   successRef: RefObject<HTMLHeadingElement | null>;
   title: string;
   steps: readonly string[];
+  privacyEmail: string;
 }) {
   return (
     <div className="rounded-lg border border-success bg-success-soft p-6 sm:p-8" role="status">
@@ -185,7 +189,7 @@ export function SuccessPanel({
         ))}
       </ol>
       <p className="mt-6 text-sm text-ink-muted">
-        To change your details or withdraw consent, email {BRAND.privacyEmail} with your reference.
+        To change your details or withdraw consent, email {privacyEmail} with your reference.
       </p>
     </div>
   );

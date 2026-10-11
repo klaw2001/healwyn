@@ -9,6 +9,9 @@
     "packId": {
       "type": "string"
     },
+    "industry": {
+      "type": "string"
+    },
     "brand": {
       "type": "string"
     },
@@ -488,6 +491,10 @@
             "type": "string"
           }
         },
+        "adviceCode": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.:-]{1,64}$"
+        },
         "injection": {
           "type": "object",
           "propertyNames": {
@@ -531,6 +538,7 @@
         "adviceCues",
         "adviceTopics",
         "adviceDecline",
+        "adviceCode",
         "injection",
         "injectionReply",
         "highUrgency"
@@ -590,6 +598,22 @@
       "items": {
         "type": "string"
       }
+    },
+    "staffNotes": {
+      "type": "object",
+      "properties": {
+        "redFlag": {
+          "type": "string"
+        },
+        "advice": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "redFlag",
+        "advice"
+      ],
+      "additionalProperties": false
     },
     "limits": {
       "type": "object",
@@ -652,6 +676,7 @@
   "required": [
     "version",
     "packId",
+    "industry",
     "brand",
     "assistantName",
     "languages",
@@ -676,6 +701,7 @@
     "skip",
     "hangup",
     "summary",
+    "staffNotes",
     "limits"
   ],
   "additionalProperties": false,

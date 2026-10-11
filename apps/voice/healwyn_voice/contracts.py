@@ -115,9 +115,18 @@ class Safety(BaseModel):
     adviceCues: dict[str, list[str]]
     adviceTopics: dict[str, list[str]]
     adviceDecline: dict[str, str]
+    adviceCode: str = Field(..., pattern="^[a-z0-9_.:-]{1,64}$")
     injection: dict[str, list[str]]
     injectionReply: dict[str, str]
     highUrgency: dict[str, list[str]]
+
+
+class StaffNotes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    redFlag: str
+    advice: str
 
 
 class CallWindow(BaseModel):
@@ -146,6 +155,7 @@ class VoiceScript(BaseModel):
     )
     version: Literal[1]
     packId: str
+    industry: str
     brand: str
     assistantName: str
     languages: list[Language] = Field(..., min_length=1)
@@ -170,6 +180,7 @@ class VoiceScript(BaseModel):
     skip: dict[str, list[str]]
     hangup: dict[str, list[str]]
     summary: list[str]
+    staffNotes: StaffNotes
     limits: Limits
 
 

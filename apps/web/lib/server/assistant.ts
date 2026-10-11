@@ -1,15 +1,16 @@
 import 'server-only';
 import {
   assistantToLeadPayload,
-  BRAND,
   buildAssistantSchema,
   formatLeadReference,
   HONEYPOT_FIELD,
   toFieldErrors,
+  type Brand,
   type FieldErrors,
   type FormValues,
   type IndustryPack,
 } from '@healwyn/core';
+import { isKnownIndustryId } from '@healwyn/core/ids';
 import type { LeadStore } from '@healwyn/db';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { clientIp, rateLimitKey } from './client-key';
@@ -38,6 +39,8 @@ export interface TextService {
   start(body: {
     callId: string;
     leadId: string;
+    /** The industry pack, which picks the assistant's script. */
+    pack: string;
     channel: 'text';
     language: string;
   }): Promise<{ reply: string; language: string }>;
@@ -51,13 +54,19 @@ export interface AssistantDeps {
   text: TextService;
   /** Null when LiveKit is not configured: voice falls back to typed chat. */
   voiceToken:
-    | ((call: { callId: string; leadId: string; language: string }) => Promise<{ serverUrl: string; token: string }>)
+    | ((call: {
+        callId: string;
+        leadId: string;
+        pack: string;
+        language: string;
+      }) => Promise<{ serverUrl: string; token: string }>)
     | null;
 }
 
 const MESSAGES = {
   rateLimited: `You have started several calls in a short time. Please wait ten minutes, or use the enquiry form.`,
-  failed: `Sorry, the assistant is not available right now. Please use the enquiry form, or email ${BRAND.contactEmail}.`,
+  failed: (brand: Brand) =>
+    `Sorry, the assistant is not available right now. Please use the enquiry form, or email ${brand.contactEmail}.`,
   refused: {
     daily_limit: "The assistant has reached today's limit for this demo. Please use the enquiry form instead.",
     phone_daily_limit:
@@ -69,7 +78,7 @@ const MESSAGES = {
 export async function startAssistant(values: FormValues, headers: Headers, deps: AssistantDeps): Promise<StartResult> {
   if (typeof values[HONEYPOT_FIELD] === 'string' && (values[HONEYPOT_FIELD] as string).trim() !== '') {
     log.info('assistant.honeypot');
-    return { status: 'error', message: MESSAGES.failed };
+    return { status: 'error', message: MESSAGES.failed(deps.pack.brand) };
   }
   const parsed = buildAssistantSchema(deps.pack).safeParse(values);
   if (!parsed.success) return { status: 'invalid', fieldErrors: toFieldErrors(parsed.error) };
@@ -88,7 +97,7 @@ export async function startAssistant(values: FormValues, headers: Headers, deps:
     }
   } catch (error) {
     log.warn('assistant.rate_limit_unavailable', errorFields(error));
-    return { status: 'error', message: MESSAGES.failed };
+    return { status: 'error', message: MESSAGES.failed(deps.pack.brand) };
   }
 
   const start = parsed.data;
@@ -105,19 +114,25 @@ export async function startAssistant(values: FormValues, headers: Headers, deps:
     callId = call.call_id;
   } catch (error) {
     log.error('assistant.start_failed', errorFields(error));
-    return { status: 'error', message: MESSAGES.failed };
+    return { status: 'error', message: MESSAGES.failed(deps.pack.brand) };
   }
 
   const reference = formatLeadReference(leadId);
   try {
     if (mode === 'voice') {
-      const { serverUrl, token } = await deps.voiceToken!({ callId, leadId, language: start.preferredLanguage });
+      const { serverUrl, token } = await deps.voiceToken!({
+        callId,
+        leadId,
+        pack: deps.pack.id,
+        language: start.preferredLanguage,
+      });
       log.info('assistant.started', { callId, mode, reference });
       return { status: 'voice', callId, leadId, reference, serverUrl, token };
     }
     const { reply, language } = await deps.text.start({
       callId,
       leadId,
+      pack: deps.pack.id,
       channel: 'text',
       language: start.preferredLanguage,
     });
@@ -125,7 +140,7 @@ export async function startAssistant(values: FormValues, headers: Headers, deps:
     return { status: 'text', callId, leadId, reference, reply, language };
   } catch (error) {
     log.error('assistant.connect_failed', { callId, ...errorFields(error) });
-    return { status: 'error', message: MESSAGES.failed };
+    return { status: 'error', message: MESSAGES.failed(deps.pack.brand) };
   }
 }
 
@@ -137,22 +152,30 @@ function cookieSecret(): string {
   return secret;
 }
 
-const cookieMac = (callId: string, leadId: string, issuedAt: string) =>
-  createHmac('sha256', cookieSecret()).update(`call:${callId}:${leadId}:${issuedAt}`).digest('base64url');
+const cookieMac = (callId: string, leadId: string, industry: string, issuedAt: string) =>
+  createHmac('sha256', cookieSecret()).update(`call:${callId}:${leadId}:${industry}:${issuedAt}`).digest('base64url');
 
-/** `<callId>.<leadId>.<issued at, Unix seconds>.<MAC>`: binds the call to its lead and expires. */
-export function callCookieValue(callId: string, leadId: string, now = Date.now()): string {
-  const issuedAt = String(Math.floor(now / 1000));
-  return `${callId}.${leadId}.${issuedAt}.${cookieMac(callId, leadId, issuedAt)}`;
+export interface CallCookie {
+  callId: string;
+  leadId: string;
+  /** The lead's industry pack, so a fallback chat uses the same script. */
+  industry: string;
 }
 
-export function readCallCookie(value: string | undefined, now = Date.now()): { callId: string; leadId: string } | null {
+/** `<callId>.<leadId>.<industry>.<issued at, Unix seconds>.<MAC>`: binds the call to its lead and expires. */
+export function callCookieValue(callId: string, leadId: string, industry: string, now = Date.now()): string {
+  const issuedAt = String(Math.floor(now / 1000));
+  return `${callId}.${leadId}.${industry}.${issuedAt}.${cookieMac(callId, leadId, industry, issuedAt)}`;
+}
+
+export function readCallCookie(value: string | undefined, now = Date.now()): CallCookie | null {
   if (!value) return null;
-  const [callId, leadId, issuedAt, mac, ...rest] = value.split('.');
-  if (!callId || !leadId || !issuedAt || !mac || rest.length > 0 || !/^[0-9]{1,10}$/.test(issuedAt)) return null;
+  const [callId, leadId, industry, issuedAt, mac, ...rest] = value.split('.');
+  if (!callId || !leadId || !industry || !issuedAt || !mac || rest.length > 0) return null;
+  if (!isKnownIndustryId(industry) || !/^[0-9]{1,10}$/.test(issuedAt)) return null;
   const age = now / 1000 - Number(issuedAt);
   if (age < -60 || age > CALL_COOKIE_MAX_AGE_SECONDS) return null;
   const a = Buffer.from(mac);
-  const b = Buffer.from(cookieMac(callId, leadId, issuedAt));
-  return a.length === b.length && timingSafeEqual(a, b) ? { callId, leadId } : null;
+  const b = Buffer.from(cookieMac(callId, leadId, industry, issuedAt));
+  return a.length === b.length && timingSafeEqual(a, b) ? { callId, leadId, industry } : null;
 }

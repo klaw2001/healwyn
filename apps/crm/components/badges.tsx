@@ -1,13 +1,11 @@
-import { getActivePack, slaStatus, formatDuration, type UrgencyLevel } from '@healwyn/core';
+import { formatDuration, slaStatus, type SlaTargets, type StageKind, type UrgencyLevel } from '@healwyn/core';
 import { cx } from '@healwyn/ui';
-import { CHANNEL_LABELS, initials, stageLabel } from '@/lib/format';
+import { CHANNEL_LABELS, initials } from '@/lib/format';
 import { ChatIcon, ClockIcon, MailIcon, PhoneMsgIcon } from './icons';
 
 const pill = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold';
-const sla = getActivePack().crm.sla;
-
-export function StageBadge({ stage }: { stage: string }) {
-  const kind = getActivePack().stages.find((s) => s.id === stage)?.kind;
+/** A stage pill; the label and kind come from the lead's pack. */
+export function StageBadge({ label, kind }: { label: string; kind: StageKind | undefined }) {
   return (
     <span
       className={cx(
@@ -19,7 +17,7 @@ export function StageBadge({ stage }: { stage: string }) {
             : 'bg-primary-soft text-ink',
       )}
     >
-      {stageLabel(stage)}
+      {label}
     </span>
   );
 }
@@ -42,8 +40,11 @@ export function SlaBadge({
   urgency,
   firstResponseAt,
   now,
+  sla,
   showMet = false,
 }: {
+  /** The pack's first-response targets. */
+  sla: SlaTargets;
   createdAt: Date | string;
   urgency: UrgencyLevel;
   firstResponseAt: Date | string | null;

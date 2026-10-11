@@ -22,7 +22,7 @@ export const clinicSequences = [
     name: 'Appointment reminder',
     description: 'Reminds the patient before a booked visit.',
     enrolOnStage: 'appointment_booked',
-    cancelOnStages: ['visited', 'lost', 'follow_up_due', 'package_active'],
+    cancelOnStages: ['visited', 'no_show', 'lost', 'follow_up_due', 'package_active'],
     steps: [
       { delayMinutes: 0, channel: 'email', templateId: 'appointment-confirmed-email' },
       { delayMinutes: 1 * DAY, channel: 'sms', templateId: 'appointment-reminder-sms' },
@@ -32,7 +32,7 @@ export const clinicSequences = [
     id: 'no-show-recovery',
     name: 'No-show recovery',
     description: 'Offers a new slot when a booked visit was missed.',
-    enrolOnStage: null,
+    enrolOnStage: 'no_show',
     cancelOnStages: ['appointment_booked', 'visited', 'lost'],
     steps: [
       { delayMinutes: 2 * HOUR, channel: 'sms', templateId: 'no-show-sms' },

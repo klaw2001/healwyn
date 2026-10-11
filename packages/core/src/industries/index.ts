@@ -1,12 +1,19 @@
 import { clinicPack } from './clinic';
+import { homeInteriorsPack } from './home-interiors';
+import { realEstatePack } from './real-estate';
 import type { ChoiceQuestion, IndustryPack, PipelineStage, QualifyingQuestion } from './types';
+import { wealthAdvisoryPack } from './wealth-advisory';
 
+export * from './ids';
 export * from './types';
 export { clinicPack } from './clinic';
 
-/** Every available pack. Phase 4 adds real estate, wealth advisory and home interiors. */
+/** Every available pack, keyed by id (the ids are listed in ids.ts). */
 export const industryPacks = {
   clinic: clinicPack,
+  home_interiors: homeInteriorsPack,
+  real_estate: realEstatePack,
+  wealth_advisory: wealthAdvisoryPack,
 } as const satisfies Record<string, IndustryPack>;
 
 export type IndustryId = keyof typeof industryPacks;
@@ -23,15 +30,16 @@ export function getIndustryPack(id: string = DEFAULT_INDUSTRY_ID): IndustryPack 
 }
 
 /**
- * The pack the running app uses. Phase 1 always returns the clinic pack;
- * Phase 4 adds a runtime switch (demo bar) behind this same function.
+ * The default pack, for code with no request or lead in hand. The website picks
+ * a pack per request (the demo cookie or INDUSTRY), the CRM uses the signed-in
+ * staff member's industry, and anything acting on a lead uses that lead's pack.
  */
 export function getActivePack(): IndustryPack {
   return getIndustryPack(DEFAULT_INDUSTRY_ID);
 }
 
 /** Questions shown on the web form, in order. */
-export function formQuestions(pack: IndustryPack): readonly QualifyingQuestion[] {
+export function formQuestions(pack: Pick<IndustryPack, 'intake'>): readonly QualifyingQuestion[] {
   return pack.intake.questions.filter((q) => q.channels.includes('form'));
 }
 

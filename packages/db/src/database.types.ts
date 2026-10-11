@@ -200,6 +200,12 @@ export type Database = {
           },
         ];
       };
+      industry_stages: {
+        Row: { industry: string; stage_id: string; kind: string; sort_order: number };
+        Insert: { industry: string; stage_id: string; kind: string; sort_order?: number };
+        Update: { industry?: string; stage_id?: string; kind?: string; sort_order?: number };
+        Relationships: [];
+      };
       lead_events: {
         Row: {
           id: number;
@@ -829,6 +835,10 @@ export type Database = {
         Args: { p_lead_id: string; p_staff_id: string; p_reason: string; p_routing: Json };
         Returns: undefined;
       };
+      call_lead_industry: {
+        Args: { p_call_id: string; p_lead_id: string };
+        Returns: string;
+      };
       change_lead_stage: {
         Args: { p_lead_id: string; p_to_stage: string; p_plan: Json; p_reason: string };
         Returns: Json;
@@ -852,6 +862,10 @@ export type Database = {
         Returns: string;
       };
       current_staff_id: {
+        Args: never;
+        Returns: string;
+      };
+      current_staff_industry: {
         Args: never;
         Returns: string;
       };
@@ -928,7 +942,7 @@ export type Database = {
         Returns: undefined;
       };
       staff_can_see_lead: {
-        Args: { p_assigned_staff_id: string; p_billing_flag: boolean; p_stage: string };
+        Args: { p_industry: string; p_assigned_staff_id: string; p_billing_flag: boolean; p_stage: string };
         Returns: boolean;
       };
       staff_for_auth_user: {

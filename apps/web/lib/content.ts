@@ -1,46 +1,41 @@
-import {
-  clinicDemoStaff,
-  clinicLocations,
-  getActivePack,
-  LANGUAGE_NAMES,
-  specialtyDetails,
-  type Offering,
-  type SpecialtyDetail,
-} from '@healwyn/core';
+import { LANGUAGE_NAMES, type IndustryPack, type OfferingDetail } from '@healwyn/core';
 
-export interface SpecialtyView extends SpecialtyDetail {
+export interface OfferingView extends OfferingDetail {
   name: string;
   summary: string;
 }
 
-export function specialtyViews(): SpecialtyView[] {
-  const { offerings } = getActivePack();
-  return specialtyDetails.flatMap((detail) => {
-    const offering = offerings.find((o: Offering) => o.slug === detail.slug);
-    return offering ? [{ ...detail, name: offering.name, summary: offering.summary }] : [];
+/** Each offering's page content, in the pack's offering order. */
+export function offeringViews(pack: IndustryPack): OfferingView[] {
+  return pack.offerings.flatMap((offering) => {
+    const detail = pack.site.services.details.find((d) => d.slug === offering.slug);
+    return detail ? [{ ...detail, name: offering.name, summary: offering.summary }] : [];
   });
 }
 
-export function specialtyView(slug: string): SpecialtyView | undefined {
-  return specialtyViews().find((s) => s.slug === slug);
+export function offeringView(pack: IndustryPack, slug: string): OfferingView | undefined {
+  return offeringViews(pack).find((o) => o.slug === slug);
 }
 
-export function specialtyName(slug: string): string {
-  return getActivePack().offerings.find((o) => o.slug === slug)?.name ?? slug;
+export function offeringName(pack: IndustryPack, slug: string): string {
+  return pack.offerings.find((o) => o.slug === slug)?.name ?? slug;
 }
 
-export const clinicians = clinicDemoStaff.filter((member) => member.clinician);
-
-export function cliniciansFor(slug: string) {
-  return clinicians.filter((member) => member.specialties.includes(slug));
+/** The people on the public team page. */
+export function listedStaff(pack: IndustryPack) {
+  return pack.demo.staff.filter((member) => member.listed);
 }
 
-export function locationsFor(slug: string) {
-  return clinicLocations.filter((location) => location.specialties.includes(slug));
+export function staffFor(pack: IndustryPack, slug: string) {
+  return listedStaff(pack).filter((member) => member.specialties.includes(slug));
 }
 
-export function locationName(id: string): string {
-  const location = clinicLocations.find((l) => l.id === id);
+export function locationsFor(pack: IndustryPack, slug: string) {
+  return pack.site.locations.items.filter((location) => location.offerings.includes(slug));
+}
+
+export function locationName(pack: IndustryPack, id: string): string {
+  const location = pack.site.locations.items.find((l) => l.id === id);
   return location ? `${location.name}, ${location.city}` : id;
 }
 

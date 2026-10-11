@@ -1,4 +1,3 @@
-import { BRAND } from '../brand';
 import type { IndustryPack } from '../industries/types';
 import { voiceScriptSchema, type VoiceScript } from './contract';
 import type { Localized, LocalizedList } from './types';
@@ -14,7 +13,7 @@ const fill = (text: string, brand: string, assistant: string, emergency: string)
  */
 export function buildVoiceScript(pack: IndustryPack): VoiceScript {
   const voice = pack.voice;
-  const brand = BRAND.name;
+  const brand = pack.brand.name;
   const assistant = voice.assistantName.replaceAll('{brand}', brand);
   const emergency = voice.safety.emergencyNumber;
   const text = (value: Localized): Record<string, string> =>
@@ -45,6 +44,7 @@ export function buildVoiceScript(pack: IndustryPack): VoiceScript {
   const script: VoiceScript = {
     version: 1,
     packId: pack.id,
+    industry: pack.label,
     brand,
     assistantName: assistant,
     languages: pack.languages.map((l) => ({ code: l.code, label: l.label, nativeLabel: l.nativeLabel })),
@@ -81,6 +81,7 @@ export function buildVoiceScript(pack: IndustryPack): VoiceScript {
       adviceCues: list(voice.safety.adviceCues),
       adviceTopics: list(voice.safety.adviceTopics),
       adviceDecline: text(voice.safety.adviceDecline),
+      adviceCode: voice.safety.adviceCode,
       injection: list(voice.safety.injection),
       injectionReply: text(voice.safety.injectionReply),
       highUrgency: list(voice.safety.highUrgency),
@@ -90,6 +91,10 @@ export function buildVoiceScript(pack: IndustryPack): VoiceScript {
     skip: list(voice.skip),
     hangup: list(voice.hangup),
     summary: [...voice.summary],
+    staffNotes: {
+      redFlag: fill(voice.staffNotes.redFlag, brand, assistant, emergency),
+      advice: fill(voice.staffNotes.advice, brand, assistant, emergency),
+    },
     limits: {
       maxCallSeconds: voice.limits.maxCallSeconds,
       maxTurns: voice.limits.maxTurns,

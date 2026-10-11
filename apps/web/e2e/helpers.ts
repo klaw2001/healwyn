@@ -1,26 +1,23 @@
+import { clinicPack } from '@healwyn/core';
 import { type Page } from '@playwright/test';
 import postgres from 'postgres';
 
 export const databaseUrl = process.env.E2E_DB || '';
 
+/** Every page of the default (clinic) site; the demo-bar suite covers the other packs. */
 export const ROUTES = [
   '/',
-  '/specialties',
-  '/specialties/general-medicine',
-  '/specialties/dermatology',
-  '/specialties/dental',
-  '/specialties/physiotherapy',
-  '/specialties/womens-health',
-  '/specialties/diagnostics',
-  '/doctors',
-  '/health-packages',
+  '/services',
+  ...clinicPack.offerings.map((offering) => `/services/${offering.slug}`),
+  '/team',
+  '/plans',
   '/locations',
   '/partners',
   '/contact',
   '/privacy',
   '/terms',
   '/disclaimer',
-] as const;
+];
 
 /** A fresh client IP per test, so the per-IP rate limit does not leak between tests. */
 export function uniqueIp(): string {

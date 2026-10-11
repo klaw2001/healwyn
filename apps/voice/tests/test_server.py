@@ -21,6 +21,7 @@ def service():
     config = Settings(
         pack='clinic',
         script_path=REPO_ROOT / 'packages/core/contracts/voice-script.clinic.json',
+        script_dir=REPO_ROOT / 'packages/core/contracts',
         crm_url='http://crm.invalid',
         webhook_secret='w' * 40,
         agent_secret=SECRET,
@@ -128,6 +129,9 @@ def test_simulated_dialer_runs_a_whole_call(base_url, service):
 
 def test_validates_requests(base_url, service):
     assert call(base_url, '/sessions', {'callId': 'nope', 'leadId': LEAD, 'channel': 'text'})[0] == 400
+    for pack in ('../../etc/passwd', 'no_such_pack', 7):
+        body = {'callId': str(uuid.uuid4()), 'leadId': LEAD, 'channel': 'text', 'pack': pack}
+        assert call(base_url, '/sessions', body)[0] == 400
     assert call(base_url, '/sessions', {'callId': str(uuid.uuid4()), 'leadId': LEAD, 'channel': 'phone'})[0] == 400
     assert call(base_url, f'/sessions/{uuid.uuid4()}/turns', {'text': 'hi'})[0] == 404
 

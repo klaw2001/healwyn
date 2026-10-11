@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { consentFieldName } from '../consent';
 import { formQuestions } from '../industries';
-import type { IndustryPack } from '../industries/types';
+import type { FormPack } from '../industries/types';
 import {
   boundedTextSchema,
   choiceSchema,
@@ -68,7 +68,7 @@ export type FormValues = Record<string, unknown>;
  * Builds the patient-enquiry schema from an industry pack, so the form, the
  * server and Phase 4's other industries all share one definition.
  */
-export function buildIntakeSchema(pack: IndustryPack): z.ZodType<IntakeSubmission, FormValues> {
+export function buildIntakeSchema(pack: FormPack): z.ZodType<IntakeSubmission, FormValues> {
   const questions = formQuestions(pack);
   const shape: Record<string, z.ZodType> = {
     [INTAKE_FIELDS.fullName]: personNameSchema,
@@ -100,7 +100,7 @@ export function buildIntakeSchema(pack: IndustryPack): z.ZodType<IntakeSubmissio
   }) as unknown as z.ZodType<IntakeSubmission, FormValues>;
 }
 
-export function buildPartnerSchema(pack: IndustryPack): z.ZodType<PartnerSubmission, FormValues> {
+export function buildPartnerSchema(pack: FormPack): z.ZodType<PartnerSubmission, FormValues> {
   const { partnerIntake } = pack;
   const shape: Record<string, z.ZodType> = {
     [PARTNER_FIELDS.organisation]: boundedTextSchema({

@@ -204,3 +204,38 @@ A review of the Phase 3 code found no authorisation bypass. Fixed before tagging
 - **The Python HTTP handler trusted its input before checking signatures.** Strict Content-Length and header parsing, a 15-second socket timeout, and no tracebacks with client addresses.
 - **Results the CRM could not accept left calls "started".** They are now closed as `failed` (`fail_voice_call`), and request bodies are read with a hard size limit even without Content-Length.
 - **Accepting a routing suggestion did not take the routing lock** the webhook takes; both now serialise (`lockRouting`).
+
+## Phase 4 (2026-10-11)
+
+### Industry packs and runtime selection
+
+- **One codebase, four packs** (`clinic`, `real_estate`, `wealth_advisory`, `home_interiors`), each with its own brand
+  (`BRANDS` in `brand.ts`: Healwyn Clinics, Nestwyn Realty, Ledgerwyn Wealth, Loomwyn Interiors), theme, site copy,
+  intake, stages, sequences, routing weights, booking and payment config, voice script, safety lists and 40 demo leads.
+  A generic pack contract test (`pack.test.ts`) holds every pack to the same shape, and the brand guard test covers all
+  four brand names.
+- **Shared route names.** The site's pages became `/services`, `/team`, `/plans` (from `/specialties`, `/doctors`,
+  `/health-packages`, which now redirect permanently), so one route set fits every industry; the labels come from the
+  pack.
+- **How the website picks a pack.** Every page is statically generated once per pack under `/<industry>/…`; `proxy.ts`
+  rewrites each request to one of them: the demo bar's cookie when `DEMO_MODE=true`, else `INDUSTRY`, else the clinic.
+  Unsubscribe links name the lead's industry (`?i=`) so the page shows the right brand. Client components receive a
+  small serializable view (`FormPack`, `AssistantView`), never a whole pack.
+- **How the CRM picks a pack.** Staff belong to one industry (`staff.industry`); the session carries it and the CRM
+  renders that pack. Code acting on a lead uses the lead's own pack. The login page offers each industry's demo users.
+- **Industry is a security boundary.** RLS and `staff_can_see_lead` check the industry first, so staff see only their own
+  industry's leads and colleagues; `canSeeLead` mirrors it and the DB test compares both for every demo user of every
+  pack. Stage changes must name a stage of the lead's industry (`industry_stages`, seeded from the packs), and the
+  billing desk sees its industry's won stage instead of a hard-coded clinic stage. Routing rosters and the "returning
+  person" lookup stay inside the lead's industry.
+- **Packs were written in parallel** by three helper agents against one brief (shape, safety rules, fictional data,
+  checks to pass), then reviewed and integrated. Each pack's voice safety lists avoid bare words that would end
+  ordinary calls ("fire" in "fire-retardant", "collapsed" in "the deal collapsed", "smoke grey").
+- **Wealth advisory never gives investment advice.** Its advice code is `investment_advice`, and its eval fails if any
+  assistant line names a product or provider, a percentage, a "you should invest/buy/sell", a guarantee or a market
+  prediction. Its red flags include fraud in progress (OTP or PIN requests, remote-access apps, "digital arrest"
+  threats), with 112 and the 1930 cyber-crime helpline.
+- **Regulatory notices.** Real estate and wealth advisory carry a `regulatoryNotice` in the brand, shown in the footer
+  of every page.
+- **Missed visits.** Every pack now has a no-show stage (the clinic's "Missed visit"), which the no-show recovery
+  sequence enrols on.

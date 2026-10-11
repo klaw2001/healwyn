@@ -6,7 +6,6 @@ import {
   assignmentRecord,
   isOverrideReason,
   normalizeIndianMobile,
-  getActivePack,
   planStageEntry,
   scheduleSteps,
   type UrgencyLevel,
@@ -15,12 +14,12 @@ import { revalidatePath } from 'next/cache';
 import { assertCapability } from '@/lib/server/auth';
 import { asStaff } from '@/lib/server/db';
 import { placePhoneCall, runSimulatedCall, telephonyConfigured } from '@/lib/server/dialer';
+import { packFor } from '@/lib/server/pack';
 import { friendlyError, type ActionResult } from '@/lib/server/errors';
 import { lockRouting, routeForStaff } from '@/lib/server/routing';
 import { recomputeScore } from '@/lib/server/scores';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const pack = getActivePack();
 
 function refresh(leadId?: string) {
   revalidatePath('/pipeline');
@@ -36,6 +35,7 @@ export async function changeStage(
 ): Promise<ActionResult<{ from: string; to: string }>> {
   try {
     const session = await assertCapability('lead.changeStage');
+    const pack = packFor(session);
     if (!UUID.test(leadId) || !pack.stages.some((s) => s.id === toStage)) return { ok: false, error: 'Unknown stage.' };
     const result = await asStaff(session, async (tx) => {
       const active = await tx<{ sequence_id: string }[]>`
@@ -134,6 +134,7 @@ export async function acceptRouting(leadId: string): Promise<ActionResult<{ staf
 export async function addNote(_previous: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const session = await assertCapability('lead.note');
+    const pack = packFor(session);
     const leadId = String(formData.get('lead_id') ?? '');
     const body = String(formData.get('body') ?? '').trim();
     const templateId = String(formData.get('template_id') ?? '') || null;
@@ -215,6 +216,7 @@ export async function markReplied(leadId: string): Promise<ActionResult<{ stoppe
 export async function recordWithdrawal(leadId: string, purpose: string): Promise<ActionResult> {
   try {
     const session = await assertCapability('lead.recordWithdrawal');
+    const pack = packFor(session);
     const definition = [...pack.intake.consents, ...pack.partnerIntake.consents].find((c) => c.id === purpose);
     if (!UUID.test(leadId) || !definition) return { ok: false, error: 'Unknown consent.' };
     await asStaff(
@@ -232,6 +234,7 @@ export async function recordWithdrawal(leadId: string, purpose: string): Promise
 export async function enrollInSequence(leadId: string, sequenceId: string): Promise<ActionResult> {
   try {
     const session = await assertCapability('lead.assign');
+    const pack = packFor(session);
     const sequence = pack.sequences.find((s) => s.id === sequenceId);
     if (!UUID.test(leadId) || !sequence) return { ok: false, error: 'Unknown sequence.' };
     const plan = { enroll: [{ sequenceId, steps: scheduleSteps(sequence, new Date()) }], cancel: [] };
@@ -259,6 +262,7 @@ export async function stopEnrollment(enrollmentId: string, leadId: string): Prom
 export async function setSequencePaused(sequenceId: string, paused: boolean): Promise<ActionResult> {
   try {
     const session = await assertCapability('sequence.manage');
+    const pack = packFor(session);
     if (!pack.sequences.some((s) => s.id === sequenceId)) return { ok: false, error: 'Unknown sequence.' };
     await asStaff(session, (tx) => tx`select public.set_sequence_paused(${pack.id}, ${sequenceId}, ${paused})`);
     revalidatePath('/sequences');
@@ -293,6 +297,7 @@ export async function placeAssistantCall(
 ): Promise<ActionResult<{ outcome: string }>> {
   try {
     const session = await assertCapability('lead.placeCall');
+    const pack = packFor(session);
     if (!UUID.test(leadId) || (channel !== 'simulated' && channel !== 'phone')) {
       return { ok: false, error: 'Unknown lead.' };
     }
@@ -320,11 +325,11 @@ export async function placeAssistantCall(
       message: placed.lead.message,
     };
     if (channel === 'phone') {
-      await placePhoneCall({ ...call, phone: placed.lead.phone! });
+      await placePhoneCall(pack, { ...call, phone: placed.lead.phone! });
       refresh(leadId);
       return { ok: true, outcome: 'dialling' };
     }
-    const result = await runSimulatedCall(call);
+    const result = await runSimulatedCall(pack, call);
     refresh(leadId);
     return { ok: true, outcome: result.outcome };
   } catch (error) {

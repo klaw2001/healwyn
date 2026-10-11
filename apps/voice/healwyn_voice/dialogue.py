@@ -195,7 +195,7 @@ class IntakeSession:
     def _handle_consent(self, text: str, advice: bool) -> Reply:
         answer = self.nlu.yes_no(text)
         if advice:
-            self._flag('advice_request', 'medical_advice')
+            self._flag('advice_request', self.script.safety.adviceCode)
             if answer is None:
                 return self._say(self.t(self.script.safety.adviceDecline), self._prompt())
         if answer is True:
@@ -235,7 +235,7 @@ class IntakeSession:
         assert question is not None
         prefix: list[str] = []
         if advice:
-            self._flag('advice_request', 'medical_advice')
+            self._flag('advice_request', self.script.safety.adviceCode)
             prefix.append(self.t(self.script.safety.adviceDecline))
 
         if self._is_free_text():
@@ -352,10 +352,8 @@ class IntakeSession:
         red = [f for f in self.flags if f['kind'] == 'red_flag']
         if red:
             names = {flag.id: flag.label for flag in self.script.safety.redFlags}
-            lines.append(
-                f'Safety: {", ".join(names.get(f["code"], f["code"]) for f in red)}. Told to call '
-                f'{self.script.safety.emergencyNumber} or go to the nearest hospital; flagged urgent for a call back.'
-            )
+            flags = ', '.join(names.get(f['code'], f['code']) for f in red)
+            lines.append(self.script.staffNotes.redFlag.replace('{flags}', flags))
         for template in self.script.summary:
             line = template
             missing = False
@@ -372,7 +370,7 @@ class IntakeSession:
             if not missing:
                 lines.append(line[:300])
         if any(f['kind'] == 'advice_request' for f in self.flags):
-            lines.append("Asked for medical advice; the assistant declined and offered a doctor's call back.")
+            lines.append(self.script.staffNotes.advice)
         if any(f['kind'] == 'prompt_injection' for f in self.flags):
             lines.append("Tried to change the assistant's instructions; refused.")
         language = next((lang.label for lang in self.script.languages if lang.code == self.lang), self.lang)
@@ -387,7 +385,7 @@ class IntakeSession:
             if self.consent
             else 'The call ended before the caller agreed to continue; nothing was collected.',
             'limit_reached': f'The call reached its time limit ({language}); details may be incomplete.',
-            'error': 'The call failed; please call the patient back.',
+            'error': 'The call failed; please call them back.',
         }.get(self.outcome or 'error', '')
         lines.append(meta)
         return [line for line in lines if line][:5]

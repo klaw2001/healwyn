@@ -26,6 +26,15 @@ const config: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  // Phase 4 moved the clinic-only routes to names every industry shares.
+  async redirects() {
+    return [
+      { source: '/specialties', destination: '/services', permanent: true },
+      { source: '/specialties/:slug', destination: '/services/:slug', permanent: true },
+      { source: '/doctors', destination: '/team', permanent: true },
+      { source: '/health-packages', destination: '/plans', permanent: true },
+    ];
+  },
 };
 
 export default config;

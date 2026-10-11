@@ -83,6 +83,8 @@ export interface VoicePackConfig {
     readonly adviceCues: LocalizedList;
     readonly adviceTopics: LocalizedList;
     readonly adviceDecline: Localized;
+    /** The flag code stored when advice is requested, e.g. "medical_advice", "investment_advice". */
+    readonly adviceCode: string;
     /** Attempts to change the assistant's rules or extract its instructions. */
     readonly injection: LocalizedList;
     readonly injectionReply: Localized;
@@ -97,6 +99,13 @@ export interface VoicePackConfig {
   readonly hangup: LocalizedList;
   /** Summary lines; `{question_id}` becomes the answer's label. Lines with a missing answer are dropped. */
   readonly summary: readonly string[];
+  /** Lines added to the staff summary (English). */
+  readonly staffNotes: {
+    /** After a red flag. Tokens: `{flags}` (labels), `{emergency}`. */
+    readonly redFlag: string;
+    /** After a request for advice the assistant declined. */
+    readonly advice: string;
+  };
   readonly limits: {
     readonly maxCallSeconds: number;
     readonly maxTurns: number;

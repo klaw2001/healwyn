@@ -1,7 +1,6 @@
 import 'server-only';
 import {
   assignLead as decideAssignment,
-  getActivePack,
   type AssignableLead,
   type AssignmentDecision,
   type RosterMember,
@@ -10,17 +9,15 @@ import {
   type UrgencyLevel,
 } from '@healwyn/core';
 import { asStaff, type Tx } from './db';
+import { packOf } from './pack';
 import type { Session } from './session';
-import { specialtyLabel } from '../format';
-
-const pack = getActivePack();
-
-/** Stages that count towards a person's open leads (pack-defined). */
-export const OPEN_STAGES = pack.stages.filter((s) => s.kind === 'open').map((s) => s.id);
+import { packLabels } from '../format';
 
 interface ContextJson {
   lead: {
     id: string;
+    /** The lead's industry: routing uses its pack and its staff only. */
+    industry: string;
     specialty_slug: string | null;
     urgency: UrgencyLevel;
     preferred_language: string;
@@ -43,12 +40,14 @@ interface ContextJson {
 }
 
 export interface RoutingContext {
+  industry: string;
   lead: AssignableLead;
   roster: RosterMember[];
 }
 
 export function parseRoutingContext(json: ContextJson): RoutingContext {
   return {
+    industry: json.lead.industry,
     lead: {
       id: json.lead.id,
       specialtySlug: json.lead.specialty_slug,
@@ -86,7 +85,7 @@ export async function routeForStaff(
   tx: Tx,
   leadId: string,
 ): Promise<{ context: RoutingContext; decision: AssignmentDecision }> {
-  const [row] = await tx<{ c: ContextJson }[]>`select public.routing_context(${leadId}, ${OPEN_STAGES}) as c`;
+  const [row] = await tx<{ c: ContextJson }[]>`select public.routing_context(${leadId}, null) as c`;
   return route(parseRoutingContext(row!.c));
 }
 
@@ -95,17 +94,18 @@ export async function routeForSystem(
   tx: Tx,
   leadId: string,
 ): Promise<{ context: RoutingContext; decision: AssignmentDecision }> {
-  const [row] = await tx<{ c: ContextJson }[]>`select public.system_routing_context(${leadId}, ${OPEN_STAGES}) as c`;
+  const [row] = await tx<{ c: ContextJson }[]>`select public.system_routing_context(${leadId}, null) as c`;
   return route(parseRoutingContext(row!.c));
 }
 
 function route(context: RoutingContext) {
+  const pack = packOf(context.industry);
   const decision = decideAssignment(context.lead, {
     mode: 'auto',
     roster: context.roster,
     config: pack.routing,
     staffLevels: pack.staffLevels,
-    offeringName: specialtyLabel,
+    offeringName: packLabels(pack).specialtyLabel,
   });
   return { context, decision };
 }

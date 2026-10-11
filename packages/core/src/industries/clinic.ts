@@ -1,5 +1,9 @@
-import { clinicVoice } from './clinic-voice';
+import { BRANDS } from '../brand';
 import { clinicCrm, clinicSequences } from './clinic-crm';
+import { clinicDemoStaff } from './clinic-demo-data';
+import { clinicDemoLeads } from './clinic-demo-leads';
+import { clinicSite, clinicTheme } from './clinic-site';
+import { clinicVoice } from './clinic-voice';
 import type { IndustryPack } from './types';
 
 /**
@@ -11,6 +15,15 @@ export const clinicPack = {
   id: 'clinic',
   label: 'Multi-specialty clinic',
   leadNoun: 'patient',
+  brand: BRANDS.clinic,
+  roleLabels: {
+    manager: 'Manager',
+    care_coordinator: 'Care coordinator',
+    specialist_doctor: 'Specialist doctor',
+    billing_desk: 'Insurance and billing desk',
+  },
+  theme: clinicTheme,
+  site: clinicSite,
 
   offerings: [
     {
@@ -187,6 +200,12 @@ export const clinicPack = {
       kind: 'open',
     },
     {
+      id: 'no_show',
+      label: 'Missed visit',
+      description: 'The patient did not come to a booked consultation.',
+      kind: 'open',
+    },
+    {
       id: 'visited',
       label: 'Visited',
       description: 'The patient attended the consultation.',
@@ -262,6 +281,47 @@ export const clinicPack = {
   voice: clinicVoice,
   sequences: clinicSequences,
   crm: clinicCrm,
+  booking: {
+    noun: 'consultation',
+    slotMinutes: 30,
+    horizonDays: 14,
+    bookableRoles: ['specialist_doctor'],
+    bookedStageId: 'appointment_booked',
+    attendedStageId: 'visited',
+    noShowStageId: 'no_show',
+    defaultHours: { weekdays: [1, 2, 3, 4, 5, 6], start: '09:30', end: '17:30' },
+  },
+  payments: {
+    // Fictional test-mode amounts for the illustrative packages; nothing is ever charged.
+    products: [
+      {
+        id: 'everyday-check',
+        name: 'Everyday health check',
+        description: 'Consultation, routine tests and a results conversation',
+        amountPaise: 199900,
+      },
+      {
+        id: 'womens-wellness',
+        name: 'Women’s wellness',
+        description: 'Consultation, routine tests and a written summary',
+        amountPaise: 249900,
+      },
+      {
+        id: 'active-body',
+        name: 'Active body',
+        description: 'Assessment and four guided sessions',
+        amountPaise: 349900,
+      },
+      {
+        id: 'skin-and-smile',
+        name: 'Skin and smile',
+        description: 'Dermatology consultation and a dental check-up',
+        amountPaise: 299900,
+      },
+    ],
+    paidStageId: 'package_active',
+  },
+  demo: { staff: clinicDemoStaff, leads: clinicDemoLeads },
 } as const satisfies IndustryPack;
 
 export type ClinicPack = typeof clinicPack;

@@ -43,7 +43,7 @@ export function voiceTokenMinter(env: NodeJS.ProcessEnv = process.env): Assistan
   const { LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET } = env;
   if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || env.VOICE_BROWSER_CALLS === 'false') return null;
   const agentName = env.VOICE_AGENT_NAME || 'healwyn-intake';
-  return async ({ callId, leadId, language }) => {
+  return async ({ callId, leadId, pack, language }) => {
     // Short-lived: the token is only needed to join (LiveKit refreshes it for a connected caller),
     // so it cannot be reused later to rejoin and start another agent session.
     const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
@@ -62,7 +62,7 @@ export function voiceTokenMinter(env: NodeJS.ProcessEnv = process.env): Assistan
       agents: [
         new RoomAgentDispatch({
           agentName,
-          metadata: JSON.stringify({ callId, leadId, language, channel: 'browser' }),
+          metadata: JSON.stringify({ callId, leadId, pack, language, channel: 'browser' }),
         }),
       ],
     });

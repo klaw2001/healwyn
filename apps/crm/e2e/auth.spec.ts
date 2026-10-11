@@ -1,4 +1,4 @@
-import { canSeeLead, clinicDemoStaff, DEMO_USERS, ROLE_LABELS, type StaffRole } from '@healwyn/core';
+import { canSeeLead, clinicPack, DEMO_USERS, ROLE_LABELS, type StaffRole } from '@healwyn/core';
 import { expect, test } from '@playwright/test';
 import { openMenuIfCollapsed, query, requireDb, signInAs } from './helpers';
 
@@ -18,15 +18,22 @@ for (const { role, staffId } of DEMO_USERS) {
 
     // The pipeline count matches the permission matrix applied to the database.
     const leads = await query(
-      (sql) => sql<{ assigned_staff_id: string | null; billing_flag: boolean; stage: string }[]>`
-      select assigned_staff_id, billing_flag, stage from public.leads where erased_at is null and lead_type = 'individual'`,
+      (sql) => sql<{ industry: string; assigned_staff_id: string | null; billing_flag: boolean; stage: string }[]>`
+      select industry, assigned_staff_id, billing_flag, stage from public.leads
+      where erased_at is null and lead_type = 'individual'`,
     );
+    const won = new Set<string>(clinicPack.stages.filter((s) => s.kind === 'won').map((s) => s.id));
     const expected = leads.filter((l) =>
-      canSeeLead(role as StaffRole, staffId, {
-        assignedStaffId: l.assigned_staff_id,
-        hasInsurance: l.billing_flag,
-        stage: l.stage,
-      }),
+      canSeeLead(
+        role as StaffRole,
+        { id: staffId, industry: 'clinic' },
+        {
+          industry: l.industry,
+          assignedStaffId: l.assigned_staff_id,
+          hasInsurance: l.billing_flag,
+          stageIsWon: l.industry === 'clinic' && won.has(l.stage),
+        },
+      ),
     ).length;
     await page.goto('/pipeline');
     await expect(page.getByText(new RegExp(`^${expected} leads? you can see`))).toBeVisible();
@@ -48,9 +55,11 @@ test('keeps manager-only screens from a care coordinator, even by URL', async ({
 });
 
 test('never shows a doctor another doctor’s lead, even by URL', async ({ page }) => {
-  const otherDoctor = clinicDemoStaff.find((m) => m.fullName === 'Dr. Vikram Sethi')!;
+  const me = DEMO_USERS.find((u) => u.role === 'specialist_doctor')!;
   const [lead] = await query(
-    (sql) => sql<{ id: string }[]>`select id from public.leads where assigned_staff_id = ${otherDoctor.id} limit 1`,
+    (sql) => sql<{ id: string }[]>`
+      select l.id from public.leads l join public.staff s on s.id = l.assigned_staff_id
+      where l.industry = 'clinic' and s.role = 'specialist_doctor' and s.id <> ${me.staffId} limit 1`,
   );
   await signInAs(page, 'specialist_doctor');
   await page.goto(`/leads/${lead!.id}`);

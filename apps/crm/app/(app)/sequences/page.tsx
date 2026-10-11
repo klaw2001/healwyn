@@ -1,17 +1,16 @@
-import { getActivePack, renderTemplate } from '@healwyn/core';
+import { renderTemplate } from '@healwyn/core';
 import { Badge } from '@healwyn/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChannelBadge } from '@/components/badges';
 import { PageTitle } from '@/components/shell';
-import { formatDateTime, formatRelative, stageLabel, stopReasonLabel } from '@/lib/format';
+import { formatDateTime, formatRelative, packLabels, stopReasonLabel } from '@/lib/format';
 import { requireCapability } from '@/lib/server/auth';
+import { packFor } from '@/lib/server/pack';
 import { listEnrollments, sequenceStats } from '@/lib/server/queries';
 import { PauseToggle } from './pause-toggle';
 
 export const metadata: Metadata = { title: 'Sequences' };
-
-const pack = getActivePack();
 
 function delayLabel(minutes: number): string {
   if (minutes === 0) return 'Straight away';
@@ -21,15 +20,17 @@ function delayLabel(minutes: number): string {
   return `After ${days} day${days === 1 ? '' : 's'}`;
 }
 
-const sample = {
-  fullName: 'Ananya Sample',
-  specialty: 'Dermatology',
-  reference: 'ABCD-1234',
-  unsubscribeUrl: 'https://…/unsubscribe',
-};
-
 export default async function SequencesPage() {
   const session = await requireCapability('screen.sequences');
+  const pack = packFor(session);
+  const { stageLabel } = packLabels(pack);
+  const sample = {
+    brand: pack.brand,
+    fullName: 'Ananya Sample',
+    specialty: pack.offerings[0]?.name ?? null,
+    reference: 'ABCD-1234',
+    unsubscribeUrl: 'https://…/unsubscribe',
+  };
   const [stats, enrollments] = await Promise.all([sequenceStats(session), listEnrollments(session)]);
   const now = new Date();
   const statFor = (id: string) => stats.find((s) => s.sequence_id === id);

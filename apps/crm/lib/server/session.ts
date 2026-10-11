@@ -1,5 +1,6 @@
 import 'server-only';
 import { isStaffRole, type StaffRole } from '@healwyn/core';
+import { isKnownIndustryId } from '@healwyn/core/ids';
 import { jwtVerify, SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 
@@ -12,6 +13,8 @@ export interface Session {
   staffId: string;
   role: StaffRole;
   name: string;
+  /** The staff member's industry pack: it picks the CRM's stages, labels, sequences and theme. */
+  industry: string;
 }
 
 function secret(): Uint8Array {
@@ -21,7 +24,7 @@ function secret(): Uint8Array {
 }
 
 export async function signSession(session: Session): Promise<string> {
-  return new SignJWT({ sid: session.staffId, role: session.role, name: session.name })
+  return new SignJWT({ sid: session.staffId, role: session.role, name: session.name, ind: session.industry })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(session.userId)
     .setIssuedAt()
@@ -42,7 +45,9 @@ export async function verifySession(token: string | undefined): Promise<Session 
     ) {
       return null;
     }
-    return { userId: payload.sub, staffId: payload.sid, role: payload.role, name: payload.name };
+    // Sessions issued before Phase 4 carry no industry: they were clinic staff.
+    const industry = isKnownIndustryId(payload.ind) ? payload.ind : 'clinic';
+    return { userId: payload.sub, staffId: payload.sid, role: payload.role, name: payload.name, industry };
   } catch {
     return null;
   }

@@ -17,6 +17,8 @@ export const voiceScriptSchema = z
   .object({
     version: z.literal(1),
     packId: z.string(),
+    /** The industry, for the classifier's instructions (e.g. "Multi-specialty clinic"). */
+    industry: z.string(),
     brand: z.string(),
     assistantName: z.string(),
     languages: z.array(z.object({ code: z.string(), label: z.string(), nativeLabel: z.string() })).min(1),
@@ -60,6 +62,7 @@ export const voiceScriptSchema = z
       adviceCues: localizedList,
       adviceTopics: localizedList,
       adviceDecline: localized,
+      adviceCode: code,
       injection: localizedList,
       injectionReply: localized,
       highUrgency: localizedList,
@@ -69,6 +72,7 @@ export const voiceScriptSchema = z
     skip: localizedList,
     hangup: localizedList,
     summary: z.array(z.string()),
+    staffNotes: z.object({ redFlag: z.string(), advice: z.string() }),
     limits: z.object({
       maxCallSeconds: z.number().int().positive(),
       maxTurns: z.number().int().positive(),

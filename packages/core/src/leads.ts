@@ -53,6 +53,7 @@ export interface NewLeadPayload {
 async function consentEvidence(
   definitions: IndustryPack['intake']['consents'],
   decisions: Record<string, boolean>,
+  brand: IndustryPack['brand'],
 ): Promise<ConsentEvidence[]> {
   return Promise.all(
     definitions.map(async (def) => ({
@@ -60,7 +61,7 @@ async function consentEvidence(
       granted: decisions[def.id] === true,
       required: def.required,
       textVersion: def.version,
-      textHash: await sha256Hex(consentPlainText(def)),
+      textHash: await sha256Hex(consentPlainText(def, brand)),
     })),
   );
 }
@@ -91,7 +92,7 @@ export async function intakeToLeadPayload(
     specialtySlug,
     message: message ?? null,
     answers,
-    consents: await consentEvidence(pack.intake.consents, submission.consents),
+    consents: await consentEvidence(pack.intake.consents, submission.consents, pack.brand),
     billingFlag,
     urgency: 'normal',
     sequencePlan: planStageEntry(pack.sequences, pack.initialStageId, [], options.now ?? new Date()),
@@ -117,7 +118,7 @@ export async function assistantToLeadPayload(
     specialtySlug: null,
     message: null,
     answers: {},
-    consents: await consentEvidence(pack.intake.consents, start.consents),
+    consents: await consentEvidence(pack.intake.consents, start.consents, pack.brand),
     billingFlag: false,
     urgency: 'normal',
     sequencePlan: planStageEntry(pack.sequences, pack.initialStageId, [], options.now ?? new Date()),
@@ -146,7 +147,7 @@ export async function partnerToLeadPayload(
       role: submission.role,
       partner_type: submission.partnerType,
     },
-    consents: await consentEvidence(pack.partnerIntake.consents, submission.consents),
+    consents: await consentEvidence(pack.partnerIntake.consents, submission.consents, pack.brand),
     billingFlag: false,
     urgency: 'normal',
     // Patient nurture sequences do not fit partner enquiries; the team replies by email.

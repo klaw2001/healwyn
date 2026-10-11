@@ -1,4 +1,4 @@
-import { BRAND } from './brand';
+import { BRAND, type Brand } from './brand';
 import type { ConsentDefinition } from './industries/types';
 
 export type ConsentSegment =
@@ -7,13 +7,13 @@ export type ConsentSegment =
 export const PRIVACY_PATH = '/privacy';
 const PRIVACY_LABEL = 'privacy notice';
 
-function fillTokens(text: string): string {
-  return text.replaceAll('{brand}', BRAND.name).replaceAll('{email}', BRAND.privacyEmail);
+function fillTokens(text: string, brand: Brand): string {
+  return text.replaceAll('{brand}', brand.name).replaceAll('{email}', brand.privacyEmail);
 }
 
 /** Splits consent text so the UI can render `{privacy}` as a link. */
-export function consentSegments(def: ConsentDefinition): ConsentSegment[] {
-  const parts = fillTokens(def.text).split('{privacy}');
+export function consentSegments(def: ConsentDefinition, brand: Brand = BRAND): ConsentSegment[] {
+  const parts = fillTokens(def.text, brand).split('{privacy}');
   const segments: ConsentSegment[] = [];
   parts.forEach((part, index) => {
     if (index > 0) segments.push({ type: 'privacy-link', value: PRIVACY_LABEL });
@@ -23,8 +23,8 @@ export function consentSegments(def: ConsentDefinition): ConsentSegment[] {
 }
 
 /** The exact wording a person agreed to, as plain text. Hashed into every consent record. */
-export function consentPlainText(def: ConsentDefinition): string {
-  return fillTokens(def.text).replaceAll('{privacy}', `${PRIVACY_LABEL} (${PRIVACY_PATH})`);
+export function consentPlainText(def: ConsentDefinition, brand: Brand = BRAND): string {
+  return fillTokens(def.text, brand).replaceAll('{privacy}', `${PRIVACY_LABEL} (${PRIVACY_PATH})`);
 }
 
 export async function sha256Hex(text: string): Promise<string> {

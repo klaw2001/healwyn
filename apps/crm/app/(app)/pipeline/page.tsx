@@ -1,4 +1,4 @@
-import { getActivePack, LEAD_SOURCES, URGENCIES } from '@healwyn/core';
+import { LEAD_SOURCES, URGENCIES } from '@healwyn/core';
 import { buttonClasses, cx } from '@healwyn/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -7,17 +7,20 @@ import { Filters, type FilterDefinition } from '@/components/filters';
 import { BoardIcon, ListIcon } from '@/components/icons';
 import { LeadTable, SORTS, sortLeads, type SortKey } from '@/components/lead-table';
 import { PageTitle } from '@/components/shell';
-import { languageLabel, sourceLabel, specialtyLabel } from '@/lib/format';
+import { languageLabel, packLabels, sourceLabel } from '@/lib/format';
 import { requireCapability } from '@/lib/server/auth';
+import { packFor } from '@/lib/server/pack';
 import { listLeads, listStaff, type LeadFilters } from '@/lib/server/queries';
 
 export const metadata: Metadata = { title: 'Pipeline' };
 
-const pack = getActivePack();
 const one = (value: string | string[] | undefined) => (typeof value === 'string' ? value : undefined);
 
 export default async function PipelinePage({ searchParams }: PageProps<'/pipeline'>) {
   const session = await requireCapability('screen.pipeline');
+  const pack = packFor(session);
+  const { specialtyLabel } = packLabels(pack);
+  const leadNoun = pack.leadNoun[0]!.toUpperCase() + pack.leadNoun.slice(1);
   const raw = await searchParams;
   const params = Object.fromEntries(
     Object.entries(raw).flatMap(([k, v]) => (typeof v === 'string' && v ? [[k, v] as const] : [])),
@@ -47,7 +50,11 @@ export default async function PipelinePage({ searchParams }: PageProps<'/pipelin
         ...staff.filter((s) => s.role !== 'manager').map((s) => ({ value: s.id, label: s.full_name })),
       ],
     },
-    { name: 'specialty', label: 'Specialty', options: pack.offerings.map((o) => ({ value: o.slug, label: o.name })) },
+    {
+      name: 'specialty',
+      label: pack.site.team.offeringLabel,
+      options: pack.offerings.map((o) => ({ value: o.slug, label: o.name })),
+    },
     { name: 'language', label: 'Language', options: pack.languages.map((l) => ({ value: l.code, label: l.label })) },
     {
       name: 'urgency',
@@ -60,7 +67,7 @@ export default async function PipelinePage({ searchParams }: PageProps<'/pipelin
       label: 'Type',
       options: [
         { value: 'partner', label: 'Partners' },
-        { value: 'all', label: 'Patients and partners' },
+        { value: 'all', label: `${leadNoun}s and partners` },
       ],
     },
   ];
@@ -71,9 +78,9 @@ export default async function PipelinePage({ searchParams }: PageProps<'/pipelin
       ? 'created'
       : 'sla';
   const dir = params.dir === 'asc' ? 'asc' : params.dir === 'desc' ? 'desc' : sort === 'sla' ? 'asc' : 'desc';
-  const sorted = sortLeads(leads, sort, dir);
+  const sorted = sortLeads(pack, leads, sort, dir);
 
-  const boardLeads: BoardLead[] = sortLeads(leads, 'sla', 'asc').map((l) => ({
+  const boardLeads: BoardLead[] = sortLeads(pack, leads, 'sla', 'asc').map((l) => ({
     id: l.id,
     name: l.full_name ?? 'Erased lead',
     stage: l.stage,
@@ -124,9 +131,10 @@ export default async function PipelinePage({ searchParams }: PageProps<'/pipelin
           stages={pack.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind }))}
           leads={boardLeads}
           nowIso={now.toISOString()}
+          sla={pack.crm.sla}
         />
       ) : (
-        <LeadTable leads={sorted} sort={sort} dir={dir} params={params} now={now} />
+        <LeadTable pack={pack} leads={sorted} sort={sort} dir={dir} params={params} now={now} />
       )}
     </>
   );

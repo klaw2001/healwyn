@@ -2,7 +2,8 @@
 LIVEKIT_API_SECRET; speech runs on LiveKit Inference, see docs/VOICE.md).
 
 The website (or the CRM dialer) creates a room and dispatches this agent with metadata
-{"callId", "leadId", "language", "channel"}. The agent speaks through LiveKit Inference text-to-speech,
+{"callId", "leadId", "pack", "language", "channel"}; the pack picks the voice script. The agent speaks
+through LiveKit Inference text-to-speech,
 listens through LiveKit Inference speech-to-text, and takes every reply from the intake engine
 (dialogue.py): no LLM is attached to the session, so nothing a model writes is ever spoken. At the
 end of the call, or when the caller leaves, the result is posted to the CRM.
@@ -20,7 +21,7 @@ from livekit.agents import llm as lk_llm
 from livekit.agents.metrics import EOUMetrics, STTMetrics, TTSMetrics
 from livekit.plugins import silero
 
-from .config import load_script, settings
+from .config import script_for, settings
 from .dialogue import IntakeSession
 from .llm import OptionClassifier
 from .log import log
@@ -59,7 +60,7 @@ class IntakeAgent(Agent):
 @server.rtc_session(agent_name=CONFIG.agent_name)
 async def entrypoint(ctx: JobContext) -> None:
     metadata = json.loads(ctx.job.metadata or '{}')
-    script = load_script(str(CONFIG.script_path))
+    script = script_for(CONFIG, metadata.get('pack'))
     intake = IntakeSession(
         script,
         call_id=metadata['callId'],

@@ -4,10 +4,10 @@ microphone is unavailable) and the CRM's simulated dialer. Run with `pnpm voice:
 Every request is signed with VOICE_AGENT_SECRET (see webhook.py). Finished calls are posted to the
 CRM's /api/voice/complete, exactly as the LiveKit agent posts them.
 
-POST /sessions                 {callId, leadId, channel: "text"|"simulated", language}  -> {reply, ended}
+POST /sessions                 {callId, leadId, pack, channel: "text", language}         -> {reply, ended}
 POST /sessions/<callId>/turns  {text}                                                    -> {reply, ended}
 POST /sessions/<callId>/end    {}                                                        -> {ended}
-POST /simulate                 {callId, leadId, language, turns: [..]}                   -> {transcript, outcome}
+POST /simulate                 {callId, leadId, pack, language, turns: [..]}             -> {transcript, outcome}
 GET  /health
 """
 
@@ -22,7 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from . import VERSION
-from .config import Settings, load_script, settings
+from .config import Settings, script_for, settings
 from .dialogue import IntakeSession
 from .llm import OptionClassifier
 from .log import log
@@ -44,7 +44,8 @@ def _uuid(value: Any) -> str:
 class Service:
     def __init__(self, config: Settings, post=post_result) -> None:
         self.config = config
-        self.script = load_script(str(config.script_path))
+        # The default pack's script; each call names its own pack (scripts are cached by path).
+        self.script = script_for(config, config.pack)
         self.sessions: dict[str, tuple[IntakeSession, threading.Lock]] = {}
         self.finished: dict[str, float] = {}
         self.lock = threading.Lock()
@@ -78,7 +79,7 @@ class Service:
             if len(self.sessions) >= MAX_SESSIONS:
                 raise OverflowError('busy')
             session = IntakeSession(
-                self.script,
+                script_for(self.config, body.get('pack')),
                 call_id=call_id,
                 lead_id=lead_id,
                 channel=channel,
@@ -122,7 +123,7 @@ class Service:
             self._claim(call_id)
             self.finished[call_id] = time.monotonic()
         session = IntakeSession(
-            self.script,
+            script_for(self.config, body.get('pack')),
             call_id=call_id,
             lead_id=lead_id,
             channel='simulated',
@@ -142,10 +143,9 @@ class Service:
     def sweep(self, idle_after: float = 180) -> None:
         """Ends abandoned sessions so their results still reach the CRM: chats left idle end as the
         caller ending the call (timed to their last message); anything past the call limit times out."""
-        limit = self.script.limits.maxCallSeconds + 60
         for call_id, (session, lock) in list(self.sessions.items()):
             with lock:
-                if session.elapsed() > limit:
+                if session.elapsed() > session.script.limits.maxCallSeconds + 60:
                     session.time_up()
                 elif session.idle_seconds() > idle_after:
                     session.caller_hung_up(idle=True)
@@ -226,7 +226,7 @@ def serve() -> None:
     config = settings()
     service = Service(config)
     print(
-        f'{service.script.brand} voice text service. Synthetic data only: the free Gemini tier may use inputs to '
+        f'Voice text service (default pack {config.pack}). Synthetic data only: the free Gemini tier may use inputs to '
         "improve Google's products.",
         flush=True,
     )

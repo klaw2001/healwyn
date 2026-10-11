@@ -109,8 +109,9 @@ export async function runNurtureWorker(options: WorkerOptions): Promise<WorkerRe
     }
 
     const token = await signUnsubscribeToken(step.lead_id, env.UNSUBSCRIBE_SECRET);
-    const link = unsubscribeUrl(siteUrl, token);
+    const link = unsubscribeUrl(siteUrl, token, pack.id);
     const rendered = renderTemplate(template, {
+      brand: pack.brand,
       fullName: step.full_name,
       specialty: pack.offerings.find((o) => o.slug === step.specialty_slug)?.name ?? null,
       reference: formatLeadReference(step.lead_id),

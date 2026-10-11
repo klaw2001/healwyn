@@ -1,9 +1,9 @@
 'use client';
 
-import { buildPartnerSchema, consentFieldName, getActivePack, PARTNER_FIELDS } from '@healwyn/core';
+import { buildPartnerSchema, consentFieldName, PARTNER_FIELDS, type FormPack } from '@healwyn/core';
 import { Field, Input, Select, Textarea } from '@healwyn/ui';
-import { useState } from 'react';
-import { submitPartnerEnquiry } from '@/app/partners/actions';
+import { useMemo, useState } from 'react';
+import { submitPartnerEnquiry } from '@/app/[industry]/partners/actions';
 import { valueOf } from '@/lib/form-state';
 import {
   ConsentCheckbox,
@@ -16,23 +16,25 @@ import {
 } from './form-kit';
 import { useEnquiryForm } from './use-enquiry-form';
 
-const pack = getActivePack();
-const schema = buildPartnerSchema(pack);
 const fieldId = (name: string) => `partner-${name}`;
 
 // Page order, so the summary reads top to bottom like the form.
-const errorLinks: ErrorLink[] = [
-  PARTNER_FIELDS.organisation,
-  PARTNER_FIELDS.partnerType,
-  PARTNER_FIELDS.contactName,
-  PARTNER_FIELDS.role,
-  PARTNER_FIELDS.phone,
-  PARTNER_FIELDS.email,
-  PARTNER_FIELDS.message,
-  ...pack.partnerIntake.consents.map((c) => consentFieldName(c.id)),
-].map((field) => ({ field, targetId: fieldId(field) }));
+function errorLinksFor(pack: FormPack): ErrorLink[] {
+  return [
+    PARTNER_FIELDS.organisation,
+    PARTNER_FIELDS.partnerType,
+    PARTNER_FIELDS.contactName,
+    PARTNER_FIELDS.role,
+    PARTNER_FIELDS.phone,
+    PARTNER_FIELDS.email,
+    PARTNER_FIELDS.message,
+    ...pack.partnerIntake.consents.map((c) => consentFieldName(c.id)),
+  ].map((field) => ({ field, targetId: fieldId(field) }));
+}
 
-export function PartnerForm() {
+export function PartnerForm({ pack }: { pack: FormPack }) {
+  const schema = useMemo(() => buildPartnerSchema(pack), [pack]);
+  const errorLinks = useMemo(() => errorLinksFor(pack), [pack]);
   const { state, formAction, isPending, errors, onSubmit, onChange, summaryRef, successRef } = useEnquiryForm(
     schema,
     submitPartnerEnquiry,
@@ -51,6 +53,7 @@ export function PartnerForm() {
           'We reply by email within two working days.',
           'If there is a fit, we suggest a short call to understand your needs.',
         ]}
+        privacyEmail={pack.brand.privacyEmail}
       />
     );
   }
@@ -78,6 +81,7 @@ export function PartnerForm() {
       />
       <p className="mb-8 text-sm text-ink-muted">All fields are required.</p>
       <Honeypot />
+      <input type="hidden" name="industry" value={pack.id} />
 
       <div className="grid gap-10">
         <FormSection title="Your organisation">
@@ -150,6 +154,7 @@ export function PartnerForm() {
                 id={fieldId(name)}
                 name={name}
                 definition={consent}
+                brand={pack.brand}
                 error={errors[name]}
                 defaultChecked={valueOf(state, name) === 'on'}
               />

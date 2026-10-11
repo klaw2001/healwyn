@@ -27,10 +27,10 @@ export async function assertCapability(capability: Capability): Promise<Session>
 }
 
 export async function sessionForAuthUser(userId: string): Promise<Session | null> {
-  const [staff] = await system()<{ staff_id: string; full_name: string; role: string }[]>`
-    select staff_id, full_name, role from public.staff_for_auth_user(${userId})`;
+  const [staff] = await system()<{ staff_id: string; full_name: string; role: string; industry: string }[]>`
+    select staff_id, full_name, role, industry from public.staff_for_auth_user(${userId})`;
   if (!staff || !isStaffRole(staff.role)) return null;
-  return { userId, staffId: staff.staff_id, role: staff.role, name: staff.full_name };
+  return { userId, staffId: staff.staff_id, role: staff.role, name: staff.full_name, industry: staff.industry };
 }
 
 /**

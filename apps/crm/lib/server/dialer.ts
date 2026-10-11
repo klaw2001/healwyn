@@ -1,9 +1,7 @@
 import 'server-only';
-import { getActivePack, simulatedCallerTurns } from '@healwyn/core';
+import { simulatedCallerTurns, type IndustryPack } from '@healwyn/core';
 import { signServiceRequest } from '@healwyn/messaging';
 import { AgentDispatchClient, SipClient } from 'livekit-server-sdk';
-
-const pack = getActivePack();
 
 /** Real phone calls need a LiveKit SIP outbound trunk (see docs/VOICE.md); without one, only simulated calls. */
 export function telephonyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -15,18 +13,22 @@ export function telephonyConfigured(env: NodeJS.ProcessEnv = process.env): boole
  * engine and the same webhook as a real call, with the caller's lines taken
  * from what the lead wrote on the form.
  */
-export async function runSimulatedCall(call: {
-  callId: string;
-  leadId: string;
-  language: string;
-  answers: Record<string, string>;
-  message: string | null;
-}): Promise<{ outcome: string; posted: number }> {
+export async function runSimulatedCall(
+  pack: IndustryPack,
+  call: {
+    callId: string;
+    leadId: string;
+    language: string;
+    answers: Record<string, string>;
+    message: string | null;
+  },
+): Promise<{ outcome: string; posted: number }> {
   const secret = process.env.VOICE_AGENT_SECRET ?? '';
   const base = (process.env.VOICE_TEXT_URL || 'http://127.0.0.1:8090').replace(/\/$/, '');
   const body = JSON.stringify({
     callId: call.callId,
     leadId: call.leadId,
+    pack: pack.id,
     language: call.language,
     turns: simulatedCallerTurns(pack, { answers: call.answers, message: call.message, language: call.language }),
   });
@@ -46,13 +48,22 @@ export async function runSimulatedCall(call: {
  * then asks LiveKit SIP to dial the number into that room. Untested without a
  * trunk; see docs/VOICE.md for the setup this expects.
  */
-export async function placePhoneCall(call: { callId: string; leadId: string; language: string; phone: string }) {
+export async function placePhoneCall(
+  pack: IndustryPack,
+  call: { callId: string; leadId: string; language: string; phone: string },
+) {
   const { LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET, LIVEKIT_SIP_TRUNK_ID } = process.env;
   const host = LIVEKIT_URL!.replace(/^wss:/, 'https:');
   const room = `call-${call.callId}`;
   const agentName = process.env.VOICE_AGENT_NAME || 'healwyn-intake';
   await new AgentDispatchClient(host, LIVEKIT_API_KEY, LIVEKIT_API_SECRET).createDispatch(room, agentName, {
-    metadata: JSON.stringify({ callId: call.callId, leadId: call.leadId, language: call.language, channel: 'phone' }),
+    metadata: JSON.stringify({
+      callId: call.callId,
+      leadId: call.leadId,
+      pack: pack.id,
+      language: call.language,
+      channel: 'phone',
+    }),
   });
   await new SipClient(host, LIVEKIT_API_KEY, LIVEKIT_API_SECRET).createSipParticipant(
     LIVEKIT_SIP_TRUNK_ID!,

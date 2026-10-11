@@ -1,4 +1,3 @@
-import { getActivePack } from '@healwyn/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -6,13 +5,12 @@ import { PageTitle } from '@/components/shell';
 import { FREE_TIER } from '@/lib/free-tier';
 import { formatDateTime } from '@/lib/format';
 import { requireCapability } from '@/lib/server/auth';
+import { packFor } from '@/lib/server/pack';
 import { telephonyConfigured } from '@/lib/server/dialer';
 import { assistantOverview, type UsageTotals } from '@/lib/server/queries';
 import { VerifiedNumbers } from './verified-numbers';
 
 export const metadata: Metadata = { title: 'AI assistant' };
-
-const pack = getActivePack();
 
 const OUTCOMES: Record<string, string> = {
   completed: 'Qualified',
@@ -87,6 +85,7 @@ function Totals({ totals }: { totals: UsageTotals }) {
 /** The manager's view of the AI assistant: usage against the daily cap and the free tiers, recent calls, verified numbers. */
 export default async function AssistantPage() {
   const session = await requireCapability('screen.assistant');
+  const pack = packFor(session);
   const { limits } = pack.voice;
   const overview = await assistantOverview(session, limits.callWindow.timeZone);
   const sttMinutes = overview.month.stt_seconds / 60;

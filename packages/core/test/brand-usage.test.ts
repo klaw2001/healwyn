@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BRAND } from '../src';
+import { BRANDS } from '../src';
 
 const repoRoot = join(import.meta.dirname, '../../..');
 const SCAN_DIRS = ['packages', 'apps'];
@@ -29,13 +29,16 @@ function* walk(dir: string): Generator<string> {
 }
 
 /**
- * User-visible brand text must come from BRAND. Lowercase forms (the @healwyn/*
- * package scope, database names) are internal identifiers and are allowed.
+ * User-visible brand text must come from BRANDS (one per industry pack).
+ * Lowercase forms (the @healwyn/* package scope, database names) are internal
+ * identifiers and are allowed.
  */
 describe('brand name', () => {
-  it('is only hardcoded in packages/core/src/brand.ts', () => {
+  it('is only hardcoded in packages/core/src/brand.ts, for every pack', () => {
     const offenders: string[] = [];
-    const pattern = new RegExp(`\\b${BRAND.shortName}\\b`);
+    const names = Object.values(BRANDS).map((brand) => brand.shortName);
+    expect(names.length).toBeGreaterThan(1);
+    const pattern = new RegExp(`\\b(${names.join('|')})\\b`);
     for (const dir of SCAN_DIRS) {
       for (const file of walk(join(repoRoot, dir))) {
         const rel = relative(repoRoot, file);

@@ -1,9 +1,12 @@
+import type { HeroMotif } from '@healwyn/core';
+
 /**
  * Hero scene: a first call (left) travels along a path through three checks
- * (what you need, when, which language) to the matched doctor's team.
+ * (what you need, when, which language) to the matched team. The motif adds an
+ * industry detail (a sprig, a house, a growth chart, a lamp).
  * Decorative: the surrounding copy says the same thing in words.
  */
-export function HeroIllustration({ className }: { className?: string }) {
+export function HeroIllustration({ motif = 'clinic', className }: { motif?: HeroMotif; className?: string }) {
   return (
     <svg viewBox="0 0 520 470" className={className} aria-hidden="true" focusable="false">
       <path
@@ -130,17 +133,51 @@ export function HeroIllustration({ className }: { className?: string }) {
         />
       </g>
 
-      {/* sprig */}
-      <g fill="none" stroke="var(--hw-primary)" strokeWidth="2.2" strokeLinecap="round">
-        <path d="M452 238c-14 18-18 40-14 62" />
-        <path d="M447 252c-10-2-17 2-20 10 9 2 16-1 20-10Z" fill="var(--hw-primary-soft)" />
-        <path d="M441 275c10-4 18-1 22 7-9 3-17 0-22-7Z" fill="var(--hw-primary-soft)" />
-      </g>
+      <MotifDetail motif={motif} />
     </svg>
   );
 }
 
-/** A hand-drawn marigold underline for one phrase of a heading. */
+function MotifDetail({ motif }: { motif: HeroMotif }) {
+  const stroke = { fill: 'none', stroke: 'var(--hw-primary)', strokeWidth: 2.2, strokeLinecap: 'round' } as const;
+  switch (motif) {
+    case 'home':
+      return (
+        <g {...stroke} strokeLinejoin="round">
+          <path d="M418 268l30-24 30 24" />
+          <path d="M424 263v38h48v-38" fill="var(--hw-primary-soft)" />
+          <path d="M442 301v-16h12v16" />
+        </g>
+      );
+    case 'growth':
+      return (
+        <g {...stroke}>
+          <path d="M420 300h58" />
+          <rect x="426" y="282" width="9" height="18" rx="2" fill="var(--hw-primary-soft)" />
+          <rect x="442" y="270" width="9" height="30" rx="2" fill="var(--hw-primary-soft)" />
+          <rect x="458" y="254" width="9" height="46" rx="2" fill="var(--hw-primary-soft)" />
+          <path d="M424 262l18-14 14 8 18-18" />
+        </g>
+      );
+    case 'room':
+      return (
+        <g {...stroke} strokeLinejoin="round">
+          <path d="M436 244h28l9 24h-46Z" fill="var(--hw-primary-soft)" />
+          <path d="M450 268v32M438 302h24" />
+        </g>
+      );
+    default:
+      return (
+        <g {...stroke}>
+          <path d="M452 238c-14 18-18 40-14 62" />
+          <path d="M447 252c-10-2-17 2-20 10 9 2 16-1 20-10Z" fill="var(--hw-primary-soft)" />
+          <path d="M441 275c10-4 18-1 22 7-9 3-17 0-22-7Z" fill="var(--hw-primary-soft)" />
+        </g>
+      );
+  }
+}
+
+/** A hand-drawn accent underline for one phrase of a heading. */
 export function Swash({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 300 18" preserveAspectRatio="none" className={className} aria-hidden="true" focusable="false">

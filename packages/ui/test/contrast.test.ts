@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { industryPacks, type ThemeTokens } from '@healwyn/core';
 import { describe, expect, it } from 'vitest';
 
 const css = readFileSync(join(import.meta.dirname, '../src/tokens.css'), 'utf8');
@@ -81,3 +82,34 @@ describe('theme blocks', () => {
     expect(media).toEqual(dark);
   });
 });
+
+/** A pack's theme overrides these tokens; every pairing above must still pass with them. */
+function withPack(base: Record<string, string>, theme: ThemeTokens): Record<string, string> {
+  return {
+    ...base,
+    primary: theme.primary,
+    'primary-hover': theme.primaryHover,
+    'primary-soft': theme.primarySoft,
+    'on-primary': theme.onPrimary,
+    accent: theme.accent,
+    'accent-soft': theme.accentSoft,
+    'accent-ink': theme.accentInk,
+    'on-accent': theme.onAccent,
+    'surface-teal': theme.surfaceTint,
+    focus: theme.focus,
+  };
+}
+
+describe.each(Object.values(industryPacks).map((pack) => [pack.id, pack.theme] as const))(
+  '%s pack theme contrast',
+  (_id, theme) => {
+    it.each(PAIRS)('light: %s on %s is at least %s:1', (fg, bg, min) => {
+      const tokens = withPack(light, theme.light);
+      expect(contrast(tokens[fg]!, tokens[bg]!)).toBeGreaterThanOrEqual(min);
+    });
+    it.each(PAIRS)('dark: %s on %s is at least %s:1', (fg, bg, min) => {
+      const tokens = withPack(dark, theme.dark);
+      expect(contrast(tokens[fg]!, tokens[bg]!)).toBeGreaterThanOrEqual(min);
+    });
+  },
+);

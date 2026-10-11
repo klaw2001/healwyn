@@ -295,7 +295,7 @@ export async function sequenceStats(session: Session): Promise<SequenceStats[]> 
     (tx) => tx<SequenceStats[]>`
       with ids as (
         select distinct sequence_id from public.sequence_enrollments
-        union select sequence_id from public.sequence_settings
+        union select sequence_id from public.sequence_settings where industry = ${session.industry}
       )
       select ids.sequence_id,
              (select count(*)::int from public.sequence_enrollments e where e.sequence_id = ids.sequence_id and e.status = 'active') as active,
@@ -303,7 +303,7 @@ export async function sequenceStats(session: Session): Promise<SequenceStats[]> 
              (select count(*)::int from public.sequence_enrollments e where e.sequence_id = ids.sequence_id and e.status = 'stopped') as stopped,
              (select count(*)::int from public.messages m join public.sequence_enrollments e on e.id = m.enrollment_id
                where e.sequence_id = ids.sequence_id) as messages,
-             coalesce((select ss.paused from public.sequence_settings ss where ss.sequence_id = ids.sequence_id), false) as paused,
+             coalesce((select ss.paused from public.sequence_settings ss where ss.industry = ${session.industry} and ss.sequence_id = ids.sequence_id), false) as paused,
              (select min(s.due_at) from public.scheduled_messages s where s.sequence_id = ids.sequence_id and s.status = 'pending') as next_due
       from ids`,
   );

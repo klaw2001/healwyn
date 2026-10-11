@@ -1,12 +1,10 @@
 'use client';
 
-import { BRAND } from '@healwyn/core';
-import { Nav } from '@healwyn/ui';
+import { Nav, type NavLink } from '@healwyn/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { mainNav, primaryCta } from '@/lib/site';
 
-export function SiteNav() {
+export function SiteNav({ brandName, links, cta }: { brandName: string; links: NavLink[]; cta: NavLink }) {
   const pathname = usePathname();
-  return <Nav brandName={BRAND.name} links={mainNav} cta={primaryCta} currentPath={pathname} LinkComponent={Link} />;
+  return <Nav brandName={brandName} links={links} cta={cta} currentPath={pathname} LinkComponent={Link} />;
 }

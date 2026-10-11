@@ -1,11 +1,4 @@
-import {
-  can,
-  formatLeadReference,
-  formatIndianMobile,
-  getActivePack,
-  OVERRIDE_REASONS,
-  renderTemplate,
-} from '@healwyn/core';
+import { can, formatLeadReference, formatIndianMobile, OVERRIDE_REASONS, renderTemplate } from '@healwyn/core';
 import { Badge } from '@healwyn/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -34,27 +27,22 @@ import {
 import { AiSummary } from '@/components/profile/ai-summary';
 import { CompleteTaskButton, NoteForm, TaskForm } from '@/components/profile/forms';
 import {
-  answerLabel,
   assignmentExplanation,
-  describeEvent,
   formatDateTime,
   formatRelative,
   indiaDay,
   languageLabel,
-  roleLabel,
-  sequenceName,
+  packLabels,
   sourceLabel,
-  specialtyLabel,
   stopReasonLabel,
 } from '@/lib/format';
 import { requireSession } from '@/lib/server/auth';
+import { packFor } from '@/lib/server/pack';
 import { getLeadProfile, listStaff } from '@/lib/server/queries';
 import { telephonyConfigured } from '@/lib/server/dialer';
 import { suggestRouting } from '@/lib/server/routing';
 
 export const metadata: Metadata = { title: 'Lead' };
-
-const pack = getActivePack();
 
 function Panel({ title, children, id }: { title: string; children: ReactNode; id: string }) {
   return (
@@ -78,6 +66,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const session = await requireSession();
+  const pack = packFor(session);
+  const { answerLabel, describeEvent, roleLabel, sequenceName, specialtyLabel, stageLabel } = packLabels(pack);
   const { id } = await params;
   const [profile, staff] = await Promise.all([getLeadProfile(session, id), listStaff(session)]);
   if (!profile) notFound();
@@ -105,6 +95,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const overrideReasons = Object.entries(OVERRIDE_REASONS).map(([value, label]) => ({ value, label }));
   const tomorrowNine = `${indiaDay(new Date(now.getTime() + 86_400_000))}T09:00`;
   const sampleVars = {
+    brand: pack.brand,
     fullName: name,
     specialty: specialtyLabel(lead.specialty_slug),
     reference: formatLeadReference(lead.id),
@@ -127,7 +118,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl">{name}</h1>
-            <StageBadge stage={lead.stage} />
+            <StageBadge label={stageLabel(lead.stage)} kind={pack.stages.find((s) => s.id === lead.stage)?.kind} />
             <UrgencyBadge urgency={lead.urgency} />
             {lead.lead_type === 'partner' ? <Badge>Partner</Badge> : null}
             {lead.is_demo ? <Badge tone="accent">Demo data</Badge> : null}
@@ -138,6 +129,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <SlaBadge
+              sla={pack.crm.sla}
               createdAt={lead.created_at}
               urgency={lead.urgency}
               firstResponseAt={lead.first_response_at}
@@ -193,7 +185,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="grid min-w-0 content-start gap-6">
-          <AiSummary calls={calls} routingExplanation={routingExplanation} />
+          <AiSummary pack={pack} calls={calls} routingExplanation={routingExplanation} />
 
           {suggestion ? (
             <section aria-labelledby="routing-title" className="rounded-lg border border-line bg-surface p-4">

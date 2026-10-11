@@ -1,6 +1,5 @@
 import 'server-only';
 import {
-  BRAND,
   buildIntakeSchema,
   buildPartnerSchema,
   formatLeadReference,
@@ -13,6 +12,7 @@ import {
   optionLabel,
   partnerToLeadPayload,
   toFieldErrors,
+  type Brand,
   type IndustryPack,
   type NewLeadPayload,
 } from '@healwyn/core';
@@ -36,8 +36,10 @@ export const RATE_LIMIT = { limit: 5, windowSeconds: 600 } as const;
 type FormKind = 'patient' | 'partner';
 
 const MESSAGES = {
-  rateLimited: `You have sent several enquiries in a short time. Please wait ten minutes and try again, or email ${BRAND.contactEmail}.`,
-  storeFailed: `Sorry, we could not send your enquiry just now. Nothing was saved. Please try again in a few minutes, or email ${BRAND.contactEmail}.`,
+  rateLimited: (brand: Brand) =>
+    `You have sent several enquiries in a short time. Please wait ten minutes and try again, or email ${brand.contactEmail}.`,
+  storeFailed: (brand: Brand) =>
+    `Sorry, we could not send your enquiry just now. Nothing was saved. Please try again in a few minutes, or email ${brand.contactEmail}.`,
 };
 
 function echoValues(formData: FormData): Record<string, string> {
@@ -88,7 +90,7 @@ async function processSubmission<T>(
       );
       if (!allowed) {
         log.warn('form.rate_limited', { form: kind });
-        return { status: 'error', message: MESSAGES.rateLimited, values };
+        return { status: 'error', message: MESSAGES.rateLimited(deps.pack.brand), values };
       }
     } catch (error) {
       log.warn('form.rate_limit_unavailable', { form: kind, ...errorFields(error) });
@@ -102,14 +104,21 @@ async function processSubmission<T>(
     ({ id: leadId } = await deps.store.submitLead(payload));
   } catch (error) {
     log.error('lead.store_failed', { form: kind, store: deps.store.kind, ...errorFields(error) });
-    return { status: 'error', message: MESSAGES.storeFailed, values };
+    return { status: 'error', message: MESSAGES.storeFailed(deps.pack.brand), values };
   }
 
   const reference = formatLeadReference(leadId);
   log.info('lead.submitted', { form: kind, reference, store: deps.store.kind });
 
   // 5. Notify after responding. Failures are logged, never surfaced.
-  const notification: LeadNotification = { leadId, reference, kind, summary: summarize(payload) };
+  const notification: LeadNotification = {
+    leadId,
+    reference,
+    kind,
+    brand: deps.pack.brand,
+    leadNoun: deps.pack.leadNoun,
+    summary: summarize(payload),
+  };
   deps.schedule(async () => {
     await deps.notify(notification);
   });

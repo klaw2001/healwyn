@@ -1,4 +1,5 @@
 import type { StaffRole } from '../permissions';
+import { demoStaffId, demoUsers, type DemoStaffMember } from './demo-kit';
 
 /**
  * Synthetic staff for the clinic demo. Every name is fictional. The doctors
@@ -6,42 +7,12 @@ import type { StaffRole } from '../permissions';
  * they never drift apart. Demo leads live in clinic-demo-leads.ts.
  */
 
-export const LANGUAGE_NAMES: Record<string, string> = {
-  en: 'English',
-  hi: 'Hindi',
-  bn: 'Bengali',
-  gu: 'Gujarati',
-  kn: 'Kannada',
-  ml: 'Malayalam',
-  mr: 'Marathi',
-  pa: 'Punjabi',
-  ta: 'Tamil',
-  ur: 'Urdu',
-};
-
-export interface DemoStaffMember {
-  readonly id: string;
-  readonly fullName: string;
-  readonly title: string;
-  readonly level: string;
-  /** Permission role in the CRM. */
-  readonly role: StaffRole;
-  readonly specialties: readonly string[];
-  readonly languages: readonly string[];
-  readonly locations: readonly string[];
-  readonly capacity: number;
-  /** Clinicians appear on the public doctors page. */
-  readonly clinician: boolean;
-  readonly bio?: string;
-}
-
-const staffId = (n: number) => `5ea1f000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-/** Each staff member's Supabase Auth user id (same number as their staff id). */
-export const demoAuthUserId = (staffIdValue: string) => `a17a0000${staffIdValue.slice(8)}`;
+const staffId = (n: number) => demoStaffId(0, n);
 
 export const clinicDemoStaff: readonly DemoStaffMember[] = [
   {
     id: staffId(1),
+    demoLogin: true,
     fullName: 'Dr. Asha Raman',
     title: 'Senior consultant, general medicine',
     level: 'senior_consultant',
@@ -50,7 +21,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'ta'],
     locations: ['lakeside'],
     capacity: 18,
-    clinician: true,
+    listed: true,
     bio: 'Leads the general medicine team and makes sure every patient leaves knowing what happens next.',
   },
   {
@@ -63,7 +34,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'pa'],
     locations: ['riverside'],
     capacity: 24,
-    clinician: true,
+    listed: true,
     bio: 'Known for unhurried consultations and plain-language explanations.',
   },
   {
@@ -76,7 +47,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'mr'],
     locations: ['riverside', 'lakeside'],
     capacity: 16,
-    clinician: true,
+    listed: true,
     bio: 'Leads the dermatology team across both clinics.',
   },
   {
@@ -89,7 +60,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'ur'],
     locations: ['lakeside'],
     capacity: 22,
-    clinician: true,
+    listed: true,
     bio: 'Sees adults and teenagers, with a calm, step-by-step approach.',
   },
   {
@@ -102,7 +73,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi'],
     locations: ['lakeside'],
     capacity: 20,
-    clinician: true,
+    listed: true,
     bio: 'Especially good with nervous patients and first-time visitors.',
   },
   {
@@ -115,7 +86,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'kn'],
     locations: ['lakeside', 'riverside'],
     capacity: 26,
-    clinician: true,
+    listed: true,
     bio: 'Builds simple routines that fit around work and family life.',
   },
   {
@@ -128,7 +99,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'ta'],
     locations: ['lakeside', 'riverside'],
     capacity: 16,
-    clinician: true,
+    listed: true,
     bio: 'Leads the women’s health team and its private consultation service.',
   },
   {
@@ -141,11 +112,12 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'gu'],
     locations: ['lakeside'],
     capacity: 30,
-    clinician: true,
+    listed: true,
     bio: 'Makes sure every test result reaches the right doctor quickly.',
   },
   {
     id: staffId(9),
+    demoLogin: true,
     fullName: 'Neha Joshi',
     title: 'Care coordinator',
     level: 'care_coordinator',
@@ -154,7 +126,7 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'mr'],
     locations: ['riverside'],
     capacity: 40,
-    clinician: false,
+    listed: false,
   },
   {
     id: staffId(10),
@@ -166,10 +138,11 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'bn'],
     locations: ['lakeside'],
     capacity: 40,
-    clinician: false,
+    listed: false,
   },
   {
     id: staffId(11),
+    demoLogin: true,
     fullName: 'Deepa Menon',
     title: 'Insurance and billing desk',
     level: 'billing_desk',
@@ -178,10 +151,11 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi', 'ml'],
     locations: ['lakeside', 'riverside'],
     capacity: 35,
-    clinician: false,
+    listed: false,
   },
   {
     id: staffId(12),
+    demoLogin: true,
     fullName: 'Anita Kapoor',
     title: 'Clinic manager',
     level: 'clinic_manager',
@@ -190,14 +164,9 @@ export const clinicDemoStaff: readonly DemoStaffMember[] = [
     languages: ['en', 'hi'],
     locations: ['lakeside', 'riverside'],
     capacity: 1,
-    clinician: false,
+    listed: false,
   },
 ];
 
-/** The account behind each "Sign in as" demo button, one per role. */
-export const DEMO_USERS: readonly { role: StaffRole; staffId: string }[] = [
-  { role: 'manager', staffId: staffId(12) },
-  { role: 'care_coordinator', staffId: staffId(9) },
-  { role: 'specialist_doctor', staffId: staffId(1) },
-  { role: 'billing_desk', staffId: staffId(11) },
-];
+/** The accounts behind the "Sign in as" demo buttons, one per role. */
+export const DEMO_USERS: readonly { role: StaffRole; staffId: string }[] = demoUsers(clinicDemoStaff);

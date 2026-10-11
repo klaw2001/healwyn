@@ -1,0 +1,1458 @@
+{
+  "version": 1,
+  "packId": "real_estate",
+  "industry": "Residential real estate",
+  "brand": "Nestwyn Realty",
+  "assistantName": "Nestwyn Realty assistant",
+  "languages": [
+    {
+      "code": "en",
+      "label": "English",
+      "nativeLabel": "English"
+    },
+    {
+      "code": "hi",
+      "label": "Hindi",
+      "nativeLabel": "हिन्दी"
+    }
+  ],
+  "greeting": {
+    "en": "Hello, I'm the Nestwyn Realty AI assistant. I'm an automated assistant, not a person. I'll ask a few short questions so the right property advisor can call you back, and I'll share a short summary with our team. I can't give legal, loan or investment advice. You can speak in English or Hindi. Is it okay to continue?",
+    "hi": "नमस्ते, मैं Nestwyn Realty की AI सहायक हूँ। मैं एक स्वचालित सहायक हूँ, इंसान नहीं। मैं कुछ छोटे सवाल पूछूँगी ताकि सही प्रॉपर्टी सलाहकार आपको वापस कॉल कर सकें, और मैं हमारी टीम के साथ एक छोटा सारांश साझा करूँगी। मैं कानूनी, लोन या निवेश की सलाह नहीं दे सकती। क्या हम आगे बढ़ें?"
+  },
+  "consentQuestion": {
+    "en": "Is it okay to continue? Please say yes or no.",
+    "hi": "क्या हम आगे बढ़ें? कृपया हाँ या नहीं कहें।"
+  },
+  "consentDeclined": {
+    "en": "That's completely fine. I won't collect anything. If you'd like, you can use the form on our website instead. Goodbye, and take care.",
+    "hi": "बिल्कुल ठीक है। मैं कुछ भी नहीं लूँगी। चाहें तो आप हमारी वेबसाइट पर फ़ॉर्म भर सकते हैं। धन्यवाद, अपना ध्यान रखिए।"
+  },
+  "goodbye": {
+    "en": "Thank you for calling Nestwyn Realty. Our team will follow up on what you shared. Goodbye.",
+    "hi": "Nestwyn Realty को कॉल करने के लिए धन्यवाद। आपने जो बताया, उस पर हमारी टीम संपर्क करेगी। नमस्ते।"
+  },
+  "limitReached": {
+    "en": "We've reached the time I have for this call. Thank you; our team will call you back to finish. If you ever feel unsafe, please call 112.",
+    "hi": "इस कॉल का समय पूरा हो गया है। धन्यवाद; हमारी टीम बाकी बात के लिए आपको वापस कॉल करेगी। अगर कभी असुरक्षित महसूस हो, तो कृपया 112 पर कॉल करें।"
+  },
+  "questions": [
+    {
+      "id": "property_type",
+      "kind": "select",
+      "required": true,
+      "prompt": {
+        "en": "What are you looking for today? For example a flat, a villa, a plot, a home to rent, or help with home-loan paperwork.",
+        "hi": "आज आप क्या ढूँढ रहे हैं? जैसे फ़्लैट, विला, प्लॉट, किराये का घर, या होम लोन के काग़ज़ात में मदद।"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "you are interested in: {answer}",
+        "hi": "आपकी रुचि: {answer}"
+      },
+      "options": [
+        {
+          "value": "apartments",
+          "label": {
+            "en": "Apartment (flat)",
+            "hi": "फ़्लैट (अपार्टमेंट)"
+          },
+          "synonyms": {
+            "en": [
+              "apartment",
+              "apartments",
+              "flat",
+              "flats",
+              "new flat",
+              "new launch",
+              "gated community",
+              "high rise",
+              "tower",
+              "condo",
+              "bhk",
+              "1bhk",
+              "2bhk",
+              "3bhk",
+              "1 bhk",
+              "2 bhk",
+              "3 bhk"
+            ],
+            "hi": [
+              "फ़्लैट",
+              "फ्लैट",
+              "अपार्टमेंट",
+              "नया फ्लैट",
+              "flat",
+              "naya flat",
+              "apartment",
+              "bhk",
+              "2bhk",
+              "2 bhk"
+            ]
+          }
+        },
+        {
+          "value": "villas",
+          "label": {
+            "en": "Villa or row house",
+            "hi": "विला या रो हाउस"
+          },
+          "synonyms": {
+            "en": [
+              "villa",
+              "villas",
+              "row house",
+              "row houses",
+              "rowhouse",
+              "independent house",
+              "independent home",
+              "bungalow",
+              "duplex",
+              "townhouse"
+            ],
+            "hi": [
+              "विला",
+              "बंगला",
+              "रो हाउस",
+              "कोठी",
+              "स्वतंत्र मकान",
+              "villa",
+              "bungalow",
+              "kothi",
+              "row house"
+            ]
+          }
+        },
+        {
+          "value": "plots",
+          "label": {
+            "en": "Plot",
+            "hi": "प्लॉट"
+          },
+          "synonyms": {
+            "en": [
+              "plot",
+              "plots",
+              "land",
+              "a piece of land",
+              "layout",
+              "plotted development",
+              "build my own",
+              "build our own"
+            ],
+            "hi": [
+              "प्लॉट",
+              "ज़मीन",
+              "जमीन",
+              "plot",
+              "zameen",
+              "jameen",
+              "zamin"
+            ]
+          }
+        },
+        {
+          "value": "resale-homes",
+          "label": {
+            "en": "Resale home",
+            "hi": "रीसेल घर"
+          },
+          "synonyms": {
+            "en": [
+              "resale",
+              "resale flat",
+              "resale home",
+              "resale house",
+              "second hand",
+              "second-hand",
+              "secondhand",
+              "pre-owned",
+              "pre owned",
+              "old flat",
+              "old house",
+              "previously owned"
+            ],
+            "hi": [
+              "रीसेल",
+              "पुराना फ्लैट",
+              "पुराना मकान",
+              "पुराना घर",
+              "resale",
+              "purana flat",
+              "purana ghar",
+              "second hand"
+            ]
+          }
+        },
+        {
+          "value": "rentals",
+          "label": {
+            "en": "Home to rent",
+            "hi": "किराये का घर"
+          },
+          "synonyms": {
+            "en": [
+              "rent",
+              "rental",
+              "rentals",
+              "to rent",
+              "on rent",
+              "for rent",
+              "renting",
+              "lease",
+              "tenant",
+              "flat on rent",
+              "house on rent",
+              "paying guest",
+              "pg"
+            ],
+            "hi": [
+              "किराया",
+              "किराए",
+              "किराये",
+              "किराए पर",
+              "किराये पर",
+              "kiraya",
+              "kiraye",
+              "kiraaye",
+              "kiraye par",
+              "kiraye pe",
+              "rent",
+              "rent par",
+              "rent pe"
+            ]
+          }
+        },
+        {
+          "value": "home-loan-paperwork",
+          "label": {
+            "en": "Help with home-loan paperwork",
+            "hi": "होम लोन के काग़ज़ात में मदद"
+          },
+          "synonyms": {
+            "en": [
+              "home loan",
+              "housing loan",
+              "loan",
+              "loan paperwork",
+              "loan documents",
+              "mortgage",
+              "bank paperwork",
+              "paperwork"
+            ],
+            "hi": [
+              "होम लोन",
+              "लोन",
+              "कर्ज़",
+              "कर्ज",
+              "काग़ज़ात",
+              "कागज़ात",
+              "कागजात",
+              "home loan",
+              "loan",
+              "kagzat",
+              "kagaz"
+            ]
+          }
+        },
+        {
+          "value": "not-sure",
+          "label": {
+            "en": "I'm not sure yet",
+            "hi": "अभी पक्का नहीं"
+          },
+          "synonyms": {
+            "en": [
+              "not sure",
+              "don't know",
+              "do not know",
+              "no idea",
+              "unsure",
+              "undecided",
+              "something else",
+              "other"
+            ],
+            "hi": [
+              "पता नहीं",
+              "मालूम नहीं",
+              "पक्का नहीं",
+              "कुछ और",
+              "pata nahi",
+              "maloom nahi",
+              "pakka nahi"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "details",
+      "kind": "textarea",
+      "required": false,
+      "prompt": {
+        "en": "In a sentence or two, what should our property advisor know, such as the area you like or how many bedrooms? Please do not share ID or bank account numbers.",
+        "hi": "एक-दो वाक्यों में, हमारे प्रॉपर्टी सलाहकार को क्या जानना चाहिए, जैसे पसंदीदा इलाका या कितने बेडरूम? कृपया पहचान या बैंक खाते के नंबर न बताएँ। अगर कुछ नहीं, तो \"कुछ नहीं\" कहें।"
+      },
+      "maxLength": 500,
+      "confirm": null,
+      "options": []
+    },
+    {
+      "id": "preferred_time",
+      "kind": "radio",
+      "required": true,
+      "prompt": {
+        "en": "What time of day suits you best for a call: morning, afternoon or evening?",
+        "hi": "कॉल के लिए आपको कौन सा समय ठीक रहेगा: सुबह, दोपहर या शाम?"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "the best time to call is: {answer}",
+        "hi": "कॉल का सही समय: {answer}"
+      },
+      "options": [
+        {
+          "value": "morning",
+          "label": {
+            "en": "Morning",
+            "hi": "सुबह"
+          },
+          "synonyms": {
+            "en": [
+              "morning",
+              "mornings",
+              "am",
+              "early",
+              "before noon"
+            ],
+            "hi": [
+              "सुबह",
+              "subah",
+              "savere"
+            ]
+          }
+        },
+        {
+          "value": "afternoon",
+          "label": {
+            "en": "Afternoon",
+            "hi": "दोपहर"
+          },
+          "synonyms": {
+            "en": [
+              "afternoon",
+              "afternoons",
+              "after lunch",
+              "noon",
+              "midday"
+            ],
+            "hi": [
+              "दोपहर",
+              "dopahar",
+              "dopehar"
+            ]
+          }
+        },
+        {
+          "value": "evening",
+          "label": {
+            "en": "Evening",
+            "hi": "शाम"
+          },
+          "synonyms": {
+            "en": [
+              "evening",
+              "evenings",
+              "after work",
+              "night",
+              "pm"
+            ],
+            "hi": [
+              "शाम",
+              "shaam",
+              "sham",
+              "raat"
+            ]
+          }
+        },
+        {
+          "value": "any",
+          "label": {
+            "en": "Any time",
+            "hi": "कभी भी"
+          },
+          "synonyms": {
+            "en": [
+              "any",
+              "any time",
+              "anytime",
+              "whenever",
+              "all day",
+              "doesn't matter",
+              "flexible"
+            ],
+            "hi": [
+              "कभी भी",
+              "किसी भी समय",
+              "kabhi bhi",
+              "koi bhi"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "move_timeline",
+      "kind": "radio",
+      "required": true,
+      "prompt": {
+        "en": "When are you hoping to move: within three months, in three to twelve months, or just exploring?",
+        "hi": "आप कब तक शिफ़्ट होना चाहते हैं: तीन महीने के अंदर, तीन से बारह महीने में, या अभी बस देख रहे हैं?"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "you hope to move: {answer}",
+        "hi": "आप कब तक शिफ़्ट होना चाहते हैं: {answer}"
+      },
+      "options": [
+        {
+          "value": "within-3-months",
+          "label": {
+            "en": "Within 3 months",
+            "hi": "तीन महीने के अंदर"
+          },
+          "synonyms": {
+            "en": [
+              "soon",
+              "very soon",
+              "right away",
+              "immediately",
+              "asap",
+              "urgently",
+              "this month",
+              "next month",
+              "in a month",
+              "a few weeks",
+              "few weeks",
+              "within three months",
+              "three months",
+              "3 months",
+              "two months",
+              "2 months"
+            ],
+            "hi": [
+              "जल्दी",
+              "तुरंत",
+              "इसी महीने",
+              "अगले महीने",
+              "तीन महीने",
+              "jaldi",
+              "turant",
+              "isi mahine",
+              "agle mahine",
+              "teen mahine"
+            ]
+          }
+        },
+        {
+          "value": "3-to-12-months",
+          "label": {
+            "en": "In 3 to 12 months",
+            "hi": "तीन से बारह महीने में"
+          },
+          "synonyms": {
+            "en": [
+              "three to twelve months",
+              "twelve months",
+              "12 months",
+              "six months",
+              "6 months",
+              "a few months",
+              "few months",
+              "later this year",
+              "this year",
+              "next year",
+              "in a year",
+              "within a year",
+              "end of the year"
+            ],
+            "hi": [
+              "बारह महीने",
+              "छह महीने",
+              "छः महीने",
+              "कुछ महीने",
+              "इस साल",
+              "अगले साल",
+              "baarah mahine",
+              "chhe mahine",
+              "kuch mahine",
+              "is saal",
+              "agle saal"
+            ]
+          }
+        },
+        {
+          "value": "just-exploring",
+          "label": {
+            "en": "Just exploring",
+            "hi": "अभी बस देख रहे हैं"
+          },
+          "synonyms": {
+            "en": [
+              "just exploring",
+              "exploring",
+              "just looking",
+              "only looking",
+              "browsing",
+              "no hurry",
+              "no rush",
+              "not in a hurry",
+              "no plans yet",
+              "no timeline",
+              "someday",
+              "not decided"
+            ],
+            "hi": [
+              "बस देख रहे",
+              "बस देख रहा",
+              "बस देख रही",
+              "कोई जल्दी नहीं",
+              "अभी तय नहीं",
+              "bas dekh rahe",
+              "bas dekh raha",
+              "bas dekh rahi",
+              "koi jaldi nahi",
+              "abhi tay nahi"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "home_loan",
+      "kind": "radio",
+      "required": true,
+      "prompt": {
+        "en": "Will you need a home loan for this? If you are looking to rent, just say no.",
+        "hi": "क्या इसके लिए आपको होम लोन की ज़रूरत होगी? अगर आप किराये पर घर ढूँढ रहे हैं, तो बस नहीं कहें।"
+      },
+      "maxLength": null,
+      "confirm": {
+        "en": "home loan needed: {answer}",
+        "hi": "होम लोन चाहिए: {answer}"
+      },
+      "options": [
+        {
+          "value": "yes",
+          "label": {
+            "en": "Yes",
+            "hi": "हाँ"
+          },
+          "synonyms": {
+            "en": [
+              "need a loan",
+              "need a home loan",
+              "will need a loan",
+              "with a loan",
+              "bank loan",
+              "loan please"
+            ],
+            "hi": [
+              "लोन चाहिए",
+              "लोन लेंगे",
+              "लोन लेना है",
+              "loan chahiye",
+              "loan lenge",
+              "loan lena hai"
+            ]
+          }
+        },
+        {
+          "value": "no",
+          "label": {
+            "en": "No",
+            "hi": "नहीं"
+          },
+          "synonyms": {
+            "en": [
+              "no loan",
+              "don't need a loan",
+              "do not need a loan",
+              "won't need a loan",
+              "without a loan",
+              "own funds",
+              "own savings",
+              "self funded",
+              "self-funded",
+              "full payment",
+              "renting"
+            ],
+            "hi": [
+              "लोन नहीं",
+              "लोन की ज़रूरत नहीं",
+              "अपने पैसे",
+              "loan nahi",
+              "loan nahi chahiye",
+              "apne paise",
+              "kiraye par"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "offeringQuestionId": "property_type",
+  "offeringUnsureValue": "not-sure",
+  "messageQuestionId": "details",
+  "billingRule": {
+    "questionId": "home_loan",
+    "equals": "yes"
+  },
+  "reprompts": {
+    "unclear": {
+      "en": "Sorry, I didn't quite catch that. {question}",
+      "hi": "माफ़ कीजिए, मैं ठीक से समझ नहीं पाई। {question}"
+    },
+    "moveOn": {
+      "en": "No problem, we'll leave that one for your advisor to confirm with you.",
+      "hi": "कोई बात नहीं, यह बात आपके सलाहकार आपसे पक्की कर लेंगे।"
+    },
+    "skipped": {
+      "en": "That's fine, we can skip that.",
+      "hi": "ठीक है, इसे छोड़ देते हैं।"
+    },
+    "offTopic": {
+      "en": "I can only help with getting you to the right property advisor today. {question}",
+      "hi": "मैं आज सिर्फ़ सही प्रॉपर्टी सलाहकार तक पहुँचाने में मदद कर सकती हूँ। {question}"
+    }
+  },
+  "confirm": {
+    "ask": {
+      "en": "Let me check I have this right: {summary}. Is that right?",
+      "hi": "मैं एक बार दोहरा दूँ: {summary}। क्या यह सही है?"
+    },
+    "fix": {
+      "en": "Sorry about that. What should I change?",
+      "hi": "माफ़ कीजिए। क्या बदलना है?"
+    }
+  },
+  "closing": {
+    "en": "Thank you. A property advisor from our team will call you back, {time}. If you ever feel unsafe at a home or a building site, leave and call 112. Goodbye, and take care.",
+    "hi": "धन्यवाद। हमारी टीम के एक प्रॉपर्टी सलाहकार आपको {time} वापस कॉल करेंगे। अगर किसी घर या निर्माण स्थल पर कभी असुरक्षित महसूस हो, तो वहाँ से निकलें और 112 पर कॉल करें। अपना ध्यान रखिए।"
+  },
+  "callback": {
+    "questionId": "preferred_time",
+    "phrases": {
+      "morning": {
+        "en": "in the morning, between 9 and 12",
+        "hi": "सुबह 9 से 12 बजे के बीच"
+      },
+      "afternoon": {
+        "en": "in the afternoon, between 12 and 4",
+        "hi": "दोपहर 12 से 4 बजे के बीच"
+      },
+      "evening": {
+        "en": "in the evening, between 4 and 8",
+        "hi": "शाम 4 से 8 बजे के बीच"
+      },
+      "any": {
+        "en": "between 9 and 8",
+        "hi": "सुबह 9 से रात 8 बजे के बीच"
+      }
+    },
+    "fallback": {
+      "en": "soon",
+      "hi": "जल्द ही"
+    }
+  },
+  "identity": {
+    "phrases": {
+      "en": [
+        "are you a human",
+        "are you human",
+        "are you a real person",
+        "am i talking to a person",
+        "are you a robot",
+        "are you a bot",
+        "are you ai",
+        "is this a recording"
+      ],
+      "hi": [
+        "क्या आप इंसान",
+        "क्या आप असली",
+        "kya aap insaan",
+        "aap robot",
+        "kya aap machine"
+      ]
+    },
+    "reply": {
+      "en": "I'm an AI assistant for Nestwyn Realty, not a person. A real member of our team will call you back.",
+      "hi": "मैं Nestwyn Realty की AI सहायक हूँ, इंसान नहीं। हमारी टीम का एक असली सदस्य आपको वापस कॉल करेगा।"
+    }
+  },
+  "safety": {
+    "emergencyNumber": "112",
+    "emergencyMessage": {
+      "en": "What you're describing could be an emergency, and I'm not able to help with that. Please get to a safe place and call 112 now. If a building is on fire, smells of gas or looks unsafe, leave it first. If you can, ask someone to stay with you. I've flagged your enquiry so a person from our team follows up. I'm ending this call now so you can get help.",
+      "hi": "आप जो बता रहे हैं वह आपात स्थिति हो सकती है, और मैं इसमें मदद नहीं कर सकती। कृपया किसी सुरक्षित जगह पहुँचें और अभी 112 पर कॉल करें। अगर इमारत में आग लगी है, गैस की गंध आ रही है या वह असुरक्षित लग रही है, तो पहले बाहर निकलें। हो सके तो किसी को अपने साथ रहने को कहें। मैंने आपकी पूछताछ को ज़रूरी चिह्नित कर दिया है ताकि हमारी टीम का कोई व्यक्ति संपर्क करे। अब मैं यह कॉल समाप्त कर रही हूँ ताकि आप मदद ले सकें।"
+    },
+    "redFlags": [
+      {
+        "id": "fire_smoke",
+        "label": "Fire or smoke",
+        "phrases": {
+          "en": [
+            "on fire",
+            "caught fire",
+            "catching fire",
+            "fire broke out",
+            "there is a fire",
+            "there's a fire",
+            "a fire in",
+            "fire in the building",
+            "fire in my",
+            "fire in our",
+            "flames",
+            "full of smoke",
+            "smoke everywhere",
+            "smoke coming",
+            "thick smoke",
+            "i can see smoke",
+            "i can smell smoke",
+            "smell of smoke",
+            "house is burning",
+            "flat is burning",
+            "building is burning"
+          ],
+          "hi": [
+            "आग लग",
+            "आग फैल",
+            "धुआँ",
+            "धुआं",
+            "धुंआ",
+            "लपटें",
+            "aag lag",
+            "aag lagi",
+            "aag laga",
+            "aag lag gayi",
+            "dhuan",
+            "dhuaan",
+            "dhua"
+          ]
+        }
+      },
+      {
+        "id": "gas_leak",
+        "label": "Gas leak",
+        "phrases": {
+          "en": [
+            "gas leak",
+            "gas leaking",
+            "gas is leaking",
+            "leaking gas",
+            "smell gas",
+            "smell of gas",
+            "smells of gas",
+            "gas smell",
+            "cylinder leak",
+            "cylinder is leaking",
+            "cylinder leaking"
+          ],
+          "hi": [
+            "गैस लीक",
+            "गैस की गंध",
+            "गैस की बदबू",
+            "सिलेंडर लीक",
+            "gas leak",
+            "gas ki smell",
+            "gas ki badbu",
+            "gas ki gandh",
+            "cylinder leak"
+          ]
+        }
+      },
+      {
+        "id": "structure_unsafe",
+        "label": "Building or structure collapsing or unsafe",
+        "phrases": {
+          "en": [
+            "building collapsed",
+            "building has collapsed",
+            "building is collapsing",
+            "building collapsing",
+            "collapsed building",
+            "wall collapsed",
+            "wall has collapsed",
+            "wall fell",
+            "wall is falling",
+            "roof collapsed",
+            "roof fell",
+            "ceiling collapsed",
+            "ceiling fell",
+            "ceiling is falling",
+            "slab collapsed",
+            "slab fell",
+            "balcony collapsed",
+            "staircase collapsed",
+            "scaffolding collapsed",
+            "scaffolding fell",
+            "structure collapsed",
+            "caved in",
+            "building is shaking",
+            "building is tilting",
+            "building is unsafe",
+            "building is not safe",
+            "structure is unsafe",
+            "unsafe structure",
+            "building is about to collapse",
+            "about to fall down"
+          ],
+          "hi": [
+            "इमारत गिर",
+            "बिल्डिंग गिर",
+            "दीवार गिर",
+            "छत गिर",
+            "मकान गिर",
+            "स्लैब गिर",
+            "इमारत ढह",
+            "बिल्डिंग ढह",
+            "ढह गई",
+            "ढह गया",
+            "imarat gir",
+            "building gir",
+            "building giri",
+            "building girne",
+            "deewar gir",
+            "deewar giri",
+            "diwar giri",
+            "chhat gir",
+            "chhat giri",
+            "makaan gir",
+            "slab gir"
+          ]
+        }
+      },
+      {
+        "id": "injury",
+        "label": "Someone injured (for example a fall at a site)",
+        "phrases": {
+          "en": [
+            "fell from the scaffolding",
+            "fell from a height",
+            "fell from the roof",
+            "fell from the terrace",
+            "fell from the balcony",
+            "fell from the building",
+            "fell from a ladder",
+            "fell from the ladder",
+            "fallen from",
+            "fell off the",
+            "fell off a",
+            "fell down from",
+            "fell down the stairs",
+            "fell into a pit",
+            "fell into a hole",
+            "had a bad fall",
+            "badly hurt",
+            "badly injured",
+            "seriously hurt",
+            "seriously injured",
+            "is injured",
+            "got injured",
+            "someone is hurt",
+            "someone got hurt",
+            "head injury",
+            "broken bone",
+            "bleeding heavily",
+            "bleeding badly",
+            "lot of blood",
+            "electric shock",
+            "electrocuted",
+            "trapped under",
+            "stuck under",
+            "crushed under"
+          ],
+          "hi": [
+            "से गिर",
+            "घायल",
+            "चोट लग",
+            "बहुत खून",
+            "खून बह",
+            "करंट लग",
+            "नीचे दब",
+            "मलबे में दब",
+            "se gir gaya",
+            "se gir gayi",
+            "se gira",
+            "se giri",
+            "ghayal",
+            "chot lagi",
+            "chot lag gayi",
+            "bahut khoon",
+            "khoon beh",
+            "current laga",
+            "current lag gaya",
+            "neeche dab",
+            "malbe mein dab"
+          ]
+        }
+      },
+      {
+        "id": "threat_violence",
+        "label": "Threats, harassment or violence",
+        "phrases": {
+          "en": [
+            "threatening me",
+            "threatened me",
+            "threatening us",
+            "threatened us",
+            "threatening my family",
+            "threatening to",
+            "threat to my life",
+            "harassing me",
+            "harassed me",
+            "harassing us",
+            "attacked me",
+            "attacking me",
+            "assaulted",
+            "beat me",
+            "beating me",
+            "beat us up",
+            "goons",
+            "gun",
+            "knife",
+            "kidnap",
+            "kidnapped",
+            "violence",
+            "violent",
+            "blackmailing me",
+            "extortion",
+            "kill me",
+            "kill us",
+            "will kill",
+            "someone is following me",
+            "stalking me"
+          ],
+          "hi": [
+            "धमकी",
+            "धमका",
+            "जान से मार",
+            "मारपीट",
+            "मार पीट",
+            "हमला",
+            "गुंडे",
+            "dhamki",
+            "dhamka raha",
+            "dhamka rahe",
+            "dhamkaya",
+            "jaan se maar",
+            "jaan se maarne",
+            "maar peet",
+            "marpeet",
+            "hamla",
+            "gunde",
+            "goonde"
+          ]
+        }
+      },
+      {
+        "id": "suicidal_thoughts",
+        "label": "Thoughts of suicide or self-harm",
+        "phrases": {
+          "en": [
+            "kill myself",
+            "killing myself",
+            "suicide",
+            "suicidal",
+            "end my life",
+            "ending my life",
+            "want to die",
+            "don't want to live",
+            "do not want to live",
+            "hurt myself",
+            "harm myself",
+            "self harm",
+            "self-harm",
+            "no reason to live"
+          ],
+          "hi": [
+            "आत्महत्या",
+            "खुदकुशी",
+            "ख़ुदकुशी",
+            "मर जाना चाहता",
+            "मर जाना चाहती",
+            "मरना चाहता",
+            "मरना चाहती",
+            "जीना नहीं चाहता",
+            "जीना नहीं चाहती",
+            "aatmahatya",
+            "atmahatya",
+            "khudkushi",
+            "marna chahta",
+            "marna chahti",
+            "jeena nahi chahta",
+            "jeena nahi chahti"
+          ]
+        }
+      },
+      {
+        "id": "medical_emergency",
+        "label": "Someone hurt or a medical emergency",
+        "phrases": {
+          "en": [
+            "heart attack",
+            "chest pain",
+            "can't breathe",
+            "cannot breathe",
+            "not breathing",
+            "stopped breathing",
+            "unconscious",
+            "passed out",
+            "fainted",
+            "he collapsed",
+            "she collapsed",
+            "he has collapsed",
+            "she has collapsed",
+            "someone collapsed",
+            "collapsed on site",
+            "collapsed on the floor",
+            "unresponsive",
+            "having a seizure",
+            "seizure",
+            "having a stroke",
+            "had a stroke",
+            "overdose",
+            "poisoned",
+            "is dying",
+            "he's dying",
+            "she's dying",
+            "ambulance",
+            "medical emergency",
+            "it is an emergency",
+            "it's an emergency",
+            "this is an emergency"
+          ],
+          "hi": [
+            "दिल का दौरा",
+            "सीने में दर्द",
+            "सांस नहीं",
+            "साँस नहीं",
+            "बेहोश",
+            "एम्बुलेंस",
+            "इमरजेंसी",
+            "आपातकाल",
+            "dil ka daura",
+            "seene mein dard",
+            "saans nahi",
+            "sans nahi",
+            "behosh",
+            "ambulance",
+            "emergency hai"
+          ]
+        }
+      }
+    ],
+    "negations": {
+      "en": [
+        "no",
+        "not",
+        "don't have",
+        "do not have",
+        "haven't had",
+        "never had",
+        "without",
+        "no more",
+        "not having"
+      ],
+      "hi": [
+        "नहीं",
+        "कोई नहीं",
+        "nahi",
+        "nahin"
+      ]
+    },
+    "adviceRequests": {
+      "en": [
+        "is it a good investment",
+        "is this a good investment",
+        "good investment",
+        "is it worth",
+        "worth buying",
+        "good time to buy",
+        "right time to buy",
+        "should i buy",
+        "should i sell",
+        "should i invest",
+        "should i wait",
+        "will prices go up",
+        "will the price go up",
+        "will prices rise",
+        "will prices fall",
+        "will the price fall",
+        "will it appreciate",
+        "appreciation",
+        "rental yield",
+        "what returns",
+        "how much return",
+        "how much will it be worth",
+        "is the title clear",
+        "title clear",
+        "clear title",
+        "is it rera",
+        "rera registered",
+        "rera approved",
+        "is the project approved",
+        "is it approved",
+        "is it legal",
+        "is this legal",
+        "is it registered",
+        "possession date",
+        "when is possession",
+        "when will i get possession",
+        "how much loan",
+        "loan eligibility",
+        "am i eligible",
+        "which bank should",
+        "which loan should",
+        "best home loan",
+        "best interest rate",
+        "how much tax",
+        "save tax",
+        "tax benefit",
+        "capital gains",
+        "what is it worth",
+        "what's it worth",
+        "what is my flat worth",
+        "what is my house worth",
+        "valuation",
+        "market value",
+        "is the price fair",
+        "is it overpriced"
+      ],
+      "hi": [
+        "कीमत बढ़ेगी",
+        "दाम बढ़ेंगे",
+        "रेट बढ़ेगा",
+        "कितना लोन मिलेगा",
+        "लोन कितना मिलेगा",
+        "टाइटल साफ़",
+        "टाइटल क्लियर",
+        "अभी खरीदना चाहिए",
+        "खरीदूँ या नहीं",
+        "निवेश करना चाहिए",
+        "कितना रिटर्न",
+        "कितना मुनाफ़ा",
+        "पज़ेशन कब",
+        "kitna loan milega",
+        "loan kitna milega",
+        "price badhega",
+        "rate badhega",
+        "daam badhenge",
+        "kimat badhegi",
+        "keemat badhegi",
+        "title clear hai",
+        "abhi kharidna chahiye",
+        "kharidu ya nahi",
+        "kharidna chahiye ya nahi",
+        "invest karna chahiye",
+        "kitna return",
+        "kitna munafa",
+        "possession kab",
+        "kab possession",
+        "rera approved hai"
+      ]
+    },
+    "adviceCues": {
+      "en": [
+        "what",
+        "which",
+        "can i",
+        "should i",
+        "should we",
+        "how much",
+        "is it",
+        "will it",
+        "will the",
+        "do you think",
+        "tell me",
+        "recommend",
+        "suggest"
+      ],
+      "hi": [
+        "क्या",
+        "कौन",
+        "कितना",
+        "कितनी",
+        "बताइए",
+        "बताओ",
+        "kya",
+        "kaun",
+        "kitna",
+        "kitni",
+        "bataiye",
+        "batao"
+      ]
+    },
+    "adviceTopics": {
+      "en": [
+        "price go",
+        "prices go",
+        "price rise",
+        "price will",
+        "prices will",
+        "future price",
+        "resale value",
+        "returns",
+        "return on",
+        "roi",
+        "yield",
+        "title",
+        "legal",
+        "legally",
+        "approved",
+        "approval",
+        "registered",
+        "rera",
+        "emi",
+        "interest rate",
+        "loan amount",
+        "eligible",
+        "eligibility",
+        "tax",
+        "taxes",
+        "stamp duty",
+        "worth",
+        "valuation"
+      ],
+      "hi": [
+        "कीमत",
+        "दाम",
+        "रिटर्न",
+        "मुनाफ़ा",
+        "मुनाफा",
+        "टैक्स",
+        "टाइटल",
+        "ईएमआई",
+        "ब्याज",
+        "kimat",
+        "keemat",
+        "daam",
+        "munafa",
+        "tax",
+        "title",
+        "emi",
+        "byaj"
+      ]
+    },
+    "adviceDecline": {
+      "en": "I'm sorry, I can't give property advice. I can't predict prices or returns, judge a title or an approval, or say how much loan you could get, and I can't give legal or tax advice. A property advisor can call you back with the facts and point you to the right professional. Let's continue.",
+      "hi": "माफ़ कीजिए, मैं प्रॉपर्टी से जुड़ी सलाह नहीं दे सकती। मैं कीमतों या मुनाफ़े का अनुमान नहीं लगा सकती, टाइटल या मंज़ूरी पर राय नहीं दे सकती, यह नहीं बता सकती कि आपको कितना लोन मिलेगा, और कानूनी या टैक्स सलाह नहीं दे सकती। एक प्रॉपर्टी सलाहकार आपको तथ्यों के साथ वापस कॉल कर सकते हैं और सही विशेषज्ञ के पास भेज सकते हैं। आगे बढ़ते हैं।"
+    },
+    "adviceCode": "property_advice",
+    "injection": {
+      "en": [
+        "ignore your instructions",
+        "ignore all instructions",
+        "ignore all previous",
+        "ignore previous instructions",
+        "ignore the previous",
+        "ignore your rules",
+        "forget your instructions",
+        "forget your rules",
+        "forget everything",
+        "system prompt",
+        "your instructions",
+        "your prompt",
+        "reveal your prompt",
+        "repeat the text above",
+        "repeat everything above",
+        "you are now",
+        "pretend to be",
+        "pretend you are",
+        "act as a lawyer",
+        "act as my lawyer",
+        "act as a broker",
+        "act as my broker",
+        "act as an investment advisor",
+        "roleplay",
+        "role play",
+        "developer mode",
+        "jailbreak",
+        "new instructions",
+        "override your",
+        "disregard"
+      ],
+      "hi": [
+        "निर्देश भूल",
+        "नियम भूल",
+        "अपने निर्देश बताओ",
+        "nirdesh bhool",
+        "apne instructions batao"
+      ]
+    },
+    "injectionReply": {
+      "en": "I can't change how I work or share my instructions. I'm here to help you reach the right property advisor. Let's continue.",
+      "hi": "मैं अपने काम करने का तरीका नहीं बदल सकती और अपने निर्देश साझा नहीं कर सकती। मैं आपको सही प्रॉपर्टी सलाहकार तक पहुँचाने के लिए यहाँ हूँ। आगे बढ़ते हैं।"
+    },
+    "highUrgency": {
+      "en": [
+        "urgently",
+        "very urgent",
+        "it is urgent",
+        "it's urgent",
+        "as soon as possible",
+        "asap",
+        "right away",
+        "immediately",
+        "this week",
+        "by next week",
+        "lease ends",
+        "lease is ending",
+        "have to vacate",
+        "need to vacate",
+        "have to move out",
+        "need to move out",
+        "notice to vacate"
+      ],
+      "hi": [
+        "बहुत जल्दी",
+        "जल्द से जल्द",
+        "तुरंत",
+        "इसी हफ़्ते",
+        "इसी हफ्ते",
+        "घर खाली करना",
+        "bahut jaldi",
+        "jald se jald",
+        "turant",
+        "isi hafte",
+        "ghar khali karna"
+      ]
+    }
+  },
+  "yes": {
+    "en": [
+      "yes",
+      "yeah",
+      "yep",
+      "yup",
+      "sure",
+      "okay",
+      "ok",
+      "of course",
+      "go ahead",
+      "please do",
+      "fine",
+      "correct",
+      "that's right",
+      "that is right",
+      "right",
+      "absolutely",
+      "alright",
+      "all right"
+    ],
+    "hi": [
+      "हाँ",
+      "हां",
+      "जी हाँ",
+      "जी",
+      "ठीक है",
+      "सही है",
+      "बिल्कुल",
+      "haan",
+      "han",
+      "ji",
+      "ji haan",
+      "theek hai",
+      "thik hai",
+      "sahi hai",
+      "bilkul"
+    ]
+  },
+  "no": {
+    "en": [
+      "no",
+      "nope",
+      "nah",
+      "not really",
+      "don't",
+      "do not",
+      "not okay",
+      "that's wrong",
+      "that is wrong",
+      "wrong",
+      "incorrect",
+      "stop"
+    ],
+    "hi": [
+      "नहीं",
+      "ना",
+      "जी नहीं",
+      "गलत",
+      "nahi",
+      "nahin",
+      "na",
+      "galat"
+    ]
+  },
+  "skip": {
+    "en": [
+      "skip",
+      "nothing",
+      "nothing else",
+      "no thanks",
+      "i'd rather not",
+      "rather not say",
+      "pass",
+      "none",
+      "no comment"
+    ],
+    "hi": [
+      "कुछ नहीं",
+      "छोड़ दीजिए",
+      "छोड़ो",
+      "kuch nahi",
+      "chhod do",
+      "chodo"
+    ]
+  },
+  "hangup": {
+    "en": [
+      "goodbye",
+      "bye",
+      "hang up",
+      "end the call",
+      "stop the call",
+      "i have to go",
+      "gotta go"
+    ],
+    "hi": [
+      "अलविदा",
+      "फ़ोन रखता",
+      "फोन रखती",
+      "बाद में",
+      "bye",
+      "phone rakhta",
+      "baad mein baat"
+    ]
+  },
+  "summary": [
+    "Looking for: {property_type}; hoping to move: {move_timeline}.",
+    "Best time to call back: {preferred_time}. Home loan needed: {home_loan}.",
+    "In their words: \"{details}\""
+  ],
+  "staffNotes": {
+    "redFlag": "Safety: {flags}. Told to get to a safe place and call 112; flagged urgent for a call back.",
+    "advice": "Asked for property, legal, tax or loan advice; the assistant declined and offered a property advisor's call back."
+  },
+  "limits": {
+    "maxCallSeconds": 300,
+    "maxTurns": 40,
+    "maxCallsPerDay": 50,
+    "maxCallsPerPhonePerDay": 3,
+    "callWindow": {
+      "startHour": 9,
+      "endHour": 21,
+      "timeZone": "Asia/Kolkata"
+    }
+  }
+}

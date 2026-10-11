@@ -1,6 +1,6 @@
-import { firstResponseDue, getActivePack } from '@healwyn/core';
+import { firstResponseDue, type IndustryPack } from '@healwyn/core';
 import Link from 'next/link';
-import { formatDateTime, formatRelative, specialtyLabel } from '@/lib/format';
+import { formatDateTime, formatRelative, packLabels } from '@/lib/format';
 import type { LeadRow } from '@/lib/server/queries';
 import { Avatar, ScoreBadge, SlaBadge, StageBadge, UrgencyBadge } from './badges';
 import { EmptyState } from './empty-state';
@@ -8,10 +8,9 @@ import { EmptyState } from './empty-state';
 export const SORTS = ['created', 'name', 'stage', 'specialty', 'assignee', 'score', 'sla'] as const;
 export type SortKey = (typeof SORTS)[number];
 
-const pack = getActivePack();
-const stageOrder = new Map(pack.stages.map((s, i) => [s.id, i]));
-
-export function sortLeads(leads: LeadRow[], sort: SortKey, dir: 'asc' | 'desc'): LeadRow[] {
+export function sortLeads(pack: IndustryPack, leads: LeadRow[], sort: SortKey, dir: 'asc' | 'desc'): LeadRow[] {
+  const stageOrder = new Map(pack.stages.map((s, i) => [s.id, i]));
+  const { specialtyLabel } = packLabels(pack);
   const value = (lead: LeadRow): number | string => {
     switch (sort) {
       case 'name':
@@ -81,7 +80,9 @@ export function LeadTable({
   dir,
   params,
   now,
+  pack,
 }: {
+  pack: IndustryPack;
   leads: LeadRow[];
   sort: SortKey;
   dir: 'asc' | 'desc';
@@ -95,6 +96,8 @@ export function LeadTable({
       </div>
     );
   }
+  const { stageLabel, specialtyLabel } = packLabels(pack);
+  const stageKind = (id: string) => pack.stages.find((s) => s.id === id)?.kind;
   const header = (label: string, key: SortKey) => (
     <SortHeader label={label} sortKey={key} current={sort} dir={dir} params={params} />
   );
@@ -130,7 +133,7 @@ export function LeadTable({
                 </span>
               </td>
               <td className="px-3 py-2">
-                <StageBadge stage={lead.stage} />
+                <StageBadge label={stageLabel(lead.stage)} kind={stageKind(lead.stage)} />
               </td>
               <td className="px-3 py-2">{specialtyLabel(lead.specialty_slug)}</td>
               <td className="px-3 py-2">
@@ -144,6 +147,7 @@ export function LeadTable({
               </td>
               <td className="px-3 py-2">
                 <SlaBadge
+                  sla={pack.crm.sla}
                   createdAt={lead.created_at}
                   urgency={lead.urgency}
                   firstResponseAt={lead.first_response_at}

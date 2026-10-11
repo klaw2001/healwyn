@@ -1,6 +1,8 @@
+import { getActivePack } from '@healwyn/core';
 import { NextResponse, type NextRequest } from 'next/server';
 import { CALL_COOKIE, CALL_COOKIE_MAX_AGE_SECONDS, callCookieValue, startAssistant } from '@/lib/server/assistant';
 import { defaultAssistantDeps } from '@/lib/server/assistant-deps';
+import { packFromValue } from '@/lib/pack';
 import { readBodyLimited } from '@/lib/server/body';
 
 const MAX_BODY = 4 * 1024;
@@ -16,11 +18,13 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ status: 'error', message: 'Invalid request.' }, { status: 400 });
   }
-  const result = await startAssistant(values, request.headers, defaultAssistantDeps());
+  // The widget names the industry of the page it is on; the lead and the call use that pack.
+  const pack = packFromValue(values.industry) ?? getActivePack();
+  const result = await startAssistant(values, request.headers, defaultAssistantDeps(pack));
   if (result.status === 'voice' || result.status === 'text') {
     const { leadId, ...publicResult } = result;
     const response = NextResponse.json(publicResult);
-    response.cookies.set(CALL_COOKIE, callCookieValue(result.callId, leadId), {
+    response.cookies.set(CALL_COOKIE, callCookieValue(result.callId, leadId, pack.id), {
       httpOnly: true,
       sameSite: 'strict',
       secure: process.env.NODE_ENV === 'production',

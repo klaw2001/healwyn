@@ -110,18 +110,21 @@ export interface FooterProps {
   contactEmail: string;
   groups: readonly { title: string; links: readonly NavLink[] }[];
   emergencyNotice: string;
+  /** A regulatory-style disclaimer for regulated industries (shown on every page). */
+  regulatoryNotice?: string | null;
   demoNotice: string;
   demoHref: string;
   LinkComponent?: LinkComponent;
 }
 
-/** Site footer, always carrying the emergency notice and the demo notice. */
+/** Site footer, always carrying the emergency notice, the demo notice and any regulatory notice. */
 export function Footer({
   brandName,
   tagline,
   contactEmail,
   groups,
   emergencyNotice,
+  regulatoryNotice,
   demoNotice,
   demoHref,
   LinkComponent: Link = PlainLink,
@@ -132,6 +135,11 @@ export function Footer({
         <Notice tone="emergency" title="Not for emergencies" className="max-w-3xl">
           {emergencyNotice}
         </Notice>
+        {regulatoryNotice ? (
+          <Notice tone="demo" title="Regulatory notice" className="mt-4 max-w-3xl">
+            {regulatoryNotice}
+          </Notice>
+        ) : null}
 
         <div className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
           <div className="max-w-xs">

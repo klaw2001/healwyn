@@ -4,13 +4,13 @@ import {
   buildIntakeSchema,
   consentFieldName,
   formQuestions,
-  getActivePack,
   INTAKE_FIELDS,
+  type FormPack,
   type QualifyingQuestion,
 } from '@healwyn/core';
 import { Field, Input, RadioGroup, Select, Textarea } from '@healwyn/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { submitPatientEnquiry } from '@/app/contact/actions';
+import { submitPatientEnquiry } from '@/app/[industry]/contact/actions';
 import { valueOf, type FormState } from '@/lib/form-state';
 import {
   ConsentCheckbox,
@@ -23,17 +23,16 @@ import {
 } from './form-kit';
 import { useEnquiryForm } from './use-enquiry-form';
 
-const pack = getActivePack();
-const schema = buildIntakeSchema(pack);
-const questions = formQuestions(pack);
 const fieldId = (name: string) => `enquiry-${name}`;
 
 /** Order of fields for the error summary, matching the page order. */
-const errorLinks: ErrorLink[] = [
-  ...[INTAKE_FIELDS.fullName, INTAKE_FIELDS.phone, INTAKE_FIELDS.email, INTAKE_FIELDS.preferredLanguage],
-  ...questions.map((q) => q.id),
-  ...pack.intake.consents.map((c) => consentFieldName(c.id)),
-].map((field) => ({ field, targetId: fieldId(field) }));
+function errorLinksFor(pack: FormPack, questions: readonly QualifyingQuestion[]): ErrorLink[] {
+  return [
+    ...[INTAKE_FIELDS.fullName, INTAKE_FIELDS.phone, INTAKE_FIELDS.email, INTAKE_FIELDS.preferredLanguage],
+    ...questions.map((q) => q.id),
+    ...pack.intake.consents.map((c) => consentFieldName(c.id)),
+  ].map((field) => ({ field, targetId: fieldId(field) }));
+}
 
 function QuestionField({
   question,
@@ -107,7 +106,11 @@ function QuestionField({
   }
 }
 
-export function PatientForm() {
+/** The enquiry form. `pack` is the slim, serializable form view of the industry pack. */
+export function PatientForm({ pack, successSteps }: { pack: FormPack; successSteps: readonly string[] }) {
+  const schema = useMemo(() => buildIntakeSchema(pack), [pack]);
+  const questions = useMemo(() => formQuestions(pack), [pack]);
+  const errorLinks = useMemo(() => errorLinksFor(pack, questions), [pack, questions]);
   const { state, formAction, isPending, errors, onSubmit, onChange, summaryRef, successRef } = useEnquiryForm(
     schema,
     submitPatientEnquiry,
@@ -121,12 +124,12 @@ export function PatientForm() {
         lang: l.code,
         description: l.label !== l.nativeLabel ? l.label : undefined,
       })),
-    [],
+    [pack],
   );
 
-  // Pre-select a specialty linked from elsewhere (/contact?specialty=dental), keeping the page static.
+  // Pre-select an offering linked from elsewhere (/contact?service=dental), keeping the page static.
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('specialty');
+    const requested = new URLSearchParams(window.location.search).get('service');
     const select = offeringSelect.current;
     if (requested && select && !select.value && [...select.options].some((o) => o.value === requested)) {
       select.value = requested;
@@ -139,11 +142,8 @@ export function PatientForm() {
         reference={state.reference}
         successRef={successRef}
         title="Thank you. We have your enquiry."
-        steps={[
-          'A care coordinator reads it and matches you with the right doctor’s team.',
-          'Someone from that team contacts you in the time window you chose.',
-          'If you agreed to a call from our AI assistant, it may call first, between 9am and 9pm, to ask a few short questions.',
-        ]}
+        steps={successSteps}
+        privacyEmail={pack.brand.privacyEmail}
       />
     );
   }
@@ -167,6 +167,7 @@ export function PatientForm() {
         All fields are required unless marked optional.
       </p>
       <Honeypot />
+      <input type="hidden" name="industry" value={pack.id} />
 
       <div className="grid gap-10">
         <FormSection title="About you">
@@ -242,6 +243,7 @@ export function PatientForm() {
                 id={fieldId(name)}
                 name={name}
                 definition={consent}
+                brand={pack.brand}
                 error={errors[name]}
                 defaultChecked={valueOf(state, name) === 'on'}
               />

@@ -1,5 +1,5 @@
 import 'server-only';
-import { BRAND } from '@healwyn/core';
+import type { Brand } from '@healwyn/core';
 import { sendEmail } from '@healwyn/messaging';
 import { errorFields, log } from './log';
 
@@ -7,6 +7,9 @@ export interface LeadNotification {
   leadId: string;
   reference: string;
   kind: 'patient' | 'partner';
+  /** The industry pack's brand and what it calls a lead ("patient", "home buyer"). */
+  brand: Brand;
+  leadNoun: string;
   /** Non-sensitive fields only: no names, full phone numbers or free text. */
   summary: readonly { label: string; value: string }[];
 }
@@ -28,7 +31,7 @@ export interface NotifyEnv {
 export type NotifyResult = 'sent' | 'logged' | 'failed';
 
 export function buildLeadEmail(notification: LeadNotification, env: NotifyEnv): EmailMessage {
-  const noun = notification.kind === 'partner' ? 'partner enquiry' : 'patient enquiry';
+  const noun = notification.kind === 'partner' ? 'partner enquiry' : `${notification.leadNoun} enquiry`;
   const headline = notification.summary[0]?.value;
   const lines = [
     `A new ${noun} has arrived.`,
@@ -37,9 +40,9 @@ export function buildLeadEmail(notification: LeadNotification, env: NotifyEnv): 
     ...notification.summary.map((item) => `${item.label}: ${item.value}`),
     '',
     'Names, full phone numbers and free-text details are not included in email.',
-    'Open the lead in the CRM to see them (the CRM arrives in Phase 2).',
+    'Open the lead in the CRM to see them.',
     '',
-    `${BRAND.name}: ${BRAND.demoNotice}.`,
+    `${notification.brand.name}: ${notification.brand.demoNotice}.`,
   ];
   return {
     from: env.EMAIL_FROM || 'onboarding@resend.dev',

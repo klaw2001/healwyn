@@ -24,7 +24,13 @@ export async function POST(request: NextRequest) {
       log.warn('assistant.fallback_refused', { callId: call.callId });
       return NextResponse.json({ error: 'call_ended' }, { status: 410 });
     }
-    const started = await textService().start({ callId: call.callId, leadId: call.leadId, channel: 'text', language });
+    const started = await textService().start({
+      callId: call.callId,
+      leadId: call.leadId,
+      pack: call.industry,
+      channel: 'text',
+      language,
+    });
     log.info('assistant.fallback_to_text', { callId: call.callId });
     return NextResponse.json({ status: 'text', ...started });
   } catch (error) {

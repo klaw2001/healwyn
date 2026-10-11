@@ -1,16 +1,14 @@
 import {
-  BRAND,
   callPolicies,
-  clinicDemoLeads,
-  clinicDemoStaff,
-  clinicPack,
   consentPlainText,
   demoAuthUserId,
   formatLeadReference,
+  industryPacks,
   planStageEntry,
   renderTemplate,
   scoreLead,
   sha256Hex,
+  type Brand,
   type CallPolicy,
   type DemoLead,
   type IndustryPack,
@@ -52,18 +50,18 @@ on conflict (industry, channel) do update set cap_group = excluded.cap_group, co
   time_zone = excluded.time_zone, require_verified = excluded.require_verified, updated_at = now();`;
 }
 
-export function staffEmail(fullName: string): string {
+export function staffEmail(fullName: string, brand: Brand): string {
   const local = fullName
     .replace(/^Dr\.\s*/, '')
     .toLowerCase()
     .replace(/[^a-z]+/g, '.')
     .replace(/^\.|\.$/g, '');
-  return `${local}@${BRAND.slug}.example`;
+  return `${local}@${brand.slug}.example`;
 }
 
 const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60_000);
 
-/** Moves a time into clinic hours (9:00 to 18:30 India time), on the half hour. */
+/** Moves a time into working hours (9:00 to 18:30 India time), on the half hour. */
 function inClinicHours(date: Date): Date {
   const ist = new Date(date.getTime() + 330 * 60_000); // shift so UTC getters read India time
   const minutes = ist.getUTCHours() * 60 + ist.getUTCMinutes();
@@ -161,7 +159,11 @@ function simulate(lead: DemoLead, pack: IndustryPack, now: Date) {
     at: createdAt,
     type: 'consent.recorded',
     actor: 'lead',
-    payload: { purposes: { contact: true, assistant_call: lead.assistantCallConsent } },
+    payload: {
+      purposes: Object.fromEntries(
+        pack.intake.consents.map((c) => [c.id, c.id === pack.voice.callConsentId ? lead.assistantCallConsent : true]),
+      ),
+    },
   });
   enter(pack.initialStageId, createdAt);
 
@@ -170,7 +172,7 @@ function simulate(lead: DemoLead, pack: IndustryPack, now: Date) {
       at: addMinutes(createdAt, Math.min(10, Math.max(1, Math.round(span / 20)))),
       type: 'lead.assigned',
       actor: 'staff',
-      actorId: clinicDemoStaff.find((m) => m.role === 'care_coordinator')?.id ?? null,
+      actorId: pack.demo.staff.find((m) => m.role === 'care_coordinator')?.id ?? null,
       payload: { from_staff_id: null, to_staff_id: lead.assignedStaffId, reason: 'manual', method: 'manual' },
     });
   }
@@ -213,17 +215,27 @@ function simulate(lead: DemoLead, pack: IndustryPack, now: Date) {
 }
 
 /**
- * Builds an idempotent seed script for the clinic demo:
+ * Builds an idempotent seed script for every industry pack (or the ones given):
  * - specialties, the assistant's call policies, staff (with roles) and one Supabase Auth user per staff member;
- * - 40 demo leads (is_demo) with consent records, events, notes, tasks,
+ * - 40 demo leads per pack (is_demo) with consent records, events, notes, tasks,
  *   nurture enrolments, schedules, messages and scores.
  * Demo leads are replaced on every run; real leads are never touched.
  */
 export async function buildSeedSql(
-  options: { pack?: IndustryPack; now?: Date; demoPassword?: string; siteUrl?: string } = {},
+  options: { packs?: readonly IndustryPack[]; now?: Date; demoPassword?: string; siteUrl?: string } = {},
 ): Promise<string> {
-  const pack = options.pack ?? clinicPack;
+  const packs = options.packs ?? (Object.values(industryPacks) as IndustryPack[]);
   const now = options.now ?? new Date();
+  const parts: string[] = [];
+  for (const pack of packs) parts.push(await packSeedSql(pack, now, options));
+  return parts.join('\n');
+}
+
+async function packSeedSql(
+  pack: IndustryPack,
+  now: Date,
+  options: { demoPassword?: string; siteUrl?: string },
+): Promise<string> {
   const password = options.demoPassword ?? DEFAULT_DEMO_PASSWORD;
   const siteUrl = options.siteUrl ?? 'http://localhost:3000';
   const statements: string[] = [];
@@ -238,10 +250,22 @@ on conflict (slug) do update set name = excluded.name, summary = excluded.summar
   });
 
   for (const policy of callPolicies(pack)) statements.push(callPolicySql(policy));
+  pack.stages.forEach((stage, index) => {
+    statements.push(
+      `insert into public.industry_stages (industry, stage_id, kind, sort_order)
+values (${lit(pack.id)}, ${lit(stage.id)}, ${lit(stage.kind)}, ${index})
+on conflict (industry, stage_id) do update set kind = excluded.kind, sort_order = excluded.sort_order;`,
+    );
+  });
+  statements.push(
+    `delete from public.industry_stages where industry = ${lit(pack.id)} and stage_id not in (${pack.stages
+      .map((stage) => lit(stage.id))
+      .join(', ')});`,
+  );
 
-  for (const member of clinicDemoStaff) {
+  for (const member of pack.demo.staff) {
     const authId = demoAuthUserId(member.id);
-    const email = staffEmail(member.fullName);
+    const email = staffEmail(member.fullName, pack.brand);
     statements.push(
       `insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
@@ -267,9 +291,12 @@ on conflict (id) do update set full_name = excluded.full_name, title = excluded.
   statements.push(`delete from public.leads where is_demo and industry = ${lit(pack.id)};`);
 
   const consentHashes = new Map<string, string>();
-  for (const def of pack.intake.consents) consentHashes.set(def.id, await sha256Hex(consentPlainText(def)));
+  for (const def of pack.intake.consents) {
+    consentHashes.set(def.id, await sha256Hex(consentPlainText(def, pack.brand)));
+  }
+  const requiredConsent = pack.intake.consents.find((c) => c.required)!.id;
 
-  for (const lead of clinicDemoLeads) {
+  for (const lead of pack.demo.leads) {
     const { [pack.intake.messageQuestionId]: _message, ...answers } = lead.answers;
     const offering = answers[pack.intake.offeringQuestionId] ?? null;
     const specialty = offering && pack.offerings.some((o) => o.slug === offering) ? offering : null;
@@ -291,7 +318,7 @@ values (${lit(lead.id)}, ${lit(pack.id)}, 'individual', 'seed', ${lit(lead.stage
     );
 
     for (const def of pack.intake.consents) {
-      const granted = def.id === 'assistant_call' ? lead.assistantCallConsent : true;
+      const granted = def.id === pack.voice.callConsentId ? lead.assistantCallConsent : true;
       statements.push(
         `insert into public.consent_records (lead_id, purpose, granted, required, text_version, text_hash, source, recorded_at)
 values (${lit(lead.id)}, ${lit(def.id)}, ${granted}, ${def.required}, ${lit(def.version)}, ${lit(consentHashes.get(def.id) ?? null)}, 'seed', ${ts(createdAt)});`,
@@ -354,6 +381,7 @@ values (${lit(stepId)}, ${lit(enrollment.id)}, ${lit(lead.id)}, ${lit(enrollment
         const template = pack.crm.templates.find((t) => t.id === step.templateId);
         const rendered = template
           ? renderTemplate(template, {
+              brand: pack.brand,
               fullName: lead.fullName,
               specialty: offeringName(specialty),
               reference,
@@ -410,7 +438,7 @@ values (${lit(lead.id)}, ${lit(event.type)}, ${lit(event.actor)}, ${lit(event.ac
         answers,
         hasEmail: Boolean(lead.email),
         hasMessage: Boolean(lead.message),
-        consents: ['contact', ...(lead.assistantCallConsent ? ['assistant_call'] : [])],
+        consents: [requiredConsent, ...(lead.assistantCallConsent ? [pack.voice.callConsentId] : [])],
         createdAt,
         replied,
         optedOut: lead.optedOut,

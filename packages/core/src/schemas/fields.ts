@@ -90,7 +90,7 @@ export function questionSchema(question: QualifyingQuestion) {
   }
 }
 
-export function languageSchema(pack: IndustryPack) {
+export function languageSchema(pack: Pick<IndustryPack, 'languages'>) {
   return choiceSchema(
     pack.languages.map((l) => l.code),
     true,

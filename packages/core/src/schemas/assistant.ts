@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { consentFieldName } from '../consent';
-import type { IndustryPack } from '../industries/types';
+import type { FormPack } from '../industries/types';
 import { consentSchema, indianMobileSchema, languageSchema, personNameSchema } from './fields';
 import type { FormValues } from './intake';
 
@@ -18,7 +18,7 @@ export interface AssistantStart {
   consents: Record<string, boolean>;
 }
 
-export function buildAssistantSchema(pack: IndustryPack): z.ZodType<AssistantStart, FormValues> {
+export function buildAssistantSchema(pack: FormPack): z.ZodType<AssistantStart, FormValues> {
   const shape: Record<string, z.ZodType> = {
     full_name: personNameSchema,
     phone: indianMobileSchema,

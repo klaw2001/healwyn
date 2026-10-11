@@ -1,14 +1,6 @@
-import {
-  getActivePack,
-  LANGUAGE_NAMES,
-  ROLE_LABELS,
-  STOP_REASON_LABELS,
-  type StaffRole,
-  type StopReason,
-} from '@healwyn/core';
+import { LANGUAGE_NAMES, STOP_REASON_LABELS, type IndustryPack, type StaffRole, type StopReason } from '@healwyn/core';
 
 export const TIME_ZONE = 'Asia/Kolkata';
-const pack = getActivePack();
 
 const dateTime = new Intl.DateTimeFormat('en-IN', {
   timeZone: TIME_ZONE,
@@ -68,22 +60,9 @@ export function initials(name: string | null): string {
     .join('');
 }
 
-export const stageLabel = (id: string) => pack.stages.find((s) => s.id === id)?.label ?? id;
-export const specialtyLabel = (slug: string | null) =>
-  slug ? (pack.offerings.find((o) => o.slug === slug)?.name ?? slug) : 'Not sure yet';
 export const languageLabel = (code: string) => LANGUAGE_NAMES[code] ?? code;
-export const roleLabel = (role: string) => ROLE_LABELS[role as StaffRole] ?? role;
-export const sequenceName = (id: string) => pack.sequences.find((s) => s.id === id)?.name ?? id;
 export const stopReasonLabel = (reason: string | null) =>
   reason ? (STOP_REASON_LABELS[reason as StopReason] ?? reason.replaceAll('_', ' ')) : '';
-
-export function answerLabel(questionId: string, value: string): string {
-  const question = pack.intake.questions.find((q) => q.id === questionId);
-  if (question && (question.kind === 'select' || question.kind === 'radio')) {
-    return question.options.find((o) => o.value === value)?.label ?? value;
-  }
-  return value;
-}
 
 export const SOURCE_LABELS: Record<string, string> = {
   web_form: 'Website form',
@@ -142,11 +121,37 @@ export const CALL_REFUSALS: Record<string, string> = {
   telephony_not_configured: 'phone calling is not set up',
 };
 
+/**
+ * Labels that depend on the industry pack: stages, offerings, roles, sequences,
+ * answers and audit events. Server components make one per request from the
+ * signed-in staff member's pack.
+ */
+export function packLabels(pack: IndustryPack) {
+  const stageLabel = (id: string) => pack.stages.find((s) => s.id === id)?.label ?? id;
+  const specialtyLabel = (slug: string | null) =>
+    slug ? (pack.offerings.find((o) => o.slug === slug)?.name ?? slug) : 'Not sure yet';
+  const roleLabel = (role: string) => pack.roleLabels[role as StaffRole] ?? role;
+  const sequenceName = (id: string) => pack.sequences.find((s) => s.id === id)?.name ?? id;
+  const answerLabel = (questionId: string, value: string): string => {
+    const question = pack.intake.questions.find((q) => q.id === questionId);
+    if (question && (question.kind === 'select' || question.kind === 'radio')) {
+      return question.options.find((o) => o.value === value)?.label ?? value;
+    }
+    return value;
+  };
+  const describe = (type: string, payload: Record<string, unknown>, staffName: (id: unknown) => string) =>
+    describeEvent(type, payload, staffName, { stageLabel, sequenceName });
+  return { stageLabel, specialtyLabel, roleLabel, sequenceName, answerLabel, describeEvent: describe };
+}
+
+export type PackLabels = ReturnType<typeof packLabels>;
+
 /** One readable line per audit event. Payloads hold ids and codes only. */
-export function describeEvent(
+function describeEvent(
   type: string,
   payload: Record<string, unknown>,
   staffName: (id: unknown) => string,
+  { stageLabel, sequenceName }: { stageLabel: (id: string) => string; sequenceName: (id: string) => string },
 ): string {
   const p = payload as Record<string, string | number | boolean | null | Record<string, boolean>>;
   switch (type) {

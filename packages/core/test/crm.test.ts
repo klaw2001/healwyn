@@ -45,15 +45,19 @@ describe('permissions matrix', () => {
   });
 
   it('limits what doctors and the billing desk can see', () => {
-    const lead = { assignedStaffId: 'doc-a', hasInsurance: false, stage: 'visited' };
-    expect(canSeeLead('specialist_doctor', 'doc-a', lead)).toBe(true);
-    expect(canSeeLead('specialist_doctor', 'doc-b', lead)).toBe(false);
-    expect(canSeeLead('specialist_doctor', 'doc-b', { ...lead, assignedStaffId: null })).toBe(false);
-    expect(canSeeLead('billing_desk', 'desk', lead)).toBe(false);
-    expect(canSeeLead('billing_desk', 'desk', { ...lead, hasInsurance: true })).toBe(true);
-    expect(canSeeLead('billing_desk', 'desk', { ...lead, stage: 'package_active' })).toBe(true);
-    expect(canSeeLead('manager', 'x', lead)).toBe(true);
-    expect(canSeeLead('care_coordinator', 'x', lead)).toBe(true);
+    const lead = { industry: 'clinic', assignedStaffId: 'doc-a', hasInsurance: false, stageIsWon: false };
+    const as = (id: string) => ({ id, industry: 'clinic' });
+    expect(canSeeLead('specialist_doctor', as('doc-a'), lead)).toBe(true);
+    expect(canSeeLead('specialist_doctor', as('doc-b'), lead)).toBe(false);
+    expect(canSeeLead('specialist_doctor', as('doc-b'), { ...lead, assignedStaffId: null })).toBe(false);
+    expect(canSeeLead('billing_desk', as('desk'), lead)).toBe(false);
+    expect(canSeeLead('billing_desk', as('desk'), { ...lead, hasInsurance: true })).toBe(true);
+    expect(canSeeLead('billing_desk', as('desk'), { ...lead, stageIsWon: true })).toBe(true);
+    expect(canSeeLead('manager', as('x'), lead)).toBe(true);
+    expect(canSeeLead('care_coordinator', as('x'), lead)).toBe(true);
+    // Never across industries, whatever the role.
+    expect(canSeeLead('manager', { id: 'x', industry: 'real_estate' }, lead)).toBe(false);
+    expect(canSeeLead('specialist_doctor', { id: 'doc-a', industry: 'wealth_advisory' }, lead)).toBe(false);
   });
 
   it('sends managers to the pipeline and everyone else to their workspace', () => {
@@ -231,6 +235,7 @@ describe('stop conditions at send time', () => {
 
 describe('message templates', () => {
   const vars = {
+    brand: clinicPack.brand,
     fullName: 'Dr. Ananya Rao',
     specialty: 'Dental',
     reference: 'ABCD-1234',

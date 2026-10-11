@@ -32,6 +32,19 @@ test('unknown pages return 404 with a way back', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Go to the home page' })).toBeVisible();
 });
 
+test('the Phase 1 addresses redirect to the shared route names', async ({ page }) => {
+  for (const [from, to] of [
+    ['/specialties', '/services'],
+    ['/specialties/dental', '/services/dental'],
+    ['/doctors', '/team'],
+    ['/health-packages', '/plans'],
+  ] as const) {
+    const response = await page.goto(from);
+    expect(response?.status()).toBe(200);
+    expect(new URL(page.url()).pathname).toBe(to);
+  }
+});
+
 test('form pages show the emergency notice above the form', async ({ page }) => {
   for (const route of ['/contact', '/partners']) {
     await page.goto(route);

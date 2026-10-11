@@ -89,6 +89,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'complete_task(uuid)',
       'create_task(uuid,text,timestamp with time zone,uuid,timestamp with time zone)',
       'current_staff_id()',
+      'current_staff_industry()',
       'current_staff_role()',
       'enroll_lead(uuid,jsonb)',
       'mark_replied(uuid)',
@@ -98,7 +99,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'routing_context(uuid,text[])',
       'save_lead_score(uuid,integer,text,jsonb)',
       'set_sequence_paused(text,text,boolean)',
-      'staff_can_see_lead(uuid,boolean,text)',
+      'staff_can_see_lead(text,uuid,boolean,text)',
       'stop_enrollment(uuid)',
     ];
     const rows = await sql<{ fn: string; anon: boolean; authed: boolean; service: boolean; is_trigger: boolean }[]>`

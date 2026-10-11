@@ -1,6 +1,7 @@
 'use server';
 
-import { DEMO_USERS, demoAuthUserId, homePathFor, isStaffRole, sha256Hex } from '@healwyn/core';
+import { demoAuthUserId, demoUsers, getActivePack, homePathFor, isStaffRole, sha256Hex } from '@healwyn/core';
+import { packOf } from '@/lib/server/pack';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { sessionForAuthUser, verifyPassword } from '@/lib/server/auth';
@@ -45,10 +46,12 @@ export async function signIn(_previous: SignInState, formData: FormData): Promis
 export async function signInAsDemo(formData: FormData): Promise<void> {
   if (process.env.DEMO_LOGIN !== 'true') redirect('/login');
   const role = formData.get('role');
-  const user = DEMO_USERS.find((u) => u.role === role);
+  const industry = formData.get('industry');
+  const pack = typeof industry === 'string' ? packOf(industry) : getActivePack();
+  const user = demoUsers(pack.demo.staff).find((u) => u.role === role);
   if (!isStaffRole(role) || !user) redirect('/login');
   const session = await sessionForAuthUser(demoAuthUserId(user.staffId));
-  if (!session) redirect('/login?demo=missing');
+  if (!session) redirect(`/login?demo=missing&industry=${pack.id}`);
   await setSessionCookie(session);
   redirect(homePathFor(session.role));
 }

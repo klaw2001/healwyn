@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Shared domain code: brand config, industry packs, zod schemas, synthetic content",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./ids": "./src/industries/ids.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",

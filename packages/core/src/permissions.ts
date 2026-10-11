@@ -82,28 +82,30 @@ export const LEAD_VISIBILITY: Record<StaffRole, LeadVisibility> = {
   billing_desk: 'assigned_or_billing',
 };
 
-/** Stages the billing desk always sees (payments and packages). */
-export const BILLING_STAGES = ['package_active'] as const;
-
 export interface LeadVisibilityFacts {
+  /** The lead's industry pack id: staff see only their own industry's leads. */
+  industry: string;
   assignedStaffId: string | null;
+  /** The pack's billing rule matched (clinic: has insurance). */
   hasInsurance: boolean;
-  stage: string;
+  /** The lead is in its pack's won stage (paid); the billing desk sees those. */
+  stageIsWon: boolean;
 }
 
-/** TypeScript twin of the RLS rule, for UI decisions and for testing the policies. */
-export function canSeeLead(role: StaffRole, staffId: string, lead: LeadVisibilityFacts): boolean {
+/** TypeScript twin of the RLS rule (`staff_can_see_lead`), for UI decisions and for testing the policies. */
+export function canSeeLead(
+  role: StaffRole,
+  staff: { id: string; industry: string },
+  lead: LeadVisibilityFacts,
+): boolean {
+  if (lead.industry !== staff.industry) return false;
   switch (LEAD_VISIBILITY[role]) {
     case 'all':
       return true;
     case 'assigned':
-      return lead.assignedStaffId === staffId;
+      return lead.assignedStaffId === staff.id;
     case 'assigned_or_billing':
-      return (
-        lead.assignedStaffId === staffId ||
-        lead.hasInsurance ||
-        (BILLING_STAGES as readonly string[]).includes(lead.stage)
-      );
+      return lead.assignedStaffId === staff.id || lead.hasInsurance || lead.stageIsWon;
   }
 }
 

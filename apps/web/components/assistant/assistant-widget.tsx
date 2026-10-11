@@ -1,26 +1,11 @@
 'use client';
 
-import {
-  BRAND,
-  buildAssistantSchema,
-  consentFieldName,
-  getActivePack,
-  toFieldErrors,
-  type FieldErrors,
-} from '@healwyn/core';
+import { buildAssistantSchema, consentFieldName, toFieldErrors, type FieldErrors } from '@healwyn/core';
 import { Button, Checkbox, Field, Input, RadioGroup } from '@healwyn/ui';
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { AssistantView } from '@/lib/assistant-view';
 import { ConsentText, Honeypot } from '../forms/form-kit';
 import type { VoiceCall as VoiceCallType } from './voice-call';
-
-const pack = getActivePack();
-const schema = buildAssistantSchema(pack);
-const languages = pack.languages.map((l) => ({
-  value: l.code,
-  label: l.nativeLabel,
-  lang: l.code,
-  description: l.label !== l.nativeLabel ? l.label : undefined,
-}));
 
 type Line = { id: string; from: 'assistant' | 'you'; text: string };
 type Phase =
@@ -38,9 +23,11 @@ type VoiceCallComponent = typeof VoiceCallType;
  * typed chat when the microphone is unavailable or the visitor prefers typing.
  */
 export function AssistantLauncher({
+  view,
   className,
   label = 'Talk to our assistant',
 }: {
+  view: AssistantView;
   className?: string;
   label?: string;
 }) {
@@ -67,7 +54,7 @@ export function AssistantLauncher({
         className="m-0 h-dvh max-h-none w-full max-w-none bg-bg p-0 text-ink backdrop:bg-ink/50 sm:m-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-xl sm:rounded-lg sm:border sm:border-line sm:shadow-lift"
         onClose={() => setOpen(false)}
       >
-        {open ? <AssistantPanel onClose={() => dialogRef.current?.close()} /> : null}
+        {open ? <AssistantPanel view={view} onClose={() => dialogRef.current?.close()} /> : null}
       </dialog>
     </>
   );
@@ -82,7 +69,15 @@ function MicGlyph() {
   );
 }
 
-function AssistantPanel({ onClose }: { onClose: () => void }) {
+function AssistantPanel({ view, onClose }: { view: AssistantView; onClose: () => void }) {
+  const { form: pack } = view;
+  const schema = useMemo(() => buildAssistantSchema(pack), [pack]);
+  const languages = pack.languages.map((l) => ({
+    value: l.code,
+    label: l.nativeLabel,
+    lang: l.code,
+    description: l.label !== l.nativeLabel ? l.label : undefined,
+  }));
   const [phase, setPhase] = useState<Phase>({ name: 'form' });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [lines, setLines] = useState<Line[]>([]);
@@ -99,7 +94,7 @@ function AssistantPanel({ onClose }: { onClose: () => void }) {
 
   async function start(form: HTMLFormElement, mode: 'voice' | 'text') {
     const data = new FormData(form);
-    const values: Record<string, unknown> = { mode };
+    const values: Record<string, unknown> = { mode, industry: pack.id };
     for (const [key, value] of data.entries()) if (typeof value === 'string') values[key] = value;
     const parsed = schema.safeParse(values);
     if (!parsed.success) {
@@ -196,9 +191,7 @@ function AssistantPanel({ onClose }: { onClose: () => void }) {
             }}
           >
             <p className="text-ink-muted">
-              {BRAND.shortName}’s AI assistant asks five short questions so the right doctor’s team can call you back.
-              It cannot give medical advice. Your browser will ask to use your microphone; if you would rather not,
-              choose “Type instead”.
+              {view.intro} Your browser will ask to use your microphone; if you would rather not, choose “Type instead”.
             </p>
             <p className="text-sm text-ink-muted">
               What you say is processed by automated services: LiveKit and its speech partners turn speech into text and
@@ -238,13 +231,12 @@ function AssistantPanel({ onClose }: { onClose: () => void }) {
                 id={`assistant-${consent.id}`}
                 name={consentFieldName(consent.id)}
                 error={errors[consentFieldName(consent.id)]}
-                label={<ConsentText definition={consent} />}
+                label={<ConsentText definition={consent} brand={pack.brand} />}
                 className="rounded-md border border-line bg-surface-muted p-4"
               />
             ))}
             <p className="rounded-md bg-danger-soft p-3 text-sm">
-              <strong>Not for emergencies.</strong> If you need urgent help, call {pack.voice.safety.emergencyNumber} or
-              go to the nearest hospital.
+              <strong>Not for emergencies.</strong> {view.emergencyNotice}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button type="submit" size="lg">
@@ -295,7 +287,7 @@ function AssistantPanel({ onClose }: { onClose: () => void }) {
         {phase.name === 'done' ? (
           <div className="grid gap-4" role="status">
             <p className="text-lg">
-              Our care team has what you shared and will call you back.
+              Our team has what you shared and will call you back.
               {phase.reference ? (
                 <>
                   {' '}
@@ -304,10 +296,7 @@ function AssistantPanel({ onClose }: { onClose: () => void }) {
               ) : null}
             </p>
             {lines.length ? <Transcript lines={lines} /> : null}
-            <p className="text-sm text-ink-muted">
-              If anything gets worse or feels urgent, call {pack.voice.safety.emergencyNumber} or go to the nearest
-              hospital.
-            </p>
+            <p className="text-sm text-ink-muted">{view.emergencyNotice}</p>
             <Button type="button" onClick={onClose}>
               Close
             </Button>

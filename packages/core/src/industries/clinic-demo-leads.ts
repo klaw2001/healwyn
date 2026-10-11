@@ -1,5 +1,16 @@
 import type { UrgencyLevel } from '../crm/types';
 import { clinicDemoStaff } from './clinic-demo-data';
+import {
+  demoEmail,
+  demoLeadId,
+  demoPhone,
+  prng,
+  uniqueName,
+  type DemoLead,
+  type DemoNote,
+  type DemoTask,
+  type Rng,
+} from './demo-kit';
 
 /**
  * Forty synthetic leads for the clinic demo, generated deterministically so the
@@ -7,135 +18,6 @@ import { clinicDemoStaff } from './clinic-demo-data';
  * Phone numbers sit in the +91 70000 xxxxx demo range; nothing is real.
  */
 
-export interface DemoNote {
-  templateId: string;
-  /** Minutes after the lead was created. */
-  afterMinutes: number;
-  authorStaffId: string;
-}
-
-export interface DemoTask {
-  title: string;
-  /** Relative to now: negative means overdue. */
-  dueInMinutes: number;
-  completed: boolean;
-  assigneeStaffId: string;
-}
-
-export interface DemoLead {
-  id: string;
-  fullName: string;
-  phone: string;
-  email: string | null;
-  preferredLanguage: string;
-  stage: string;
-  urgency: UrgencyLevel;
-  answers: Readonly<Record<string, string>>;
-  message: string | null;
-  assistantCallConsent: boolean;
-  assignedStaffId: string | null;
-  /** Stages after "new", oldest first. */
-  stageHistory: readonly string[];
-  createdMinutesAgo: number;
-  /** Minutes after creation of the first staff action, or null when nobody has responded yet. */
-  firstResponseAfterMinutes: number | null;
-  notes: readonly DemoNote[];
-  tasks: readonly DemoTask[];
-  optedOut: boolean;
-  /** Minutes after creation when the lead replied, or null. */
-  repliedAfterMinutes: number | null;
-}
-
-/** mulberry32: a tiny, deterministic PRNG. */
-function prng(seed: number) {
-  let a = seed >>> 0;
-  const next = () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  return {
-    next,
-    int: (min: number, max: number) => min + Math.floor(next() * (max - min + 1)),
-    pick: <T>(items: readonly T[]): T => items[Math.floor(next() * items.length)]!,
-    chance: (p: number) => next() < p,
-  };
-}
-
-const FIRST_NAMES = [
-  'Aarav',
-  'Aditi',
-  'Akash',
-  'Ananya',
-  'Arjun',
-  'Bhavna',
-  'Chetan',
-  'Deepika',
-  'Divya',
-  'Farah',
-  'Gaurav',
-  'Harini',
-  'Ishaan',
-  'Jaya',
-  'Karan',
-  'Kavya',
-  'Lakshmi',
-  'Manish',
-  'Meera',
-  'Nikhil',
-  'Nisha',
-  'Omkar',
-  'Pallavi',
-  'Pranav',
-  'Priya',
-  'Rahul',
-  'Riya',
-  'Rohan',
-  'Sahil',
-  'Sana',
-  'Shreya',
-  'Siddharth',
-  'Sneha',
-  'Tanvi',
-  'Tarun',
-  'Uma',
-  'Varun',
-  'Vidya',
-  'Yash',
-  'Zoya',
-];
-const LAST_NAMES = [
-  'Agarwal',
-  'Banerjee',
-  'Chopra',
-  'D’Souza',
-  'Fernandes',
-  'Ghosh',
-  'Gupta',
-  'Hegde',
-  'Iyer',
-  'Jain',
-  'Kapoor',
-  'Khan',
-  'Kulkarni',
-  'Malhotra',
-  'Mehta',
-  'Nair',
-  'Pandey',
-  'Patel',
-  'Pillai',
-  'Rao',
-  'Reddy',
-  'Saxena',
-  'Sharma',
-  'Shetty',
-  'Singh',
-  'Thomas',
-  'Verma',
-  'Yadav',
-];
 const MESSAGES = [
   'Would like a routine check-up.',
   'Looking for a dental cleaning appointment.',
@@ -160,8 +42,9 @@ const SPECIALTIES = [
 const STAGE_COUNTS: readonly [string, number][] = [
   ['new', 8],
   ['ai_triaged', 6],
-  ['appointment_booked', 7],
-  ['visited', 6],
+  ['appointment_booked', 6],
+  ['no_show', 2],
+  ['visited', 5],
   ['follow_up_due', 5],
   ['package_active', 4],
   ['lost', 4],
@@ -173,12 +56,12 @@ const DAY = 24 * HOUR;
 
 const coordinators = clinicDemoStaff.filter((m) => m.role === 'care_coordinator').map((m) => m.id);
 
-function clinicianFor(specialty: string, r: ReturnType<typeof prng>): string {
-  const team = clinicDemoStaff.filter((m) => m.clinician && m.specialties.includes(specialty));
+function clinicianFor(specialty: string, r: Rng): string {
+  const team = clinicDemoStaff.filter((m) => m.listed && m.specialties.includes(specialty));
   return team.length ? r.pick(team).id : r.pick(coordinators);
 }
 
-function historyFor(stage: string, r: ReturnType<typeof prng>): string[] {
+function historyFor(stage: string, r: Rng): string[] {
   const viaTriage = r.chance(0.5) ? ['ai_triaged'] : [];
   switch (stage) {
     case 'new':
@@ -187,6 +70,8 @@ function historyFor(stage: string, r: ReturnType<typeof prng>): string[] {
       return ['ai_triaged'];
     case 'appointment_booked':
       return [...viaTriage, 'appointment_booked'];
+    case 'no_show':
+      return [...viaTriage, 'appointment_booked', 'no_show'];
     case 'visited':
       return [...viaTriage, 'appointment_booked', 'visited'];
     case 'follow_up_due':
@@ -200,8 +85,6 @@ function historyFor(stage: string, r: ReturnType<typeof prng>): string[] {
   }
 }
 
-const leadId = (n: number) => `1ead0000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-
 export function generateClinicDemoLeads(seed = 20261011): DemoLead[] {
   const r = prng(seed);
   const leads: DemoLead[] = [];
@@ -211,10 +94,7 @@ export function generateClinicDemoLeads(seed = 20261011): DemoLead[] {
   for (const [stage, count] of STAGE_COUNTS) {
     for (let i = 0; i < count; i += 1) {
       n += 1;
-      let fullName: string;
-      do fullName = `${r.pick(FIRST_NAMES)} ${r.pick(LAST_NAMES)}`;
-      while (usedNames.has(fullName));
-      usedNames.add(fullName);
+      const fullName = uniqueName(r, usedNames);
 
       const specialty = r.pick(SPECIALTIES);
       const urgency: UrgencyLevel = r.chance(0.08)
@@ -270,9 +150,14 @@ export function generateClinicDemoLeads(seed = 20261011): DemoLead[] {
             ];
 
       const tasks: DemoTask[] = [];
-      if (['new', 'ai_triaged', 'follow_up_due'].includes(stage)) {
+      if (['new', 'ai_triaged', 'follow_up_due', 'no_show'].includes(stage)) {
         tasks.push({
-          title: stage === 'follow_up_due' ? 'Call to book the follow-up' : 'Call back and book a first visit',
+          title:
+            stage === 'follow_up_due'
+              ? 'Call to book the follow-up'
+              : stage === 'no_show'
+                ? 'Call to offer a new slot'
+                : 'Call back and book a first visit',
           dueInMinutes: r.pick([-3 * HOUR, -26 * HOUR, 2 * HOUR, 5 * HOUR, 1 * DAY + 3 * HOUR, 3 * DAY]),
           completed: false,
           assigneeStaffId: author,
@@ -301,10 +186,10 @@ export function generateClinicDemoLeads(seed = 20261011): DemoLead[] {
           : null;
 
       leads.push({
-        id: leadId(n),
+        id: demoLeadId(0, n),
         fullName,
-        phone: `+9170000${String(100 + n).padStart(5, '0')}`,
-        email: r.chance(0.6) ? `${fullName.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com` : null,
+        phone: demoPhone(0, n),
+        email: r.chance(0.6) ? demoEmail(fullName) : null,
         preferredLanguage: r.chance(0.3) ? 'hi' : 'en',
         stage,
         urgency,

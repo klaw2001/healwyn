@@ -40,7 +40,9 @@ describe('startAssistant', () => {
     const { store, text, deps: d } = deps();
     const result = await startAssistant(valid, headers(), d);
     expect(result).toMatchObject({ status: 'text', reply: 'Hello, I am the AI assistant.', language: 'hi' });
-    expect(text.start).toHaveBeenCalledWith(expect.objectContaining({ channel: 'text', language: 'hi' }));
+    expect(text.start).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'text', language: 'hi', pack: 'clinic' }),
+    );
     const [lead] = [...store.leads.values()];
     expect(lead).toMatchObject({ source: 'voice', answers: {}, fullName: 'Asha Demo' });
   });
@@ -50,7 +52,7 @@ describe('startAssistant', () => {
     const { text, deps: d } = deps({ voiceToken });
     const result = await startAssistant({ ...valid, mode: 'voice' }, headers(), d);
     expect(result).toMatchObject({ status: 'voice', serverUrl: 'wss://example.livekit.cloud', token: 'jwt' });
-    expect(voiceToken).toHaveBeenCalledWith(expect.objectContaining({ language: 'hi' }));
+    expect(voiceToken).toHaveBeenCalledWith(expect.objectContaining({ language: 'hi', pack: 'clinic' }));
     expect(text.start).not.toHaveBeenCalled();
   });
 
@@ -116,10 +118,11 @@ describe('startAssistant', () => {
 describe('call cookie', () => {
   it('only accepts cookies this server signed', () => {
     vi.stubEnv('VOICE_AGENT_SECRET', 'x'.repeat(40));
-    const value = callCookieValue('call-1', 'lead-1');
-    expect(readCallCookie(value)).toEqual({ callId: 'call-1', leadId: 'lead-1' });
+    const value = callCookieValue('call-1', 'lead-1', 'clinic');
+    expect(readCallCookie(value)).toEqual({ callId: 'call-1', leadId: 'lead-1', industry: 'clinic' });
     expect(readCallCookie(value.replace('lead-1', 'lead-2'))).toBeNull();
-    expect(readCallCookie('call-1.lead-1.1700000000.forged')).toBeNull();
+    expect(readCallCookie(value.replace('clinic', 'real_estate'))).toBeNull();
+    expect(readCallCookie('call-1.lead-1.clinic.1700000000.forged')).toBeNull();
     expect(readCallCookie(undefined)).toBeNull();
     vi.unstubAllEnvs();
   });
@@ -127,12 +130,12 @@ describe('call cookie', () => {
   it('expires after 20 minutes, and the issue time is signed', () => {
     vi.stubEnv('VOICE_AGENT_SECRET', 'x'.repeat(40));
     const issued = Date.UTC(2026, 9, 11, 10, 0, 0);
-    const value = callCookieValue('call-1', 'lead-1', issued);
+    const value = callCookieValue('call-1', 'lead-1', 'clinic', issued);
     expect(readCallCookie(value, issued + 19 * 60_000)).not.toBeNull();
     expect(readCallCookie(value, issued + 21 * 60_000)).toBeNull();
-    const [callId, leadId, at, mac] = value.split('.');
+    const [callId, leadId, industry, at, mac] = value.split('.');
     const later = String(Number(at) + 3600);
-    expect(readCallCookie([callId, leadId, later, mac].join('.'), issued + 61 * 60_000)).toBeNull();
+    expect(readCallCookie([callId, leadId, industry, later, mac].join('.'), issued + 61 * 60_000)).toBeNull();
     vi.unstubAllEnvs();
   });
 });

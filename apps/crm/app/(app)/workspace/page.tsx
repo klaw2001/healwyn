@@ -1,4 +1,4 @@
-import { can, compareQueuePriority, getActivePack } from '@healwyn/core';
+import { can, compareQueuePriority, type IndustryPack } from '@healwyn/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -6,14 +6,12 @@ import { ScoreBadge, SlaBadge, StageBadge, UrgencyBadge } from '@/components/bad
 import { EmptyState } from '@/components/empty-state';
 import { CompleteTaskButton } from '@/components/profile/forms';
 import { PageTitle } from '@/components/shell';
-import { endOfIndiaDay, formatDay, formatTime, indiaDay, specialtyLabel } from '@/lib/format';
+import { endOfIndiaDay, formatDay, formatTime, indiaDay, packLabels } from '@/lib/format';
 import { requireCapability } from '@/lib/server/auth';
+import { packFor } from '@/lib/server/pack';
 import { listLeads, listTasks, type LeadRow, type TaskRow } from '@/lib/server/queries';
 
 export const metadata: Metadata = { title: 'My workspace' };
-
-const pack = getActivePack();
-const closedStages = new Set(pack.stages.filter((s) => s.kind !== 'open').map((s) => s.id));
 
 function Section({ id, title, count, children }: { id: string; title: string; count: number; children: ReactNode }) {
   return (
@@ -27,7 +25,8 @@ function Section({ id, title, count, children }: { id: string; title: string; co
   );
 }
 
-function LeadList({ leads, now }: { leads: LeadRow[]; now: Date }) {
+function LeadList({ pack, leads, now }: { pack: IndustryPack; leads: LeadRow[]; now: Date }) {
+  const { specialtyLabel, stageLabel } = packLabels(pack);
   return (
     <ul className="grid gap-2">
       {leads.map((lead) => (
@@ -42,9 +41,10 @@ function LeadList({ leads, now }: { leads: LeadRow[]; now: Date }) {
             <ScoreBadge score={lead.score} band={lead.band} />
           </div>
           <div className="mt-2 flex flex-wrap gap-1">
-            <StageBadge stage={lead.stage} />
+            <StageBadge label={stageLabel(lead.stage)} kind={pack.stages.find((s) => s.id === lead.stage)?.kind} />
             <UrgencyBadge urgency={lead.urgency} />
             <SlaBadge
+              sla={pack.crm.sla}
               createdAt={lead.created_at}
               urgency={lead.urgency}
               firstResponseAt={lead.first_response_at}
@@ -93,6 +93,8 @@ function TaskItems({ tasks, now }: { tasks: TaskRow[]; now: Date }) {
 
 export default async function WorkspacePage() {
   const session = await requireCapability('screen.workspace');
+  const pack = packFor(session);
+  const closedStages = new Set(pack.stages.filter((s) => s.kind !== 'open').map((s) => s.id));
   const now = new Date();
   const frontDesk = can(session.role, 'lead.assign');
   const [mine, unassigned, todayTasks, weekTasks] = await Promise.all([
@@ -130,7 +132,7 @@ export default async function WorkspacePage() {
 
         <Section id="mine" title="My leads" count={myOpen.length}>
           {myOpen.length ? (
-            <LeadList leads={myOpen} now={now} />
+            <LeadList pack={pack} leads={myOpen} now={now} />
           ) : (
             <EmptyState title="No open leads assigned to you">
               {frontDesk ? 'Pick one up from the unassigned queue.' : 'A coordinator assigns leads to you.'}
@@ -141,7 +143,7 @@ export default async function WorkspacePage() {
         {frontDesk ? (
           <Section id="queue" title="Unassigned queue" count={queue.length}>
             {queue.length ? (
-              <LeadList leads={queue} now={now} />
+              <LeadList pack={pack} leads={queue} now={now} />
             ) : (
               <EmptyState title="The queue is clear">Every open lead has an owner.</EmptyState>
             )}

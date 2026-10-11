@@ -42,8 +42,10 @@ export async function verifyUnsubscribeToken(token: string, secret: string | und
 }
 
 /** The page linked from every message: shows a confirmation button. */
-export function unsubscribeUrl(siteUrl: string, token: string): string {
-  return `${siteUrl.replace(/\/$/, '')}/unsubscribe?token=${encodeURIComponent(token)}`;
+/** The unsubscribe page; `industry` makes the page show the lead's own brand. */
+export function unsubscribeUrl(siteUrl: string, token: string, industry?: string): string {
+  const base = `${siteUrl.replace(/\/$/, '')}/unsubscribe?token=${encodeURIComponent(token)}`;
+  return industry ? `${base}&i=${encodeURIComponent(industry)}` : base;
 }
 
 /** RFC 8058 one-click endpoint for the List-Unsubscribe header (mail clients POST to it). */

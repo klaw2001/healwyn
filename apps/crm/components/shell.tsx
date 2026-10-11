@@ -1,9 +1,10 @@
-import { BRAND, can, ROLE_LABELS } from '@healwyn/core';
+import { can } from '@healwyn/core';
 import { Badge, BrandMark, MenuIcon } from '@healwyn/ui';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { signOut } from '@/app/login/actions';
+import { packFor } from '@/lib/server/pack';
 import type { Session } from '@/lib/server/session';
 import { BoardIcon, FlowIcon, InboxIcon, SparkIcon } from './icons';
 import { NavLinks, type NavItem } from './nav-links';
@@ -21,6 +22,7 @@ export async function AppShell({
   children: ReactNode;
 }) {
   const theme = (await cookies()).get('hw_theme')?.value;
+  const { brand, roleLabels } = packFor(session);
   const items: NavItem[] = [
     {
       href: '/workspace',
@@ -39,7 +41,7 @@ export async function AppShell({
       <div>
         <p className="font-semibold">{session.name}</p>
         <Badge tone="teal" className="mt-1">
-          {ROLE_LABELS[session.role]}
+          {roleLabels[session.role]}
         </Badge>
       </div>
       <ThemeToggle initial={theme === 'light' || theme === 'dark' ? theme : 'system'} />
@@ -65,7 +67,7 @@ export async function AppShell({
             <Link href="/workspace" className="flex items-center gap-2.5 rounded-md">
               <BrandMark className="size-8" />
               <span className="font-display text-lg leading-tight font-semibold">
-                {BRAND.shortName}
+                {brand.shortName}
                 <span className="block font-sans text-xs font-semibold tracking-[0.08em] text-ink-muted uppercase">
                   Staff CRM
                 </span>
@@ -77,14 +79,14 @@ export async function AppShell({
           </div>
           <div className="border-t border-line pt-5">
             {userBlock}
-            <p className="mt-5 text-xs text-ink-muted">{BRAND.demoNotice}</p>
+            <p className="mt-5 text-xs text-ink-muted">{brand.demoNotice}</p>
           </div>
         </aside>
 
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-bg/95 px-4 py-2 backdrop-blur lg:hidden">
           <Link href="/workspace" className="flex items-center gap-2 rounded-md">
             <BrandMark className="size-8" />
-            <span className="font-display font-semibold">{BRAND.shortName} CRM</span>
+            <span className="font-display font-semibold">{brand.shortName} CRM</span>
           </Link>
           <details className="group relative">
             <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full border border-line-strong bg-surface px-4 font-semibold [&::-webkit-details-marker]:hidden">
