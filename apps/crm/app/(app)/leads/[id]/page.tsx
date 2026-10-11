@@ -1,6 +1,8 @@
 import {
   can,
   formatAppointment,
+  formatRupees,
+  paymentFailureMessage,
   formatLeadReference,
   formatIndianMobile,
   OVERRIDE_REASONS,
@@ -33,6 +35,7 @@ import {
   WithdrawalControl,
 } from '@/components/profile/controls';
 import { BookingPanel } from '@/components/booking/booking-panel';
+import { PaymentPanel } from '@/components/booking/payment-panel';
 import { AiSummary } from '@/components/profile/ai-summary';
 import { CompleteTaskButton, NoteForm, TaskForm } from '@/components/profile/forms';
 import {
@@ -46,7 +49,7 @@ import {
   stopReasonLabel,
 } from '@/lib/format';
 import { requireSession } from '@/lib/server/auth';
-import { leadAppointments, staffCalendars, toSlotChoices } from '@/lib/server/booking';
+import { leadAppointments, leadPayments, staffCalendars, toSlotChoices } from '@/lib/server/booking';
 import { asStaff } from '@/lib/server/db';
 import { packFor } from '@/lib/server/pack';
 import { getLeadProfile, listStaff } from '@/lib/server/queries';
@@ -105,15 +108,17 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const suggestion = canFrontDesk && !erased && stageIsOpen ? await suggestRouting(session, lead.id) : null;
   const overrideReasons = Object.entries(OVERRIDE_REASONS).map(([value, label]) => ({ value, label }));
   const canBook = can(session.role, 'booking.manage') && !erased && lead.lead_type === 'individual';
-  const [appointments, choices] = await Promise.all([
+  const [appointments, choices, payments] = await Promise.all([
     leadAppointments(session, lead.id),
     canBook
       ? asStaff(session, (tx) =>
           staffCalendars(tx, pack, session.role === 'specialist_doctor' ? [session.staffId] : null),
         ).then((calendars) => toSlotChoices(calendars, pack))
       : Promise.resolve([]),
+    leadPayments(session, lead.id),
   ]);
   const tz = pack.brand.timeZone;
+  const productName = (id: string) => pack.payments.products.find((p) => p.id === id)?.name ?? id;
   const tomorrowNine = `${indiaDay(new Date(now.getTime() + 86_400_000))}T09:00`;
   const sampleVars = {
     brand: pack.brand,
@@ -360,6 +365,29 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
                   when: formatAppointment(new Date(a.starts_at), tz),
                   status: a.status,
                   started: new Date(a.starts_at) <= now,
+                }))}
+              />
+            </Panel>
+          ) : null}
+
+          {lead.lead_type === 'individual' ? (
+            <Panel title="Payments (test mode)" id="payments-title">
+              <PaymentPanel
+                leadId={lead.id}
+                canRequest={can(session.role, 'payment.request') && !erased}
+                products={pack.payments.products.map((p) => ({
+                  id: p.id,
+                  label: `${p.name} (${formatRupees(p.amountPaise)})`,
+                }))}
+                payments={payments.map((p) => ({
+                  id: p.id,
+                  product: productName(p.product_id),
+                  amount: formatRupees(p.amount_paise),
+                  status: p.status,
+                  when: formatDateTime(p.paid_at ?? p.created_at),
+                  provider: p.provider,
+                  failure:
+                    p.status === 'failed' ? `${paymentFailureMessage(p.failure_code)} (${p.failure_code})` : null,
                 }))}
               />
             </Panel>

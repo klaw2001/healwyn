@@ -126,3 +126,24 @@ export async function activeSequences(tx: Tx, leadId: string): Promise<string[]>
     select sequence_id from public.sequence_enrollments where lead_id = ${leadId} and status = 'active'`;
   return rows.map((r) => r.sequence_id);
 }
+
+export interface PaymentRow {
+  id: string;
+  product_id: string;
+  amount_paise: number;
+  provider: string;
+  status: 'created' | 'authorized' | 'paid' | 'failed';
+  failure_code: string | null;
+  created_at: Date;
+  paid_at: Date | null;
+}
+
+/** A lead's test-mode payments (RLS: only for leads the staff member can see). */
+export async function leadPayments(session: Session, leadId: string): Promise<PaymentRow[]> {
+  return asStaff(
+    session,
+    (tx) => tx<PaymentRow[]>`
+      select id, product_id, amount_paise, provider, status, failure_code, created_at, paid_at
+      from public.payments where lead_id = ${leadId} order by created_at desc limit 20`,
+  );
+}

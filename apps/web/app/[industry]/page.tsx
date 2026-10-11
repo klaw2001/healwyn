@@ -26,7 +26,7 @@ export default async function HomePage(props: PageProps<'/[industry]'>) {
   return (
     <>
       {/* Hero */}
-      <section aria-labelledby="hero-title" className="relative overflow-hidden">
+      <section aria-labelledby="hero-title" data-tour="hero" className="relative overflow-hidden">
         <Container className="grid items-center gap-10 pt-10 pb-16 sm:pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14 lg:pt-20 lg:pb-24">
           <div>
             <Eyebrow>{home.eyebrow}</Eyebrow>

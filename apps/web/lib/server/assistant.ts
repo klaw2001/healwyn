@@ -14,6 +14,7 @@ import { isKnownIndustryId } from '@healwyn/core/ids';
 import type { LeadStore } from '@healwyn/db';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { clientIp, rateLimitKey } from './client-key';
+import { leadOptions } from './demo';
 import { errorFields, log } from './log';
 
 /**
@@ -105,7 +106,7 @@ export async function startAssistant(values: FormValues, headers: Headers, deps:
   let leadId: string;
   let callId: string;
   try {
-    ({ id: leadId } = await deps.store.submitLead(await assistantToLeadPayload(start, deps.pack)));
+    ({ id: leadId } = await deps.store.submitLead(await assistantToLeadPayload(start, deps.pack, leadOptions())));
     const call = await deps.store.startWebCall(leadId, mode === 'voice' ? 'browser' : 'text');
     if (!call.allowed) {
       log.warn('assistant.call_refused', { reason: call.reason });

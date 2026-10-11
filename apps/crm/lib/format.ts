@@ -178,6 +178,12 @@ function describeEvent(
       return `Assigned to ${staffName(p.to_staff_id)}${p.method === 'override' ? ' (overriding the suggestion)' : ''}`;
     case 'note.added':
       return 'Note added';
+    case 'payment.created':
+      return `Test payment started (${String(p.product_id)})`;
+    case 'payment.paid':
+      return `Test payment received (${String(p.product_id)})`;
+    case 'payment.failed':
+      return `Test payment failed (${String(p.code)})`;
     case 'appointment.booked':
       return `Booked with ${staffName(p.staff_id)}${p.via === 'website' ? ' (by the lead, online)' : ''}`;
     case 'appointment.rescheduled':

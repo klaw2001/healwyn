@@ -159,6 +159,7 @@ export function PatientForm({ pack, successSteps }: { pack: FormPack; successSte
 
   return (
     <form
+      data-tour="enquiry-form"
       action={formAction}
       onSubmit={onSubmit}
       onChange={onChange}

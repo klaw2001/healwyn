@@ -46,6 +46,14 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'crm',
+          root: './apps/crm',
+          include: ['test/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
+        test: {
           name: 'db',
           root: './packages/db',
           include: ['test/**/*.test.ts'],

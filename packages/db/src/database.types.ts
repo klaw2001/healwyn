@@ -652,6 +652,106 @@ export type Database = {
           },
         ];
       };
+      payment_events: {
+        Row: {
+          id: number;
+          payment_id: string;
+          provider: string;
+          provider_event_id: string;
+          type: string;
+          received_at: string;
+        };
+        Insert: {
+          id?: never;
+          payment_id: string;
+          provider: string;
+          provider_event_id: string;
+          type: string;
+          received_at?: string;
+        };
+        Update: {
+          id?: never;
+          payment_id?: string;
+          provider?: string;
+          provider_event_id?: string;
+          type?: string;
+          received_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'payment_events_payment_id_fkey';
+            columns: ['payment_id'];
+            isOneToOne: false;
+            referencedRelation: 'payments';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      payments: {
+        Row: {
+          id: string;
+          lead_id: string;
+          industry: string;
+          product_id: string;
+          amount_paise: number;
+          currency: string;
+          provider: string;
+          mode: string;
+          provider_order_id: string;
+          provider_payment_id: string | null;
+          status: string;
+          failure_code: string | null;
+          requested_by: string;
+          created_at: string;
+          updated_at: string;
+          paid_at: string | null;
+        };
+        Insert: {
+          id: string;
+          lead_id: string;
+          industry: string;
+          product_id: string;
+          amount_paise: number;
+          currency?: string;
+          provider: string;
+          mode?: string;
+          provider_order_id: string;
+          provider_payment_id?: string | null;
+          status?: string;
+          failure_code?: string | null;
+          requested_by: string;
+          created_at?: string;
+          updated_at?: string;
+          paid_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          industry?: string;
+          product_id?: string;
+          amount_paise?: number;
+          currency?: string;
+          provider?: string;
+          mode?: string;
+          provider_order_id?: string;
+          provider_payment_id?: string | null;
+          status?: string;
+          failure_code?: string | null;
+          requested_by?: string;
+          created_at?: string;
+          updated_at?: string;
+          paid_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'payments_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       rate_limits: {
         Row: { key: string; window_start: string; hits: number };
         Insert: { key: string; window_start: string; hits?: number };
@@ -1082,6 +1182,18 @@ export type Database = {
         Args: { p_task_id: string };
         Returns: undefined;
       };
+      create_payment: {
+        Args: {
+          p_payment_id: string;
+          p_lead_id: string;
+          p_product_id: string;
+          p_amount_paise: number;
+          p_provider: string;
+          p_order_id: string;
+          p_requested_by: string;
+        };
+        Returns: string;
+      };
       create_task: {
         Args: {
           p_lead_id: string;
@@ -1124,6 +1236,10 @@ export type Database = {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
       };
+      lead_payments: {
+        Args: { p_lead_id: string };
+        Returns: unknown[];
+      };
       mark_appointment: {
         Args: { p_appointment_id: string; p_status: string; p_plan: Json };
         Returns: Json;
@@ -1138,6 +1254,10 @@ export type Database = {
       };
       overdue_appointments: {
         Args: { p_grace: string; p_limit: number };
+        Returns: unknown[];
+      };
+      payment_for_order: {
+        Args: { p_provider: string; p_order_id: string };
         Returns: unknown[];
       };
       place_assistant_call: {
@@ -1158,6 +1278,20 @@ export type Database = {
       };
       record_no_show: {
         Args: { p_appointment_id: string; p_plan: Json };
+        Returns: Json;
+      };
+      record_payment_event: {
+        Args: {
+          p_provider: string;
+          p_event_id: string;
+          p_type: string;
+          p_order_id: string;
+          p_provider_payment_id: string;
+          p_status: string;
+          p_failure_code: string;
+          p_paid_stage: string;
+          p_plan: Json;
+        };
         Returns: Json;
       };
       record_voice_call: {

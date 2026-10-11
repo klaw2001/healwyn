@@ -20,6 +20,7 @@ import type { LeadStore } from '@healwyn/db';
 import type { ZodType } from 'zod';
 import type { FormState } from '../form-state';
 import { clientIp, rateLimitKey } from './client-key';
+import { leadOptions } from './demo';
 import { errorFields, log } from './log';
 import type { LeadNotification } from './notify';
 
@@ -177,7 +178,7 @@ export function handlePatientEnquiry(formData: FormData, headers: Headers, deps:
     headers,
     deps,
     buildIntakeSchema(pack),
-    (data) => intakeToLeadPayload(data, pack),
+    (data) => intakeToLeadPayload(data, pack, leadOptions()),
     (payload) => patientSummary(pack, payload),
   );
 }
@@ -190,7 +191,7 @@ export function handlePartnerEnquiry(formData: FormData, headers: Headers, deps:
     headers,
     deps,
     buildPartnerSchema(pack),
-    (data) => partnerToLeadPayload(data, pack),
+    (data) => partnerToLeadPayload(data, pack, leadOptions()),
     (payload) => partnerSummary(pack, payload),
   );
 }

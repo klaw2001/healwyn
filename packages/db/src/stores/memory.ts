@@ -63,6 +63,19 @@ export function createMemoryLeadStore(): MemoryLeadStore {
     async cancelAppointment() {
       return { ok: false, reason: 'not_found' };
     },
+    // Payments need the database too.
+    async createPayment() {
+      throw new Error('Payments need a database');
+    },
+    async paymentForOrder() {
+      return null;
+    },
+    async leadPayments() {
+      return [];
+    },
+    async recordPaymentEvent() {
+      throw new Error('Payments need a database');
+    },
     async close() {},
   };
 }

@@ -26,3 +26,4 @@ export {
   type NavProps,
 } from './components/site-chrome';
 export { packThemeCss } from './theme';
+export { DemoTour, type DemoTourStep } from './components/demo-tour';

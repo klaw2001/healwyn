@@ -100,7 +100,7 @@ export default async function PipelinePage({ searchParams }: PageProps<'/pipelin
     `/pipeline?${new URLSearchParams({ ...params, view: target }).toString()}`;
 
   return (
-    <>
+    <div data-tour="pipeline">
       <PageTitle
         title="Pipeline"
         description={`${leads.length} lead${leads.length === 1 ? '' : 's'} you can see. Columns are the ${pack.label.toLowerCase()} stages.`}
@@ -136,6 +136,6 @@ export default async function PipelinePage({ searchParams }: PageProps<'/pipelin
       ) : (
         <LeadTable pack={pack} leads={sorted} sort={sort} dir={dir} params={params} now={now} />
       )}
-    </>
+    </div>
   );
 }

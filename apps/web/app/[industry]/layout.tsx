@@ -1,5 +1,6 @@
 import { packThemeCss, SkipLink } from '@healwyn/ui';
 import type { Metadata, Viewport } from 'next';
+import { DemoBar } from '@/components/demo-bar';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteNav } from '@/components/site-nav';
 import { atkinson, fraunces } from '@/lib/fonts';
@@ -46,6 +47,7 @@ export default async function RootLayout({ children, params }: LayoutProps<'/[in
           {packThemeCss(pack.id, pack.theme)}
         </style>
         <SkipLink />
+        {process.env.DEMO_MODE === 'true' ? <DemoBar pack={pack} /> : null}
         <SiteNav brandName={pack.brand.name} links={mainNav(pack)} cta={primaryCta(pack)} />
         <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
           {children}

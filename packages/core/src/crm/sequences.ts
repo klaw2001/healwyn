@@ -46,6 +46,29 @@ export function planStageEntry(
   return { enroll, cancel };
 }
 
+/**
+ * The plan for entering a stage without knowing which sequences are running:
+ * cancel every sequence that this stage cancels, enrol every sequence that
+ * starts on it. The SQL that applies plans makes this equivalent to
+ * planStageEntry: stopping a sequence that is not running does nothing, and
+ * enrolling one that is already running is skipped (one active enrolment per
+ * sequence). For callers without database read access (the payment webhook).
+ */
+export function fullStagePlan(
+  sequences: readonly SequenceDefinition[],
+  toStage: string,
+  now: Date = new Date(),
+): SequencePlan {
+  return {
+    cancel: sequences
+      .filter((s) => s.cancelOnStages.includes(toStage))
+      .map((s) => ({ sequenceId: s.id, reason: 'stage_changed' as const })),
+    enroll: sequences
+      .filter((s) => s.enrolOnStage === toStage)
+      .map((s) => ({ sequenceId: s.id, steps: scheduleSteps(s, now) })),
+  };
+}
+
 /** Everything the worker re-checks just before sending a step. */
 export interface SendContext {
   enrollmentStatus: 'active' | 'completed' | 'stopped';

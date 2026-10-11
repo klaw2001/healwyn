@@ -77,3 +77,18 @@ test('the billing desk sees bookings but cannot change hours', async ({ page }) 
   const response = await page.goto('/availability');
   expect(response?.status()).toBe(403);
 });
+
+test('the front desk copies a test payment link for a lead', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
+  const name = await submitWebsiteEnquiry(page);
+  const [lead] = await query((sql) => sql<{ id: string }[]>`select id from public.leads where full_name = ${name}`);
+  await signInAs(page, 'care_coordinator');
+  await page.goto(`/leads/${lead!.id}`);
+  const panel = page.getByRole('region', { name: 'Payments (test mode)' });
+  await expect(panel.getByText('No real money moves.', { exact: false })).toBeVisible();
+  await panel.getByRole('button', { name: 'Copy test payment link' }).click();
+  await expect(panel.getByRole('status')).toContainText('It works for 30 days.');
+  await expect(panel.getByRole('textbox', { name: 'Test payment link' })).toHaveValue(
+    new RegExp(`/pay\\?t=${lead!.id}\\.`),
+  );
+});

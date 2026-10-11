@@ -41,6 +41,7 @@ export function AssistantLauncher({
         size="lg"
         className={className}
         aria-haspopup="dialog"
+        data-tour="assistant"
         onClick={() => {
           setOpen(true);
           dialogRef.current?.showModal();

@@ -32,7 +32,56 @@ export interface LeadStore {
   bookAppointment(input: BookingRequest): Promise<BookingOutcome>;
   /** Cancels the lead's upcoming appointment; `plan` is the nurture plan of the stage it returns to. */
   cancelAppointment(leadId: string, appointmentId: string, plan: SequencePlan | null): Promise<BookingOutcome>;
+  /** Records a new test-mode checkout attempt for an order the server just created. */
+  createPayment(input: NewPayment): Promise<void>;
+  /** The payment behind a provider order, for the webhook. */
+  paymentForOrder(provider: string, orderId: string): Promise<PaymentForOrder | null>;
+  /** A lead's payments for its own payment page (no personal data). */
+  leadPayments(leadId: string): Promise<LeadPayment[]>;
+  /** Applies one verified provider event, once (idempotent on the provider event id). */
+  recordPaymentEvent(event: PaymentEventInput): Promise<{ duplicate: boolean; status: string; changed: boolean }>;
   close(): Promise<void>;
+}
+
+export interface NewPayment {
+  paymentId: string;
+  leadId: string;
+  productId: string;
+  amountPaise: number;
+  provider: 'razorpay' | 'simulated';
+  orderId: string;
+  requestedBy: 'lead' | 'staff';
+}
+
+export interface PaymentForOrder {
+  payment_id: string;
+  lead_id: string;
+  industry: string;
+  status: string;
+  amount_paise: number;
+}
+
+export interface LeadPayment {
+  id: string;
+  product_id: string;
+  amount_paise: number;
+  provider: string;
+  status: 'created' | 'authorized' | 'paid' | 'failed';
+  failure_code: string | null;
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface PaymentEventInput {
+  provider: 'razorpay' | 'simulated';
+  eventId: string;
+  type: string;
+  orderId: string;
+  paymentId: string | null;
+  status: 'authorized' | 'paid' | 'failed';
+  failureCode: string | null;
+  paidStage: string;
+  plan: SequencePlan;
 }
 
 export interface BookingContext {

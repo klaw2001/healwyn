@@ -42,7 +42,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
     }
   });
 
-  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead, its call and booking functions', async () => {
+  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead, its call, booking and payment functions', async () => {
     const rows = await sql<{ fn: string }[]>`
       select p.oid::regprocedure::text as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -53,8 +53,12 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'booking_calendar(text,uuid[],date,date)',
       'booking_context(uuid)',
       'cancel_appointment_public(uuid,uuid,jsonb)',
+      'create_payment(uuid,uuid,text,integer,text,text,text)',
       'hit_rate_limit(text,integer,integer)',
+      'lead_payments(uuid)',
       'opt_out_lead(uuid,text)',
+      'payment_for_order(text,text)',
+      'record_payment_event(text,text,text,text,text,text,text,text,jsonb)',
       'start_web_call(uuid,text)',
       'submit_lead(jsonb)',
       'use_text_fallback(uuid,uuid)',

@@ -197,6 +197,12 @@ function Upcoming({
         <Link href={link(`change=1&staff=${appointment.staff_id}`)} className={buttonClasses()}>
           Change the time
         </Link>
+        <Link
+          href={`/pay?t=${encodeURIComponent(token)}&i=${pack.id}`}
+          className={buttonClasses({ variant: 'secondary' })}
+        >
+          Pay online (test payment)
+        </Link>
         <form action={cancelBooking}>
           <input type="hidden" name="t" value={token} />
           <input type="hidden" name="appointment" value={appointment.id} />

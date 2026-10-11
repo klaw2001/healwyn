@@ -1,7 +1,15 @@
 import type { NewLeadPayload, StaffCalendar } from '@healwyn/core';
 import postgres from 'postgres';
 import { sslModeFor } from '../sql-target';
-import { bookingFailure, LeadStoreError, type BookingContext, type CallStart, type LeadStore } from './types';
+import {
+  bookingFailure,
+  LeadStoreError,
+  type BookingContext,
+  type CallStart,
+  type LeadPayment,
+  type LeadStore,
+  type PaymentForOrder,
+} from './types';
 
 /**
  * Direct Postgres connection. On serverless hosts use Supabase's transaction
@@ -101,6 +109,44 @@ export function createPostgresLeadStore(url: string): LeadStore {
         const reason = bookingFailure((error as { code?: string }).code);
         if (reason) return { ok: false, reason };
         throw new LeadStoreError('Could not cancel the appointment', { cause: error });
+      }
+    },
+    async createPayment(p) {
+      try {
+        await sql`select public.create_payment(${p.paymentId}, ${p.leadId}, ${p.productId}, ${p.amountPaise},
+          ${p.provider}, ${p.orderId}, ${p.requestedBy})`;
+      } catch (error) {
+        throw new LeadStoreError('Could not record the payment', { cause: error });
+      }
+    },
+    async paymentForOrder(provider, orderId) {
+      try {
+        const [row] = await sql<PaymentForOrder[]>`select * from public.payment_for_order(${provider}, ${orderId})`;
+        return row ?? null;
+      } catch (error) {
+        throw new LeadStoreError('Could not read the payment', { cause: error });
+      }
+    },
+    async leadPayments(leadId) {
+      try {
+        const rows = await sql<LeadPayment[]>`select * from public.lead_payments(${leadId})`;
+        return rows.map((r) => ({
+          ...r,
+          created_at: new Date(r.created_at).toISOString(),
+          paid_at: r.paid_at ? new Date(r.paid_at).toISOString() : null,
+        }));
+      } catch (error) {
+        throw new LeadStoreError('Could not read the payments', { cause: error });
+      }
+    },
+    async recordPaymentEvent(e) {
+      try {
+        const [row] = await sql<{ r: { duplicate: boolean; status: string; changed: boolean } }[]>`
+          select public.record_payment_event(${e.provider}, ${e.eventId}, ${e.type}, ${e.orderId}, ${e.paymentId},
+            ${e.status}, ${e.failureCode}, ${e.paidStage}, ${sql.json(e.plan as unknown as postgres.JSONValue)}) as r`;
+        return row!.r;
+      } catch (error) {
+        throw new LeadStoreError('Could not record the payment event', { cause: error });
       }
     },
     async close() {

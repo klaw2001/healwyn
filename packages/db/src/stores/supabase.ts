@@ -1,7 +1,15 @@
 import type { NewLeadPayload, StaffCalendar } from '@healwyn/core';
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types';
-import { bookingFailure, LeadStoreError, type BookingContext, type CallStart, type LeadStore } from './types';
+import {
+  bookingFailure,
+  LeadStoreError,
+  type BookingContext,
+  type CallStart,
+  type LeadPayment,
+  type LeadStore,
+  type PaymentForOrder,
+} from './types';
 
 /**
  * Supabase over HTTPS (PostgREST RPC) with the service-role key. Preferred in
@@ -94,6 +102,43 @@ export function createSupabaseLeadStore(
         throw new LeadStoreError(`Could not cancel the appointment (${error.code})`, { cause: error });
       }
       return { ok: true, appointmentId };
+    },
+    async createPayment(p) {
+      const { error } = await client.rpc('create_payment', {
+        p_payment_id: p.paymentId,
+        p_lead_id: p.leadId,
+        p_product_id: p.productId,
+        p_amount_paise: p.amountPaise,
+        p_provider: p.provider,
+        p_order_id: p.orderId,
+        p_requested_by: p.requestedBy,
+      });
+      if (error) throw new LeadStoreError(`Could not record the payment (${error.code})`, { cause: error });
+    },
+    async paymentForOrder(provider, orderId) {
+      const { data, error } = await client.rpc('payment_for_order', { p_provider: provider, p_order_id: orderId });
+      if (error) throw new LeadStoreError(`Could not read the payment (${error.code})`, { cause: error });
+      return ((data as PaymentForOrder[] | null) ?? [])[0] ?? null;
+    },
+    async leadPayments(leadId) {
+      const { data, error } = await client.rpc('lead_payments', { p_lead_id: leadId });
+      if (error) throw new LeadStoreError(`Could not read the payments (${error.code})`, { cause: error });
+      return (data as LeadPayment[] | null) ?? [];
+    },
+    async recordPaymentEvent(e) {
+      const { data, error } = await client.rpc('record_payment_event', {
+        p_provider: e.provider,
+        p_event_id: e.eventId,
+        p_type: e.type,
+        p_order_id: e.orderId,
+        p_provider_payment_id: e.paymentId as string,
+        p_status: e.status,
+        p_failure_code: e.failureCode as string,
+        p_paid_stage: e.paidStage,
+        p_plan: e.plan as unknown as Json,
+      });
+      if (error) throw new LeadStoreError(`Could not record the payment event (${error.code})`, { cause: error });
+      return data as unknown as { duplicate: boolean; status: string; changed: boolean };
     },
     async close() {},
   };

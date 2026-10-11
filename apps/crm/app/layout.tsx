@@ -2,6 +2,7 @@ import { packThemeCss } from '@healwyn/ui';
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { DemoBar } from '@/components/demo-bar';
 import { atkinson, fraunces } from '@/lib/fonts';
 import { packFor } from '@/lib/server/pack';
 import { readSession } from '@/lib/server/session';
@@ -39,6 +40,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             {packThemeCss(pack.id, pack.theme)}
           </style>
         ) : null}
+        {process.env.DEMO_MODE === 'true' ? <DemoBar pack={pack} signedIn={Boolean(session)} /> : null}
         {children}
       </body>
     </html>

@@ -263,3 +263,53 @@ A review of the Phase 3 code found no authorisation bypass. Fixed before tagging
   SQL.
 - `next dev` writes an `AGENTS.md` into each app unless `agentRules: false`; both configs turn it off (CLAUDE.md is the
   guide here).
+
+### Payments (test mode only)
+
+- **Razorpay test mode, or a simulated checkout.** No Razorpay keys were provided, so without `rzp_test_…` keys the site
+  uses a simulated provider. It creates `order_…` ids, and its "Pay" and "Decline" buttons build the webhook body
+  Razorpay would send, sign it (HMAC-SHA256, like Razorpay's `X-Razorpay-Signature`) and pass it through the same
+  handler as a real delivery. The demo therefore exercises the real verification, idempotency and stage logic. With test
+  keys, the server creates orders through Razorpay's Orders API and Razorpay Checkout opens in the browser.
+- **Live keys are refused.** Both `next.config.ts` files throw at start-up on `rzp_live_…`, order creation checks again,
+  and `payments.mode` can only be `test` in SQL. Every payment screen says "test payment".
+- **Idempotent, forward-only.** Each provider event id is recorded once (`payment_events`, unique); a repeated delivery
+  changes nothing. Status only moves forward (created → failed → authorized → paid), so a late failure never undoes a
+  payment, and a failed attempt can still be followed by a success on the same order. A paid payment moves the lead to
+  the pack's won stage (`payments.paidStageId`, which must be a `won` stage of the lead's industry) with that stage's
+  nurture plan, in the same transaction. A retry is a new order.
+- **Checkout signature as well as the webhook.** Razorpay webhooks cannot reach a laptop, so the browser's checkout
+  callback (signature over `order|payment` with the key secret) also counts as paid; the webhook that follows is a
+  no-op. Both paths check that the order belongs to the link's lead.
+- **No payloads stored.** Razorpay payloads carry the payer's email and phone; only ids, the status and an error code
+  are read and stored.
+- **Who pays.** The person pays from their own signed link (the booking link, at `/pay`). Staff with
+  `payment.request` (front desk, managers, billing desk) can copy that link for a lead from its page. The webhook plans
+  the stage change without reading active sequences (`fullStagePlan`), which the SQL makes equivalent to
+  `planStageEntry`.
+
+### Manager dashboard
+
+- **Queries, not numbers.** Every tile and chart on `/dashboard` is a read-only query under RLS (`apps/crm/lib/server/dashboard.ts`),
+  defined in `docs/METRICS.md`. The manager sees only their own industry, by RLS rather than a hand-written filter.
+- **No chart library.** Bars are server-rendered HTML/CSS with theme tokens, so they re-skin per industry, work in dark
+  mode and need no client JavaScript. Each chart has a computed one-line takeaway and a table of its numbers.
+- **Cohorts.** Lead metrics count leads created in the range (India time). Erased leads stay in the history (erasure
+  keeps stage, source and timestamps) but leave team load; partner leads count only as work in team load.
+- The dashboard was built by a helper agent from a written brief and reviewed before merging; its pure helpers have unit
+  tests in a new `crm` Vitest project.
+
+### Demo bar, reset and tour
+
+- **`DEMO_MODE=true` only.** Both apps show a bar: switch industry, open the other app, a guided tour, and (CRM, signed in)
+  "Reset demo". The website remembers the industry in a cookie that `proxy.ts` reads; the CRM signs out and offers that
+  industry's demo users, because staff belong to one industry. The website's pages are static, so the bar is decided at
+  build time: set `DEMO_MODE` for both the build and the server.
+- **Demo enquiries are demo data.** With `DEMO_MODE=true`, enquiries and assistant leads are stored with `is_demo`, so a
+  reset clears them along with the seeded leads. Real leads are never touched.
+- **Reset** (`pnpm demo:reset [industry|all]`, or the bar's button) re-runs the seed for one industry inside one
+  transaction and clears the rate-limit counters. The button needs the owner connection (`DATABASE_URL`) on the CRM, is a
+  server action (origin-checked), and is limited to three resets per ten minutes per person.
+- **Tour.** Eight steps of the five-minute path (`demoTour(pack)`), across both apps. A step's link carries `?tour=n`
+  (the apps are on different origins); each tab remembers the step; the step's element gets an outline. Nothing else on
+  the page changes.

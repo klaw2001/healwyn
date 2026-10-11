@@ -18,6 +18,10 @@ export function createUnconfiguredLeadStore(): LeadStore {
     bookingCalendar: fail,
     bookAppointment: fail,
     cancelAppointment: fail,
+    createPayment: fail,
+    paymentForOrder: fail,
+    leadPayments: fail,
+    recordPaymentEvent: fail,
     async close() {},
   };
 }
