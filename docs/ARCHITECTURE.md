@@ -2,6 +2,8 @@
 
 ## The lead flow (all four phases)
 
+The Phase 4 picture, with booking, payments and the industry packs, is at the end of this file.
+
 ```
  visitor                                                                     staff
    │                                                                           ▲
@@ -91,18 +93,22 @@ either as the service role (supabase-js over HTTPS) or, preferably, as a login r
 (`WEB_DATABASE_URL`). That role can execute `submit_lead` and `hit_rate_limit` and nothing else. Tests assert all of this
 generically, so a future table without RLS, or a new privilege for an API role, fails the build.
 
-## Industry packs (how Phase 4 plugs in)
+## Industry packs
 
-`getActivePack()` returns the pack in use (clinic today). Everything pack-specific reads from it:
+Four packs live in `packages/core/src/industries` (`clinic`, `real_estate`, `wealth_advisory`, `home_interiors`), each a
+typed `IndustryPack`: brand and theme, site copy, intake questions and consents, stages, staff levels, routing weights,
+sequences and templates, SLA and scoring, booking and payment settings, the voice script and safety lists, and demo data.
+A generic contract test holds every pack to the same shape. Nothing outside the packs names an industry.
 
-- form questions and their order, option lists, hints, length limits (`intake.questions`, `channels: ['form', 'voice']`);
-- which question picks the offering and which is the free text (`offeringQuestionId`, `messageQuestionId`);
-- consents, their wording and versions, and whether withdrawal erases data;
-- pipeline stages (Phase 2 board columns), staff levels (Phase 3 routing ranks), nurture sequences (Phase 2);
-- the voice prompt for each question (Phase 3).
+Which pack applies:
 
-Phase 4 adds packs to `industryPacks` and lets `getActivePack()` switch at runtime. SQL stores pack ids as plain
-text, so no migration is needed per industry.
+- **Website**: every page is generated once per pack under `app/[industry]/`; `proxy.ts` rewrites each request to one
+  of them (the demo bar's cookie when `DEMO_MODE=true`, else `INDUSTRY`, else the clinic). Links that name a lead
+  (unsubscribe, booking, payment) carry `?i=<industry>` so the page shows the lead's own brand.
+- **CRM**: the signed-in staff member's industry (`staff.industry`, in the session).
+- **Anything acting on a lead** (worker, webhooks, routing, scoring): the lead's own `industry`.
+- **Database**: industry is a visibility boundary in RLS. Per-pack rules the SQL needs are seeded from the packs into
+  `industry_stages`, `call_policies` and `booking_policies`, so adding an industry needs no migration.
 
 ## Runtime configuration
 
@@ -208,3 +214,42 @@ and the verified number list. Every refusal is written as `call.refused` with a 
 to typed chat once (`use_text_fallback`). `record_voice_call` is idempotent per call id and ignores the voice agent's
 result for a call that continued as typed chat; `apply_voice_outcome` moves a new lead to AI-triaged with that stage's
 nurture plan and creates an urgent task after a red flag. Erasure scrubs call summaries, transcripts and flags.
+
+## Phase 4: booking, payments, dashboard, demo kit
+
+![How the platform fits together](architecture.svg)
+
+The SVG is generated (`pnpm architecture:svg`) from `apps/web/lib/architecture-svg.ts`, which also draws the themed
+copy on the case-study page. The same picture as Mermaid:
+
+```mermaid
+flowchart LR
+  visitor([Visitor]) --> web[Website · Next.js<br/>pages per pack, forms,<br/>booking, test payments]
+  razorpay([Razorpay · test mode<br/>or simulated]) -- signed webhook --> web
+  staff([Staff]) --> crm[CRM · Next.js<br/>pipeline, lead profile,<br/>bookings, dashboard]
+  packs[[Industry packs<br/>packages/core]] -.-> web
+  packs -.-> crm
+  web -- signed --> voice[Intake assistant · Python<br/>scripted lines, safety first]
+  voice --> livekit([LiveKit Cloud])
+  voice -- classify only --> gemini([Google Gemini])
+  voice -- signed call results --> crm
+  web -- web_submitter role --> db[(Postgres · Supabase<br/>RLS per role and industry,<br/>SQL functions, audit tables,<br/>no double booking)]
+  crm -- RLS as staff --> db
+  crm -- cron --> worker[Nurture worker]
+  worker --> db
+  worker --> resend([Resend · email])
+```
+
+- **Booking** (`20261014000001_booking.sql`, `packages/core/src/booking`): weekly hours and exceptions per bookable
+  staff member; `openSlots` turns a calendar into slots for both apps; `appointments` has an exclusion constraint so no
+  two non-cancelled appointments of one person overlap, and every booking function re-checks the slot. Booking,
+  rescheduling, cancelling and marking attended or missed move the lead's stage with its nurture plan; the worker turns
+  unmarked appointments into no-shows. The public flow (`/book?t=…`) uses a signed, expiring link from the thank-you
+  panel.
+- **Payments** (`20261015000001_payments.sql`, `packages/messaging/src/razorpay.ts`, `apps/web/lib/server/payments.ts`):
+  test mode only. Orders through Razorpay's API when test keys are set, otherwise a simulated provider whose events are
+  signed and handled exactly like Razorpay's. Each event id is applied once; status only moves forward; a paid payment
+  moves the lead to the pack's won stage.
+- **Dashboard** (`apps/crm/lib/server/dashboard.ts`, `docs/METRICS.md`): read-only queries under RLS.
+- **Demo kit**: the demo bar on both apps (`DEMO_MODE=true`), `pnpm demo:reset`, the guided tour (`demoTour(pack)`),
+  the case-study page, `docs/PITCH.md`, `docs/WALKTHROUGH_SCRIPT.md` and `docs/DECK_OUTLINE.md`.

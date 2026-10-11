@@ -37,6 +37,9 @@ export const ROUTES = [
   '/privacy',
   '/terms',
   '/disclaimer',
+  '/book',
+  '/pay',
+  '/case-study',
 ];
 
 /** A fresh client IP per test, so the per-IP rate limit does not leak between tests. */

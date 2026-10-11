@@ -21,6 +21,7 @@
     "db:migrate": "pnpm --filter @healwyn/db migrate",
     "db:seed": "pnpm --filter @healwyn/db seed",
     "demo:reset": "pnpm --filter @healwyn/db demo:reset",
+    "architecture:svg": "tsx apps/web/scripts/export-architecture.ts",
     "db:types": "pnpm --filter @healwyn/db types",
     "check": "pnpm lint && pnpm lint:voice && pnpm typecheck && pnpm contracts:check && pnpm test && pnpm test:voice && pnpm build",
     "worker": "pnpm --filter @healwyn/messaging worker",

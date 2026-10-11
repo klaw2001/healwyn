@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 600" role="img" aria-labelledby="architecture-title architecture-desc" font-family="Atkinson Hyperlegible, system-ui, sans-serif">
+<title id="architecture-title">How the platform fits together</title>
+<desc id="architecture-desc">Visitors use the website, which stores enquiries, bookings and test payments in Postgres through a least-privilege role and talks to the Python intake assistant with signed requests. The assistant uses LiveKit for voice and Gemini only to map answers to allowed options, and posts signed call results to the CRM. Staff use the CRM, which reads Postgres under row level security. A nurture worker sends due messages by email through Resend. Razorpay sends signed payment webhooks to the website. Industry packs configure the website, the CRM, the worker and the assistant.</desc>
+<defs><marker id="architecture-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a9a97"/></marker></defs>
+<rect width="1100" height="600" fill="#fbf8f3"/>
+<rect x="20" y="80" width="150" height="60" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="34" y="104" font-size="15" font-weight="700" fill="#15302e">Visitor</text>
+<text x="34" y="126" font-size="13" fill="#4a5d5a">phone or laptop</text>
+<rect x="20" y="200" width="150" height="70" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="34" y="224" font-size="15" font-weight="700" fill="#15302e">Razorpay</text>
+<text x="34" y="246" font-size="13" fill="#4a5d5a">test mode</text>
+<text x="34" y="265" font-size="13" fill="#4a5d5a">or simulated</text>
+<rect x="20" y="440" width="150" height="60" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="34" y="464" font-size="15" font-weight="700" fill="#15302e">Staff</text>
+<text x="34" y="486" font-size="13" fill="#4a5d5a">CRM in the browser</text>
+<rect x="220" y="20" width="250" height="180" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="234" y="44" font-size="15" font-weight="700" fill="#15302e">Website (Next.js)</text>
+<text x="234" y="66" font-size="13" fill="#4a5d5a">Pages per industry pack</text>
+<text x="234" y="85" font-size="13" fill="#4a5d5a">Enquiry forms (zod both sides)</text>
+<text x="234" y="104" font-size="13" fill="#4a5d5a">Booking and test payments</text>
+<text x="234" y="123" font-size="13" fill="#4a5d5a">Assistant widget: typed or voice</text>
+<rect x="220" y="240" width="250" height="100" rx="10" fill="#d7ece8" stroke="#0f6b63" stroke-width="2"/>
+<text x="234" y="264" font-size="15" font-weight="700" fill="#15302e">Industry packs</text>
+<text x="234" y="286" font-size="13" fill="#4a5d5a">Brand, copy, questions, stages,</text>
+<text x="234" y="305" font-size="13" fill="#4a5d5a">sequences, routing, voice script,</text>
+<text x="234" y="324" font-size="13" fill="#4a5d5a">safety rules, demo data</text>
+<rect x="220" y="380" width="250" height="180" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="234" y="404" font-size="15" font-weight="700" fill="#15302e">CRM (Next.js)</text>
+<text x="234" y="426" font-size="13" fill="#4a5d5a">Pipeline, lead profile, AI summary</text>
+<text x="234" y="445" font-size="13" fill="#4a5d5a">Routing with reasons</text>
+<text x="234" y="464" font-size="13" fill="#4a5d5a">Bookings, payments, dashboard</text>
+<text x="234" y="483" font-size="13" fill="#4a5d5a">Signed webhooks in</text>
+<rect x="520" y="20" width="250" height="130" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="534" y="44" font-size="15" font-weight="700" fill="#15302e">Intake assistant (Python)</text>
+<text x="534" y="66" font-size="13" fill="#4a5d5a">Scripted lines only</text>
+<text x="534" y="85" font-size="13" fill="#4a5d5a">Safety checks first, every turn</text>
+<text x="534" y="104" font-size="13" fill="#4a5d5a">Text service + LiveKit agent</text>
+<rect x="520" y="220" width="250" height="180" rx="10" fill="#d7ece8" stroke="#0f6b63" stroke-width="2"/>
+<text x="534" y="244" font-size="15" font-weight="700" fill="#15302e">Postgres (Supabase)</text>
+<text x="534" y="266" font-size="13" fill="#4a5d5a">Row level security per role</text>
+<text x="534" y="285" font-size="13" fill="#4a5d5a">and per industry</text>
+<text x="534" y="304" font-size="13" fill="#4a5d5a">Writes through SQL functions</text>
+<text x="534" y="323" font-size="13" fill="#4a5d5a">Append-only audit tables</text>
+<text x="534" y="342" font-size="13" fill="#4a5d5a">No double booking (constraint)</text>
+<rect x="520" y="450" width="250" height="110" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="534" y="474" font-size="15" font-weight="700" fill="#15302e">Nurture worker</text>
+<text x="534" y="496" font-size="13" fill="#4a5d5a">Due steps, once each</text>
+<text x="534" y="515" font-size="13" fill="#4a5d5a">No-shows after 2 hours</text>
+<text x="534" y="534" font-size="13" fill="#4a5d5a">Email real; SMS simulated</text>
+<rect x="820" y="20" width="260" height="55" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="834" y="44" font-size="15" font-weight="700" fill="#15302e">LiveKit Cloud</text>
+<text x="834" y="66" font-size="13" fill="#4a5d5a">voice rooms</text>
+<rect x="820" y="95" width="260" height="55" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="834" y="119" font-size="15" font-weight="700" fill="#15302e">Google Gemini</text>
+<text x="834" y="141" font-size="13" fill="#4a5d5a">maps answers to options</text>
+<rect x="820" y="450" width="260" height="55" rx="10" fill="#ffffff" stroke="#8a9a97" stroke-width="1.5"/>
+<text x="834" y="474" font-size="15" font-weight="700" fill="#15302e">Resend</text>
+<text x="834" y="496" font-size="13" fill="#4a5d5a">email</text>
+<polyline points="170,110 218,110" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<polyline points="170,235 218,185" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<text x="124" y="190" font-size="11" fill="#4a5d5a">signed webhook</text>
+<polyline points="170,470 218,470" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<polyline points="470,70 518,70" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<text x="474" y="62" font-size="11" fill="#4a5d5a">signed</text>
+<polyline points="770,47 818,47" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<polyline points="770,122 818,122" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<polyline points="470,180 518,245" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<text x="500" y="200" font-size="11" fill="#4a5d5a">web role</text>
+<polyline points="470,430 518,380" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<text x="500" y="425" font-size="11" fill="#4a5d5a">RLS</text>
+<polyline points="520,135 490,135 490,360 440,360 440,378" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<text x="482" y="300" font-size="11" fill="#4a5d5a" transform="rotate(-90 482 300)" text-anchor="middle">call results (signed)</text>
+<polyline points="470,520 518,520" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<text x="478" y="512" font-size="11" fill="#4a5d5a">cron</text>
+<polyline points="645,450 645,402" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<polyline points="770,477 818,477" fill="none" stroke="#8a9a97" stroke-width="1.6" marker-end="url(#architecture-arrow)"/>
+<polyline points="345,240 345,202" fill="none" stroke="#8a9a97" stroke-width="1.6" stroke-dasharray="5 4"/>
+<polyline points="345,340 345,378" fill="none" stroke="#8a9a97" stroke-width="1.6" stroke-dasharray="5 4"/>
+</svg>
