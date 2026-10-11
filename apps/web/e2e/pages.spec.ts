@@ -53,3 +53,25 @@ test('pages are not indexable while the brand is a demo', async ({ page, request
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
   expect(await (await request.get('/robots.txt')).text()).toContain('Disallow: /');
 });
+
+test('security headers allow the microphone only for this site (the assistant) and nothing else', async ({
+  request,
+}) => {
+  const response = await request.get('/');
+  const headers = response.headers();
+  expect(headers['permissions-policy']).toContain('microphone=(self)');
+  expect(headers['permissions-policy']).toContain('camera=()');
+  expect(headers['permissions-policy']).toContain('geolocation=()');
+  expect(headers['x-frame-options']).toBe('DENY');
+});
+
+test('the home page offers the AI assistant, clearly labelled as an AI', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Talk to our assistant' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Talk to our AI assistant' });
+  await expect(dialog.getByText('AI assistant · not a person')).toBeVisible();
+  await expect(dialog.getByText('It cannot give medical advice.', { exact: false })).toBeVisible();
+  await expect(dialog.getByText('Not for emergencies.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close the assistant' }).click();
+  await expect(dialog).toBeHidden();
+});

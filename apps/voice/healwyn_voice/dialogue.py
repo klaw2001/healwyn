@@ -58,6 +58,8 @@ class IntakeSession:
         self._clock = clock
         self._now = now
         self._started = clock()
+        self._last_activity = self._started
+        self._ended_clock: float | None = None
         self.started_at = now()
         self.ended_at: datetime | None = None
 
@@ -84,7 +86,11 @@ class IntakeSession:
         return self.state == 'closed'
 
     def elapsed(self) -> float:
-        return max(0.0, self._clock() - self._started)
+        end = self._ended_clock if self._ended_clock is not None else self._clock()
+        return max(0.0, end - self._started)
+
+    def idle_seconds(self) -> float:
+        return max(0.0, self._clock() - self._last_activity)
 
     def t(self, text: dict[str, str], **tokens: str) -> str:
         line = text.get(self.lang) or text['en']
@@ -100,8 +106,9 @@ class IntakeSession:
             self._close_state()
         return Reply(text, end)
 
-    def _close_state(self) -> None:
+    def _close_state(self, at_last_activity: bool = False) -> None:
         self.state = 'closed'
+        self._ended_clock = self._last_activity if at_last_activity else self._clock()
         self.ended_at = self._now()
 
     def _flag(self, kind: str, code: str) -> None:
@@ -140,6 +147,7 @@ class IntakeSession:
         if self.ended:
             return Reply('', end=True)
         text = utterance.strip()[:MAX_UTTERANCE]
+        self._last_activity = self._clock()
         self.transcript.append({'speaker': 'caller', 'text': text[:2000], 'atSeconds': round(self.elapsed(), 2)})
         self.turns += 1
 
@@ -322,11 +330,12 @@ class IntakeSession:
         self.outcome = 'limit_reached'
         return self._say(self.t(self.script.limitReached), end=True)
 
-    def caller_hung_up(self) -> None:
+    def caller_hung_up(self, idle: bool = False) -> None:
+        """The caller left. When they simply went quiet (`idle`), the call is timed to their last turn."""
         if self.ended:
             return
         self.outcome = 'caller_ended' if self.consent else 'consent_declined'
-        self._close_state()
+        self._close_state(at_last_activity=idle)
 
     def failed(self) -> None:
         if not self.ended:
@@ -365,9 +374,10 @@ class IntakeSession:
         if any(f['kind'] == 'prompt_injection' for f in self.flags):
             lines.append("Tried to change the assistant's instructions; refused.")
         language = next((lang.label for lang in self.script.languages if lang.code == self.lang), self.lang)
-        minutes = max(1, round(self.elapsed() / 60))
+        seconds = self.elapsed()
+        length = 'under a minute' if seconds < 60 else f'about {round(seconds / 60)} min'
         meta = {
-            'completed': f'Assistant call in {language}, about {minutes} min; the caller confirmed the details.',
+            'completed': f'Assistant call in {language}, {length}; the caller confirmed the details.',
             'emergency': f'Assistant call in {language} stopped for emergency advice.',
             'consent_declined': 'The caller did not want to continue with the assistant; nothing was collected.',
             'caller_ended': f'The caller ended the call early ({language}); details may be incomplete.',

@@ -7,6 +7,7 @@ import { Transcript } from './assistant-widget';
 
 type Line = { id: string; from: 'assistant' | 'you'; text: string };
 
+const CONNECT_TIMEOUT_MS = 12_000;
 const AGENT_TIMEOUT_MS = 15_000;
 
 /**
@@ -85,7 +86,11 @@ export function VoiceCall({
       if (cancelled) return;
       setStatus('connecting');
       try {
-        await room.connect(serverUrl, token);
+        // A network that blocks LiveKit would otherwise keep the visitor waiting while every region is tried.
+        await Promise.race([
+          room.connect(serverUrl, token),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('connect timeout')), CONNECT_TIMEOUT_MS)),
+        ]);
         await room.localParticipant.setMicrophoneEnabled(true);
         if (cancelled) return;
         const agentHere = [...room.remoteParticipants.values()].some((p) => p.isAgent);
@@ -101,6 +106,7 @@ export function VoiceCall({
       } catch {
         if (!cancelled) {
           cancelled = true;
+          void room.disconnect();
           callbacks.current.onFallback('We could not connect the voice call, so let’s continue by typing.');
         }
       }

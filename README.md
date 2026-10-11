@@ -30,14 +30,29 @@ It is built in four phases. **Phase 1** is the foundation:
   menu. Every move is audited and can be undone. Filters and a sortable list view sit beside it.
 - **Lead profiles**: contact, consent history, assignment (with the reason recorded), a timeline from the audit trail,
   notes from templates, tasks with reminders, every message with its channel and status, a rule-based score with its
-  breakdown, and a placeholder for the Phase 3 AI summary.
+  breakdown, and an AI summary panel (filled by the Phase 3 assistant).
 - **Workspace**: my leads, today's tasks, the unassigned queue and the next seven days, with first-response SLA timers.
 - **Nurture sequences** from the pack, started and stopped by stage changes, replies, unsubscribes and consent
   withdrawal. Email goes through Resend (logged until a domain is verified); SMS and WhatsApp are simulated. The worker
   is idempotent and safe to run in parallel. Managers can preview and pause sequences and see enrolments.
 
-Next phases: routing and the AI voice assistant (3), then the dashboard, booking, payments, industry switcher and
-pitch kit (4). See `CLAUDE.md` for the plan and `NEXT.md` for where things stand.
+**Phase 3** adds routing and the AI intake assistant (`apps/voice`):
+
+- **Routing engine** (`packages/core/src/routing`): a pure, deterministic function that picks the right person from
+  the specialty's team by language, seniority for urgent leads, spare capacity and continuity of care, with a score
+  breakdown for every candidate on the lead profile. Staff can accept the suggestion or override it with a reason.
+- **AI assistant**: "Talk to our assistant" on Home and Contact, by voice through LiveKit or by typing. It says it is
+  an AI, asks for consent, asks the pack's qualifying questions in English or Hindi, confirms what it heard and never
+  gives medical advice. Red-flag symptoms stop the intake and send the caller to emergency services. Every line it
+  speaks is fixed in the pack; Gemini only classifies answers.
+- **Signed results** reach the CRM (`/api/voice/complete`): the call is stored, the lead moves to AI-triaged, gets
+  routed and shows a short summary. Staff can run a simulated assistant call from a profile; real phone calls are
+  wired for LiveKit SIP but need a trunk.
+- **Guards and evidence**: per-call and daily limits checked in SQL, a manager usage screen, and an evaluation of 43
+  scripted conversations (`docs/VOICE_EVAL.md`) in which every safety scenario passes.
+
+Next: the dashboard, booking, payments, industry switcher and pitch kit (Phase 4). See `CLAUDE.md` for the plan,
+`NEXT.md` for where things stand and `docs/VOICE.md` for the assistant.
 
 ## Run it locally
 
@@ -73,6 +88,20 @@ pnpm dev:crm                                          # http://localhost:3001
 pnpm worker --every 60                                # sends due sequence steps once a minute
 ```
 
+### The AI assistant
+
+Needs Python 3.12+ (and `uv` if you have it). Add `VOICE_WEBHOOK_SECRET` and `VOICE_AGENT_SECRET` (32+ characters)
+to `.env`, then:
+
+```bash
+pnpm voice:setup              # apps/voice/.venv with the LiveKit agent and dev tools
+pnpm voice:serve              # text service: typed chat on the website, simulated calls from the CRM
+pnpm voice:agent dev          # optional: the voice agent (needs LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
+pnpm eval:voice               # 43 scripted conversations -> docs/VOICE_EVAL.md
+```
+
+Without `GEMINI_API_KEY` (or with `VOICE_USE_LLM=false`) the assistant runs fully deterministically.
+
 Demo staff sign in with `DEMO_USER_PASSWORD` (default `demo-pass-2026`): `anita.kapoor@healwyn.example` (manager),
 `neha.joshi@healwyn.example` (care coordinator), `asha.raman@healwyn.example` (specialist doctor) and
 `deepa.menon@healwyn.example` (billing desk). Submit an enquiry on the website and it appears on the board.
@@ -97,7 +126,7 @@ Demo staff sign in with `DEMO_USER_PASSWORD` (default `demo-pass-2026`): `anita.
 ### Quality checks
 
 ```bash
-pnpm check                    # lint + typecheck + unit/integration tests + build (the commit gate)
+pnpm check                    # lint (TS + Python) + typecheck + contracts + tests (Vitest + pytest) + build
 pnpm build && pnpm test:e2e   # Playwright: the site (every page, both forms, no-JS, rate limit), then the CRM flows
 pnpm start & pnpm lighthouse  # Lighthouse (mobile) on Home and Contact; reports in .lighthouse/
 ```
@@ -131,12 +160,15 @@ website's URL, for unsubscribe links), `RESEND_API_KEY` and `EMAIL_FROM`. Its sc
 worker every five minutes. Leave `DEMO_LOGIN` unset unless the deployment is a demo. The website also needs
 `UNSUBSCRIBE_SECRET` (the same value) for its unsubscribe page.
 
+The assistant's agent runs on LiveKit Cloud and its text service on a small Python host; see `docs/VOICE.md` for the
+free-tier deployment and the variables each site needs.
+
 ## Repository layout
 
 ```
 apps/web        Next.js site and forms         packages/core       brand, industry packs, permissions, CRM rules
 apps/crm        Next.js staff CRM              packages/ui         tokens and components
-apps/voice      Phase 3 (placeholder)          packages/db         migrations, stores, seed, types
+apps/voice      Python intake assistant        packages/db         migrations, stores, seed, types
 docs/           architecture and phase docs    packages/messaging  email, unsubscribe, nurture worker
                                                scripts/            local-db.sh, lighthouse.mjs
 ```

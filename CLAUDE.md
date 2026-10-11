@@ -12,8 +12,9 @@ The platform is built in four phases:
 1. **Foundation** (done): brand kit, marketing website, intake forms, data model.
 2. **CRM** (done): staff and manager app, pipeline board, lead profiles, staff workspace, nurture sequences (email
    real, SMS/WhatsApp simulated).
-3. **Routing and AI voice**: deterministic routing engine with explanations; a LiveKit + Gemini voice assistant that
-   qualifies leads (browser first, then phone) and never gives medical advice.
+3. **Routing and AI voice** (done): deterministic routing engine with explanations; a LiveKit + Gemini voice assistant
+   that qualifies leads (browser voice and typed chat, a simulated dialer; real phone calls need a SIP trunk) and never
+   gives medical advice.
 4. **Pitch kit**: manager dashboard, booking, Razorpay test-mode payments, an industry switcher (real estate, wealth
    advisory, home interiors) and a demo kit.
 
@@ -31,11 +32,16 @@ All from the repo root. Node 22+, pnpm 10.
 | `pnpm dev:crm`                          | CRM on http://localhost:3001 (`start:crm` for a production build)                                               |
 | `pnpm worker [--every N]`               | Nurture worker: send due sequence steps once, or every N seconds                                                |
 | `pnpm lint`                             | ESLint (incl. jsx-a11y) + Prettier check                                                                        |
+| `pnpm lint:voice` / `pnpm test:voice`   | ruff / pytest for `apps/voice` (in `apps/voice/.venv`, created on first run by `scripts/voice.sh`)              |
+| `pnpm contracts` / `contracts:check`    | Regenerate JSON Schema, the voice script and pydantic models from zod / fail if they are stale                  |
+| `pnpm voice:setup`                      | Python venv with the LiveKit agent runtime                                                                      |
+| `pnpm voice:serve` / `voice:agent dev`  | The assistant's text service (typed chat, simulated calls; :8090) / the LiveKit voice agent                     |
+| `pnpm eval:voice [-- --llm]`            | 43 scripted conversations through the real engine; writes `docs/VOICE_EVAL.md`; fails if a safety one fails     |
 | `pnpm format`                           | Prettier write                                                                                                  |
 | `pnpm typecheck`                        | `tsc` in every package (`next typegen` first for the web app)                                                   |
 | `pnpm test`                             | Vitest: core, ui (WCAG contrast), db (integration, real Postgres), web (submission pipeline)                    |
 | `pnpm build`                            | Production build of the website and the CRM, each followed by the client-bundle secrets check                   |
-| `pnpm check`                            | lint + typecheck + test + build: **the commit gate**                                                            |
+| `pnpm check`                            | lint, lint:voice, typecheck, contracts:check, test, test:voice, build: **the commit gate**                      |
 | `pnpm test:e2e`                         | Playwright: website (375/1280 px), then CRM (laptop/tablet) against production builds (run `pnpm build` first)  |
 | `pnpm lighthouse [paths]`               | Lighthouse against a running server; `BASE`, `PRESET=desktop`, `COOKIE`, `CATEGORIES` (see the script header)   |
 | `pnpm db:local start\|stop\|reset\|url` | Throwaway local Postgres with Supabase roles (no Docker); `web-url` and `crm-url` print least-privilege logins  |
@@ -56,25 +62,28 @@ apps/
   web/        Next.js 16 App Router: public site + intake forms (server actions)
     app/        routes; contact/ and partners/ hold the server actions
     components/ site chrome, forms (client), illustrations (SVG)
-    lib/server/ server-only: submission pipeline, lead store singleton, Resend notifier, logger
+    lib/server/ server-only: submission pipeline, lead store singleton, Resend notifier, logger, assistant
+    components/assistant  the "Talk to our assistant" widget (LiveKit voice, typed fallback)
     e2e/        Playwright;  test/  Vitest
     app/unsubscribe, app/api/unsubscribe   unsubscribe page + RFC 8058 one-click endpoint
   crm/        Next.js 16 staff app (see apps/crm/README.md)
     app/(app)/  pipeline, leads/[id], workspace, sequences; actions.ts holds every server action
-    app/api/    cron/nurture (worker trigger), messages/inbound (signed reply webhook)
+    app/api/    cron/nurture (worker trigger), messages/inbound (signed reply webhook), voice/complete (call results)
     components/ board (dnd-kit), lead table, filters, profile controls and forms, shell, undo toast
-    lib/server/ session (jose), auth, asStaff (RLS transaction), queries, scores, webhooks
+    lib/server/ session (jose), auth, asStaff (RLS transaction), queries, scores, webhooks, routing, voice, dialer
     e2e/        Playwright (laptop + tablet)
-  voice/      Phase 3, Python LiveKit agent (README only)
+  voice/      Python intake assistant: dialogue.py (the engine), safety, nlu, llm (Gemini classifier), server.py
+              (text service), agent.py (LiveKit), eval; contracts.py is generated
 packages/
-  core/       brand.ts, industry packs (clinic.ts + clinic-crm.ts sequences/templates/SLA/scoring + demo staff and
-              leads), permissions.ts (roles, capabilities, lead visibility), crm/ (scoring, SLA, sequence planning,
-              templates, assignLead), zod schemas, consent, lead payloads
+  core/       brand.ts, industry packs (clinic.ts + clinic-crm.ts sequences/templates/SLA/scoring + clinic-voice.ts
+              script and safety lists + demo staff and leads), permissions.ts (roles, capabilities, lead visibility),
+              crm/ (scoring, SLA, sequence planning, templates, assignLead), routing/ (routeLead), voice/ (call result
+              contract, outcome rules), zod schemas, consent, lead payloads; contracts/ holds generated JSON
   ui/         tokens.css (Tailwind v4 theme, light/dark), accessible components, nav/footer
   db/         supabase/migrations, local-shim.sql, lead stores (supabase | postgres | memory), seed, type generator
   messaging/  email (Resend or console), unsubscribe tokens, the nurture worker and its CLI
-scripts/      local-db.sh, lighthouse.mjs
-docs/         ARCHITECTURE.md and phase docs
+scripts/      local-db.sh, lighthouse.mjs, voice.sh (Python venv)
+docs/         ARCHITECTURE.md, VOICE.md, VOICE_EVAL.md, PROMPTS.md (the phase prompts)
 ```
 
 Workspace packages are consumed as TypeScript source (no build step); Next transpiles them via `transpilePackages`.
@@ -99,6 +108,16 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
   the plan in the same transaction. The worker claims due steps with `FOR UPDATE SKIP LOCKED`, re-checks stop
   conditions at send time, and records exactly one message per step (unique `scheduled_message_id`; Resend idempotency
   key `step-<id>`). SMS and WhatsApp are always `simulated`.
+- **Routing**: `routeLead` in `packages/core/src/routing` is pure and deterministic; weights live in the pack's
+  `routing` block. Every decision carries an explanation stored in the `lead.assigned` payload; overrides need a code
+  from `OVERRIDE_REASONS`.
+- **Voice assistant**: every spoken line comes from the pack's voice script (`clinic-voice.ts`). The model never
+  speaks: Gemini only maps an answer to an allowed option, and its output is validated. Safety checks (red flags,
+  advice requests, injection) run first on every turn and must pass 100% in `pnpm eval:voice`. Add a scenario for
+  every safety change. After changing zod contracts or the voice script, run `pnpm contracts`.
+- **Calls** start only through `start_call` in SQL (consent, opt-out, daily cap; window and verified numbers for real
+  phone calls), and every refusal is logged as `call.refused`. Results arrive signed at `/api/voice/complete`.
+  Transcripts live only in `call_sessions` under RLS; never log them.
 - **Migrations** are append-only files in `packages/db/supabase/migrations/<14-digit version>_<name>.sql`. Every new
   table needs RLS enabled and explicit grants/revokes (a test checks every `public` table has RLS and that `anon` /
   `authenticated` hold no privileges and cannot execute functions). Run `pnpm db:types` after schema changes.
@@ -128,7 +147,16 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
 - plpgsql `UPDATE … RETURNING … INTO` fails on several rows; use a CTE.
 - Rate limits keyed only by IP lock out a whole office (and parallel tests); the CRM login limit is keyed by IP and
   email.
-- Never `pkill -f "next start"` in a sandbox shell (it can kill the shell); kill by PID.
+- Never `pkill -f "next start"` in a sandbox shell (it can kill the shell); kill by PID, and never with a loop whose
+  pattern also matches your own command line. A stale `next-server` keeps serving an old build on its port.
+- Playwright's stdout is lost when a run is killed by a timeout; write diagnostics to stderr or a file.
+- Device APIs need the `Permissions-Policy` header to allow them (`microphone=(self)`); `microphone=()` blocks
+  `getUserMedia` silently.
+- Gemini's free tier allowed 15 requests a minute: pace batch runs (`OptionClassifier(min_interval=…)`).
+- Manual testing trips the assistant's start limit (5 per 10 minutes per IP); clear `rate_limits` in the local DB.
+- This sandbox cannot carry WebRTC media (UDP blocked, no TURN) or open LiveKit's WebSocket from headless Chromium;
+  measure voice latency on a real network.
+- zod's `uuid`/`datetime` add a `pattern` next to `format`, which pydantic rejects; the contracts script drops it.
 
 ## Git rules (every phase)
 

@@ -1,176 +1,128 @@
 # NEXT.md
 
-Status at the end of **Phase 2** (2026-10-10). The next session starts here.
+Status at the end of **Phase 3** (2026-10-11). The next session starts here.
 
 ## Milestones
 
 Tag pushes are refused by the git proxy in cloud sessions (HTTP 403), so the tags exist locally and their commits are
 listed here. Recreate a tag anywhere with `git tag -a phase-N-complete <sha> -m "Phase N complete"`.
 
-| Tag                | Commit                                  | What                                         |
-| ------------------ | --------------------------------------- | -------------------------------------------- |
-| `phase-1-complete` | `10988d3`                               | Brand kit, website, intake forms, data model |
-| `phase-2-complete` | the commit titled "Phase 2 complete: …" | CRM, staff workspace, nurture sequences      |
+| Tag                | Commit                                  | What                                                 |
+| ------------------ | --------------------------------------- | ---------------------------------------------------- |
+| `phase-1-complete` | `10988d3`                               | Brand kit, website, intake forms, data model         |
+| `phase-2-complete` | `30d1ea7`                               | CRM, staff workspace, nurture sequences              |
+| `phase-3-complete` | the commit titled "Phase 3 complete: …" | Routing engine, AI intake assistant, simulated calls |
 
-## Done in Phase 2
+## Done in Phase 3
 
-- **Auth and roles.**
-  - Four roles from the clinic pack: manager, care coordinator, specialist doctor and billing desk.
-  - The permissions matrix lives in `packages/core/src/permissions.ts`. It is enforced in the UI, in every server
-    action, and in Postgres (RLS policies plus checks inside each `security definer` function).
-  - One demo user per role is seeded into `auth.users`. One-click demo logins appear only with `DEMO_LOGIN=true`.
-  - Sign-in is throttled per IP and email. Sessions last 8 hours. Pages the role may not open return a real 403.
-- **Pipeline.**
-  - Board columns come from the pack.
-  - Cards move by pointer, touch or keyboard drag, or with each card's Move menu. Moves are optimistic, audited
-    (`stage.changed`) and can be undone.
-  - Filters (assignee, specialty, language, urgency, source, type, date range) live in the URL.
-  - A sortable, searchable list view sits beside the board.
-- **Lead profile.**
-  - Contact details, concern, qualifying answers, consent status and history (with staff-recorded withdrawal).
-  - Assignment, with the reason shown on the timeline.
-  - A timeline built from `lead_events`, notes from templates, and tasks with due dates and reminders.
-  - Messages with channel and status (a "Simulated" badge for SMS and WhatsApp).
-  - Sequence enrolments with their steps, a lead score with its factor breakdown, and an "AI summary" placeholder.
-- **Workspace.**
-  - Today's tasks, my leads, the unassigned queue (front desk only) and a seven-day agenda.
-  - SLA timers on cards and lists (first-response targets per urgency, with overdue warnings).
-  - The workspace link counts tasks whose reminder is due.
-- **Assignment.** Manual assign and reassign through `assignLead(lead, context)` in `packages/core`. Each decision
-  carries an explanation, logged with the `lead.assigned` event.
-- **Nurture.**
-  - Six sequences in the pack: `new-lead-welcome`, `appointment-reminder`, `no-show-recovery`, `post-visit-check-in`,
-    `follow-up-due` and `package-renewal`. Each has steps (delay, channel, template) and the stages that start and
-    cancel it.
-  - Stage changes enrol and cancel in the same transaction.
-  - Sequences stop on a reply ("Mark as replied", or the signed webhook `/api/messages/inbound`), an unsubscribe (link
-    page and RFC 8058 one-click), consent withdrawal, a cancelling stage or a manager pause.
-  - The worker (`packages/messaging`) is idempotent and safe in parallel. It runs from `pnpm worker`, the cron route
-    and a Netlify scheduled function.
-  - A manager screen previews, pauses and resumes sequences and shows enrolment statistics.
-  - The 12-month retention purge runs with the worker.
-- **Data.**
-  - Migrations `20261011000001` to `…04`: `notes`, `tasks`, `sequence_enrollments`, `scheduled_messages`, `messages`,
-    `lead_scores` and `sequence_settings`, all with RLS.
-  - Staff helper functions, staff write functions, worker functions, and the `crm_server` and `nurture_worker` roles.
-  - The seed has 12 staff and 40 deterministic demo leads across all stages. Their timelines, messages, tasks and some
-    overdue SLAs are replayed through the real sequence planner.
-- **Design.**
-  - The CRM uses the same `packages/ui` tokens in a denser layout: a sidebar on laptops and a menu on tablets.
-  - Light, dark and auto themes (stored in a cookie).
-  - Designed empty, loading, error, 403 and not-found states.
+- **Routing engine** (`packages/core/src/routing/engine.ts`).
+  - Pure and deterministic. Filters the specialty's team (or falls back to care coordinators), capacity, and level
+    rank 3+ for urgent leads; scores language, seniority × urgency, spare load and continuity; breaks ties by load
+    ratio, last assignment, then id. The billing desk is copied in on insured leads.
+  - Weights live in the pack (`routing`). Every decision explains each candidate's score; the profile shows it.
+  - `assignLead(lead, { mode: 'auto' })` uses it with the Phase 2 signature. The profile offers **Accept suggestion**
+    or an override with a reason code; both are stored in the `lead.assigned` payload.
+  - Table-driven tests plus a simulated week checking that nobody is starved or overloaded.
+- **Contracts.** zod → JSON Schema (`packages/core/contracts/`) → pydantic (`apps/voice/healwyn_voice/contracts.py`).
+  `pnpm contracts:check` is part of `pnpm check`.
+- **The assistant** (`apps/voice`, see `docs/VOICE.md`).
+  - One deterministic engine (`IntakeSession`) for the LiveKit voice agent, the typed chat, the simulated dialer and
+    the eval. Every line it says comes from the pack's voice script (`clinic-voice.ts`).
+  - It says it is an AI, asks for consent before collecting anything, asks five questions in English or Hindi
+    (following the caller), recovers from vague or off-topic answers, confirms, and explains what happens next.
+  - Safety runs first on every turn: 12 red-flag categories with negations (stop, give 112, flag urgent, urgent task),
+    advice requests (declined, intake continues), prompt injection, "are you a person?".
+  - Gemini (`gemini-3.5-flash-lite`, free tier) only maps an answer to an allowed option; its output is validated.
+  - Limits from the pack: 5 minutes and 40 turns per call, 50 calls a day (SQL, advisory lock).
+  - The agent refuses to start with `VOICE_REAL_DATA=true`. Logs carry ids and codes only.
+- **CRM.**
+  - `/api/voice/complete`: HMAC-SHA256 over `timestamp.body`, 5-minute window, 256 KB cap, zod validation, answers
+    checked against the pack. Records the call, merges answers, moves a new lead to AI-triaged (with its nurture
+    plan), routes it, creates an urgent task after a red flag and rescores. Replays change nothing.
+  - The AI summary panel: summary, outcome, flags, answers and the transcript (behind a disclosure).
+  - **Simulated assistant call** on the profile (front desk), and **Phone call** when a SIP trunk is configured.
+  - The manager's **AI assistant** screen: today against the daily cap, the month against LiveKit's free minutes
+    and credit, Gemini requests, recent calls, and the verified demo numbers.
+- **Website.** **Talk to our assistant** on Home and Contact: a dialog with the consent text and a plain explanation
+  of the microphone; voice through LiveKit with live captions, an "AI assistant" label, mute and end; typed chat when
+  the microphone is refused or LiveKit is unreachable (connect capped at 12 s). The lead is created first, so a dropped
+  call still reaches staff.
+- **Data.** Migrations `20261012000001` to `…03`: routing context functions, `assign_lead` with the method and
+  explanation, `call_sessions`, `verified_demo_numbers`, `start_call` (consent, opt-out, erasure, cap; window and
+  verified number for phone), `record_voice_call` (idempotent, stores the channel), `apply_voice_outcome`,
+  `save_call_lead_score`, and erasure of call content.
 
 ## Verified, and how
 
-- **`pnpm check`** (lint, typecheck, test, build) passes. Both apps' builds include the client-bundle secrets check,
-  which now also covers the Phase 2 secrets (every `*_DATABASE_URL` and `*_SECRET`).
-- **Vitest: 233 tests across 14 files.**
-  - core (86): permissions matrix, lead visibility, stage plans, stop conditions, scoring, SLA, templates and
-    `assignLead`.
-  - db (64, against a real Postgres 16). Highlights:
-    - RLS for every demo user compared with `canSeeLead`; a doctor cannot read another doctor's lead, even by id.
-    - Staff-function authorisation.
-    - The worker run twice and in parallel with no duplicate sends.
-    - Send-time stops, pause, retry and crash recovery.
-    - Retention, erasure of CRM data, and unsubscribe.
-  - messaging (6), ui (59) and web (18).
+- **`pnpm check`** passes: ESLint and Prettier, ruff, typecheck, `contracts:check`, Vitest, pytest and both builds
+  (with the client-bundle secrets check).
+- **Vitest** (core, ui, db against a real Postgres 16, messaging, web): routing tables and fairness, assignment,
+  voice outcome rules, the assistant start pipeline, call checks in SQL (consent withdrawn, opted out, window, verified
+  numbers, cap under concurrency), the webhook's idempotency, RLS on `call_sessions`, erasure of call content.
+- **pytest**: safety lists in both languages (with negations), conversation flows, the text service's signatures and
+  limits, the webhook signer, and the eval's required scenarios.
+- **Voice eval** (`docs/VOICE_EVAL.md`): 43 scenarios. Deterministic 42/43, with Gemini 43/43; every red-flag and
+  no-advice scenario passes in both. The deterministic miss is a description that names no option ("red itchy
+  patches"): it is asked again and handed to a coordinator.
 - **Playwright.**
-  - Website: 62 checks at 375 px and 1280 px.
-  - CRM: 40 checks at 1366×860 laptop and 820×1180 touch tablet:
-    - sign in as each role, each seeing exactly the leads the matrix allows;
-    - a coordinator gets a 403 on manager screens, even by URL;
-    - a doctor opening another doctor's lead by URL gets "This lead is not available to you";
-    - password sign-in, rejection and sign-out;
-    - website enquiry → CRM → stage moves → undo;
-    - keyboard-only Move menu and keyboard drag-and-drop;
-    - filters and sorting;
-    - notes from templates; tasks created and completed;
-    - keyboard assignment, with its recorded reason;
-    - a sequence enrols, sends its first message and stops on reply;
-    - unsubscribe takes effect at once;
-    - the webhook rejects unsigned and stale requests;
-    - the cron route rejects a wrong secret;
-    - a manager pauses and resumes a sequence;
-    - the reminder count in the navigation.
-- **Lighthouse on the CRM** (local `next start`, signed in as the manager):
-
-  | Preset           | Pages                                                    | Performance | Accessibility | Best practices |
-  | ---------------- | -------------------------------------------------------- | ----------- | ------------- | -------------- |
-  | Desktop          | login, board, list, workspace, a lead profile, sequences | 100         | 100           | 100            |
-  | Mobile emulation | board, list, workspace, a lead profile, sequences        | not scored  | 100           | 100            |
-
-- **Visual review** from screenshots at 1366×860 and 820×1180, in light and dark. Fixes made along the way:
-  - board cards overflowing their columns;
-  - every demo reference reading `1EAD-0000`;
-  - a ragged filter row on tablets (now a grid);
-  - wrapped names in the list;
-  - "After 1 days";
-  - leftover e2e leads cluttering the demo board (both suites now clean up after themselves).
+  - Website (375 px and 1280 px): the security headers (including `microphone=(self)`), the assistant dialog's
+    consent and validation, plus every Phase 1 check.
+  - CRM (laptop and tablet): website form → simulated assistant call → the lead is AI-triaged, routed with an
+    explanation and shows the summary; a red-flag call creates an urgent task; refusals (no consent) are logged;
+    accept and override routing; the manager's assistant screen and verified numbers; the webhook rejects unsigned,
+    stale and invalid requests.
+- **By hand, end to end** with the local servers: typed chat from the website (triaged and routed to the right
+  doctor, with a summary), a red-flag chat (urgent flag and task) and the simulated dialer.
+- **Lighthouse**: Home and Contact (mobile) 98 performance, 100 accessibility, 100 best practices; the CRM's
+  assistant screen and a lead profile 100.
+- **Latency**: engine under 1 ms per turn; Gemini classification 0.7–1.1 s when needed; typed chat 50–190 ms per turn
+  at a phone-sized viewport; voice-to-typed fallback about 5 s.
+- **LiveKit**: the agent registered with LiveKit Cloud from this sandbox.
 
 ## Not verified
 
-- **Live Supabase, again.** Everything ran against the local Postgres 16 with Supabase's roles and `auth` schema
-  emulated. On a real project, check `auth.users` inserts from the seed, `AUTH_PROVIDER=supabase`, and the
-  `crm_server` login through the pooler.
-- **Real email.** No verified sending domain yet, so `RESEND_API_KEY` is commented out in `.env`. Emails are recorded
-  as `logged`, and the console shows a redacted copy. The Resend request (headers, idempotency key,
-  `List-Unsubscribe`) is unit-tested with a mocked fetch.
-- **Netlify deploys**, including the scheduled function (`apps/crm/netlify/functions/nurture-cron.mts`): no account
-  access.
-- **Real devices, Safari and Firefox, and screen readers.** Only Chromium emulation and automated checks were used.
-  Touch dragging was exercised only through Playwright's touch emulation, and the Move menu is the dependable touch
-  path.
+- **Voice latency (caller stops speaking → assistant speaks) and real speech.** This sandbox blocks WebRTC media (UDP,
+  no TURN) and headless Chromium could not open LiveKit's WebSocket through the proxy. The agent logs
+  `agent.latency` and `agent.turn` per turn; measure on a real network and phone. Recognition quality for Hindi and
+  Hinglish, interruptions and noise are untested.
+- **Real phone calls.** No SIP trunk exists (a Twilio trial needs sign-up and phone verification). `placePhoneCall` is
+  written to LiveKit's SIP API but has never dialled. Steps in `docs/VOICE.md`.
+- **Agent hosting** on LiveKit Cloud and the text service on Render: not deployed.
+- **Live Supabase, Netlify, and real email**, as in Phase 2: everything ran against the local Postgres 16.
+- **Real devices and screen readers** for the widget (Chromium emulation only).
 
 ## Known gaps and caveats
 
-- **Phase 3 hooks.**
-  - The "AI summary" panel is a placeholder.
-  - The `ai_triaged` stage exists, but nothing triages automatically yet.
-  - `assignLead` supports only `mode: 'manual'`.
-- **Partner leads share the clinic board** (filter by Type). Separate partner stages may come with Phase 4's packs.
-- **Lists are not paginated.** Filtering and sorting happen on the server, in memory over the role's visible leads.
-  That is fine for hundreds of leads; add SQL pagination before thousands.
-- **No Content-Security-Policy header yet**, on either app. The CRM is fully dynamic, so a nonce-based CSP is now
-  practical; do it in Phase 4's hardening pass.
-- **Reminders are in-app only** (a count on the workspace link and a label on the task). Staff do not receive email or
-  push reminders.
-- **The inbound webhook is a stub contract** (signed JSON with `lead_id`, `channel`, `body`). A real SMS or WhatsApp
-  provider needs an adapter that maps its payload and verifies its own signature.
-- **Rotate the supplied keys.** The database password, Resend, Gemini and LiveKit keys were pasted into a chat. The
-  Gemini key starts with `AQ.` rather than the usual `AIza`; check it first thing in Phase 3.
+- **Gemini's free tier** is 15 requests a minute and may use inputs for training: fine for a demo with synthetic data,
+  not for patients. The deterministic matcher covers most answers; heavy concurrent use will hit the limit and fall
+  back to "asked again, then a coordinator".
+- **The typed chat's sessions live in the text service's memory.** A restart drops calls in progress (each still has
+  its lead). Render's free instance sleeps after 15 minutes, so the first chat after a quiet spell waits about a
+  minute unless the keep-awake ping is set up.
+- **Inference credit** (US$2.50 a month) caps speech-to-text at roughly 430 minutes; the usage screen shows an
+  estimate from call durations, not LiveKit's billing.
+- **No Content-Security-Policy yet** (Phase 4 hardening). The website's voice call needs `connect-src` for the
+  LiveKit host (wss) and `media-src`/`blob:` for audio.
+- **Partner leads share the clinic board; lists are not paginated; reminders are in-app only; the inbound webhook is a
+  stub**: unchanged from Phase 2.
+- **Rotate the supplied keys.** The database password, Resend, Gemini and LiveKit keys were pasted into a chat.
 
-## Exact first steps for Phase 3
+## Exact first steps for Phase 4
 
-1. Read `CLAUDE.md`, this file, `DECISIONS.md` and `docs/ARCHITECTURE.md`. Start the database with
-   `pnpm db:local start`, then run `pnpm check`, then `pnpm build && pnpm test:e2e`.
-2. **Routing engine** in `packages/core/src/routing/`.
-   - Pure functions: `routeLead(lead, roster, weights, now)` returns a choice plus an explanation with a score
-     breakdown.
-   - Weights go in the pack as a new `routing` block. A hard filter on specialty falls back to a care coordinator.
-     Score on language, urgency (rank via `staffLevels[].rank`), load against `staff.capacity`, a returning patient's
-     previous doctor, and the billing flag copying in the billing desk. Tie-breaks are deterministic.
-   - Add `mode: 'auto'` to `AssignmentContext` in `packages/core/src/crm/assignment.ts` and keep `assignLead`'s
-     signature. The CRM already stores `decision.explanation` under `payload.routing` and renders it on the timeline.
-   - Tests: table-driven cases, plus a simulated week of leads to check that nobody is starved or overloaded.
-   - The SQL `assign_lead(lead, staff, reason, routing jsonb)` already accepts the explanation. It hardcodes
-     `method: 'manual'` in the event payload, so add a migration that takes the method from `p_routing`.
-3. **Contracts.** Use zod 4's `z.toJSONSchema()` on the schemas in `packages/core`: the voice result payload and the
-   intake answers. Write the output to `packages/core/contracts/*.json`. Generate pydantic models for `apps/voice` with
-   `datamodel-code-generator`. `pnpm contracts:check` must regenerate into a temporary folder and diff; add it to
-   `pnpm check`.
-4. **`/api/voice/complete` in `apps/crm`.**
-   - Reuse `verifySignedRequest` from `lib/server/webhooks.ts`, with a new `VOICE_WEBHOOK_SECRET`.
-   - Add a `call_sessions` migration: transcript and summary under RLS, never logged.
-   - A `security definer` function records the call, moves the lead to `ai_triaged` with its sequence plan, and runs
-     routing.
-   - Fill the AI summary panel in `app/(app)/leads/[id]/page.tsx`.
-5. **`apps/voice`.**
-   - Python and LiveKit Agents, with a Gemini Flash-class model.
-   - Research the free STT and TTS tiers, and log the choice with its date in `DECISIONS.md`.
-   - Build the conversation from the pack's `voicePrompt`s. Enforce the safety rules with a tested red-flag list.
-     Refuse to run if `REAL_DATA=true`.
-   - Cost guards: maximum call length and calls per day, plus a usage counter.
-6. **Browser widget** on Home and Contact, with a typed fallback. Then a simulated dialer with the call-window,
-   consent, opt-out and daily-cap checks. Then the eval harness: at least 20 scenarios through `pnpm eval:voice`,
-   writing `docs/VOICE_EVAL.md`.
-7. Keep `main` and the session branch identical. Tag `phase-3-complete` and add its commit to the milestones table.
+1. Read `CLAUDE.md`, this file, `DECISIONS.md`, `docs/ARCHITECTURE.md` and `docs/VOICE.md`. `pnpm db:local start`,
+   migrate and seed, then `pnpm check`, then `pnpm build && pnpm test:e2e` (the CRM suite starts the text service on
+   :3290 itself).
+2. **Dashboard** (`apps/crm/app/(app)/dashboard`): SQL views or functions under RLS for the funnel, first response
+   against SLA, no-shows, load, call outcomes (`call_sessions.outcome`), sources and conversion over time. Date range
+   and specialty filters in the URL. Document every query in `docs/METRICS.md`.
+3. **Booking**: `availability_templates`, `availability_exceptions` and `appointments` with an exclusion constraint
+   (`btree_gist`, `tstzrange`) per staff member against double booking; `book_appointment` / `reschedule` / `cancel`
+   functions that move stages through `apply_stage_change` so nurture plans follow. India time everywhere.
+4. **Payments**: Razorpay test mode. Refuse keys that do not start with `rzp_test_`. Server-side orders, a signed
+   webhook (idempotent by payment id) that moves the lead to Package active.
+5. **Industry packs**: real estate, wealth advisory, home interiors, each with copy, questions, stages, sequences,
+   routing weights, a voice script with its own safety rules (wealth: never investment advice), a theme and demo seed;
+   eval scenarios per pack. `getActivePack()` becomes runtime-switchable (cookie or DB setting behind `DEMO_MODE`).
+6. **Demo kit**: `docs/PITCH.md`, `WALKTHROUGH_SCRIPT.md`, `DECK_OUTLINE.md`, the case-study page, the architecture
+   diagram (Mermaid + SVG), `pnpm demo:reset`, the guided tour. Then hardening (CSP with nonces, audit, a11y, perf),
+   `docs/FREE_TIER_REPORT.md`, `docs/DEPLOY.md`, the final `NEXT.md`, and the `phase-4-complete` tag.

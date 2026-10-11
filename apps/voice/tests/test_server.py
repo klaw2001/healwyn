@@ -112,12 +112,23 @@ def test_validates_requests(base_url, service):
     assert call(base_url, f'/sessions/{uuid.uuid4()}/turns', {'text': 'hi'})[0] == 404
 
 
-def test_expired_sessions_are_finished_and_posted(service):
+def test_abandoned_sessions_are_finished_and_posted(service):
+    now = [0.0]
+    service.start({'callId': str(uuid.uuid4()), 'leadId': LEAD, 'channel': 'text'})
+    [(session, _lock)] = service.sessions.values()
+    session._clock = lambda: now[0]
+    session._started = session._last_activity = 0.0
+    session.handle('yes')
+    now[0] = 200  # idle for over three minutes
+    service.sweep()
+    assert not service.sessions
+    assert service.posted[-1].outcome == 'caller_ended'
+    assert service.posted[-1].durationSeconds == 0  # timed to the last message, not to the sweep
+
     service.start({'callId': str(uuid.uuid4()), 'leadId': LEAD, 'channel': 'text'})
     [(session, _lock)] = service.sessions.values()
     session._clock = lambda: 1e9
     service.sweep()
-    assert not service.sessions
     assert service.posted[-1].outcome == 'limit_reached'
 
 

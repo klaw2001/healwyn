@@ -90,7 +90,7 @@ export function routeLead(
       },
       {
         id: 'seniority',
-        label: `Level rank ${rankOf(m)} for a ${lead.urgency} lead`,
+        label: `Level rank ${rankOf(m)} for ${lead.urgency === 'urgent' ? 'an' : 'a'} ${lead.urgency} lead`,
         points: round(weights.seniority * seniorityFactor * (rankOf(m) / maxRank)),
         max: round(weights.seniority * seniorityFactor),
       },

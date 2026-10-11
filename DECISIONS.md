@@ -140,3 +140,49 @@ An independent review pass found no secret leaks, no injection risks and no high
 
 - **Both apps load the root `.env` with `process.loadEnvFile`.** Next's `@next/env` caches its first load (the app folder), so the root file was silently ignored. Variables already in the environment still win.
 - **The CRM e2e suite reseeds the local database and both suites delete the leads they created,** so the demo board stays clean after a test run.
+
+## Phase 3 (2026-10-11)
+
+### Routing
+
+- **The routing engine is a pure function in `packages/core`** (`routeLead`), fed a roster that SQL builds (`routing_context` under RLS for staff, `system_routing_context` after a call). Same input, same answer; unit-tested without a database; explainable line by line.
+- **Filters, then additive scores, then deterministic tie-breaks.** Filters: the specialty's team (else care coordinators), under capacity, and for urgent leads level rank 3 or above. Scores (clinic weights): continuity 35, language 30, seniority 25 × an urgency factor, spare load 25. Ties: lower load ratio, then whoever was assigned longest ago, then id. Weighted scores are easy to explain on a profile; a learned ranker is not.
+- **Overrides need a reason code** (`OVERRIDE_REASONS`: patient request, continuity, workload, language, clinical judgement, other). The suggestion and the chosen person are both stored in the `lead.assigned` payload, so a manager can see how often routing is overruled and why. Codes, not free text, keep personal data out of the audit trail.
+- **Billing copy-in, not hand-off.** Leads matching the pack's billing rule stay with their clinician; the billing desk sees them through its visibility rule.
+
+### Voice providers (checked 2026-10-10 and 2026-10-11, official pages)
+
+- **LiveKit Cloud Build plan for rooms and agent hosting:** 1,000 agent session minutes a month, 5 concurrent sessions, 1 agent deployment, no card. The user supplied LiveKit keys; the agent registered with LiveKit Cloud from this sandbox.
+- **Speech through LiveKit Inference:** `deepgram/nova-3` with `language="multi"` (English and Hindi, code-switching) for STT, `rime/coda` for TTS. Inference includes US$2.50 of credit a month with a hard cap (about 430 STT minutes at US$0.0058/min); the TTS model was listed at US$0.00 per character when checked. One key, one bill, no extra sign-ups.
+- **Gemini `gemini-3.5-flash-lite` on the AI Studio free tier for understanding.** The free tier was 15 requests a minute (observed in a 429 response on 2026-10-11); the daily limit is shown only in AI Studio. Free-tier inputs may be used to improve Google's products, so the agent refuses to start when `VOICE_REAL_DATA=true` and every surface says synthetic data only.
+- **The text service runs on Render's free web service when deployed:** 750 instance hours a month, sleeps after 15 minutes idle, about a minute to wake, "not for production" in Render's own docs (render.com/docs/free, 2026-10-11). Netlify functions cannot hold a Python process; LiveKit's single free deployment is taken by the agent.
+
+### Conversation design
+
+- **The model never speaks.** Every line the assistant says is a fixed string from the pack's voice script. Gemini only maps a free answer to one of the question's option values (or "none"), with the caller's words passed as quoted data, and its output is checked against the options. A model that cannot speak cannot give medical advice, leak its prompt or be talked into anything.
+- **A deterministic safety layer runs first on every turn**, before consent and before understanding: red flags (12 categories, English and Hindi, with negation handling and "when in doubt, fire"), medical-advice requests, prompt injection and "are you a person?". Safety must not depend on a model or on the network, and it is checked 100% by the eval.
+- **No LLM attached to the LiveKit session.** The agent overrides `on_user_turn_completed` and answers with `session.say()`, so LiveKit's pipeline cannot generate a reply on its own.
+- **One engine for every channel.** The LiveKit agent, the typed chat, the simulated dialer and the eval drive the same `IntakeSession`, so the evaluated behaviour is the shipped behaviour.
+- **English and Hindi, switching on the caller's language** (Devanagari, or several common romanised words), with synonyms in both, Hinglish included. These are the pack's languages; more are a pack change.
+- **Before the caller agrees, their words are not kept**: the transcript stores only the assistant's lines. Declining withdraws the call consent, so the dialer will not call again.
+- **Idle sessions end as `caller_ended`.** A typed chat abandoned for 3 minutes is closed by the service's sweeper with what it has, the same as a hang-up, so the lead still reaches the CRM.
+
+### Calls and cost
+
+- **Every call starts in SQL (`start_call`)**, which checks the call consent, opt-out, erasure and the daily cap (50, from the pack) under a transaction-level advisory lock, and logs every refusal as `call.refused` with a reason code. Limits per call: 5 minutes and 40 turns.
+- **The 9am–9pm India-time window applies to real phone calls only.** A simulated call rings nobody, so it runs every other check at any hour; this also keeps the e2e suite independent of the time of day.
+- **Real phone calls need a LiveKit SIP trunk, which was not created.** A Twilio trial (verified numbers only) needs sign-up and phone verification, which this build did not do on the user's behalf. The code path exists (`placePhoneCall`), is gated on `LIVEKIT_SIP_TRUNK_ID`, and also refuses numbers not on the CRM's verified list. The simulated dialer runs the real engine with the lead's own form answers as the caller's lines.
+- **The website creates the lead before the call starts** (source `voice`, with both consents), so a dropped call still leaves a lead staff can follow up, and the call result has a lead to attach to.
+- **The call result is stored with its channel** (`record_voice_call` reads `channel` from the result), so the usage screen separates browser, phone and simulated calls.
+
+### Website
+
+- **`Permissions-Policy: microphone=(self)`.** Phase 1 set `microphone=()`, which silently blocks `getUserMedia` on our own page. Only this origin may ask; frames still get nothing.
+- **Voice falls back to typed chat.** If LiveKit cannot connect (the connect call is capped at 12 seconds) or the microphone is refused, the widget switches to typing in the same session. In this sandbox the fallback took about 5 seconds.
+- **The call cookie (`hw_call`) is an HMAC of the call and lead ids** (`VOICE_AGENT_SECRET`), httpOnly and SameSite=Strict, so a visitor can only send turns to their own call.
+- **Assistant starts are rate-limited like the forms** (5 per 10 minutes per IP hash), on top of the daily cap.
+
+### Contracts
+
+- **zod is the source of truth; JSON Schema and pydantic are generated** (`pnpm contracts`, datamodel-code-generator 0.83). `contracts:check` in `pnpm check` fails on drift. zod's `pattern` on `uuid` and `datetime` strings is dropped from the JSON Schema because pydantic rejects `pattern` alongside those formats; the format still validates.
+- **Python tooling lives in `apps/voice/.venv`, created by `scripts/voice.sh`** (uv when available). ruff and pytest run inside `pnpm check`, so the Python side shares the commit gate.

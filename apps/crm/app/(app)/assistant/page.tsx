@@ -50,9 +50,12 @@ function Meter({ label, used, limit, unit }: { label: string; used: number; limi
   );
 }
 
-function Panel({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Panel({ id, title, wide, children }: { id: string; title: string; wide?: boolean; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="rounded-lg border border-line bg-surface p-5">
+    <section
+      aria-labelledby={id}
+      className={`rounded-lg border border-line bg-surface p-5 ${wide ? 'xl:col-span-2' : ''}`}
+    >
       <h2 id={id} className="text-xl">
         {title}
       </h2>
@@ -88,7 +91,7 @@ export default async function AssistantPage() {
   const sttMinutes = overview.month.stt_seconds / 60;
   const inferenceUsd =
     sttMinutes * FREE_TIER.sttUsdPerMinute + overview.month.tts_characters * FREE_TIER.ttsUsdPerCharacter;
-  const agentMinutes = overview.month.seconds / 60;
+  const agentMinutes = overview.month.voice_seconds / 60;
 
   return (
     <>
@@ -132,7 +135,7 @@ export default async function AssistantPage() {
           </p>
         </Panel>
 
-        <Panel id="recent" title="Recent calls">
+        <Panel id="recent" title="Recent calls" wide>
           {overview.recent.length ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[32rem] text-left text-sm">
@@ -169,7 +172,11 @@ export default async function AssistantPage() {
                       </td>
                       <td className="py-1.5 pr-2">{call.channel}</td>
                       <td className="py-1.5 pr-2">
-                        {call.status === 'started' ? 'In progress' : (OUTCOMES[call.outcome ?? ''] ?? call.outcome)}
+                        {call.status === 'started'
+                          ? call.stale
+                            ? 'Never completed'
+                            : 'In progress'
+                          : (OUTCOMES[call.outcome ?? ''] ?? call.outcome)}
                       </td>
                       <td className="py-1.5">{call.flags || '–'}</td>
                     </tr>

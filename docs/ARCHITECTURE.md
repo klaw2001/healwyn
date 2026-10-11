@@ -57,24 +57,26 @@ in one transaction, and emails the team (or logs the email) after responding.
 | `apps/web`           | pages, forms, server actions, the submission pipeline, notification, logging                                                                                                                                                                                                                        | hardcode brand, stages or questions                     |
 | `apps/crm`           | staff app: session, capability checks, RLS-scoped reads (`asStaff`), server actions calling staff SQL functions, board, profile, workspace, sequences, cron and inbound-webhook routes                                                                                                              | query leads outside `asStaff`; hardcode stages or roles |
 | `packages/messaging` | email through Resend (console fallback), unsubscribe tokens, the nurture worker and its CLI                                                                                                                                                                                                         | log message bodies or recipients                        |
-| `apps/voice`         | Phase 3 (Python)                                                                                                                                                                                                                                                                                    |                                                         |
+| `apps/voice`         | Python intake assistant: the deterministic `IntakeSession` engine, safety checks, the LiveKit agent, the signed text service (typed chat, simulated dialer), the eval harness; pydantic models generated from core's zod contracts                                                                  | speak model output; log transcripts or personal data    |
 
 ## Data model
 
-| Table                  | Purpose                                                                                                    | Notes                                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `leads`                | Every enquiry (`lead_type` individual or partner), stage, urgency, specialty, assignee, qualifying answers | Personal data columns are nulled by `erase_lead`; check constraints forbid half-erased rows |
-| `consent_records`      | Append-only consent ledger: purpose, granted, text version, text hash, source                              | Current state is the `current_consents` view (latest row per lead and purpose)              |
-| `lead_events`          | Append-only audit trail (`lead.created`, `consent.recorded`, `consent.withdrawn`, `lead.erased`, …)        | Payloads never hold personal data. Phase 2 adds `stage.changed`, `lead.assigned`, …         |
-| `staff`                | People leads are routed to: level, role, specialties, languages, locations, capacity                       | `auth_user_id` links to `auth.users` (Supabase Auth)                                        |
-| `specialties`          | Offering slugs mirrored from the pack                                                                      | Content stays in `packages/core`                                                            |
-| `rate_limits`          | Fixed-window counters keyed by salted hashes                                                               | Pruned opportunistically after a day                                                        |
-| `notes`, `tasks`       | Staff notes (optionally from a template) and tasks with due dates                                          | Phase 2; deleted by erasure                                                                 |
-| `sequence_enrollments` | One row per lead per sequence run: active, completed or stopped (with a reason)                            | At most one active run per lead and sequence (partial unique index)                         |
-| `scheduled_messages`   | One row per step to send: due time, status, attempts, last error code                                      | The worker's queue; claimed with `FOR UPDATE SKIP LOCKED`                                   |
-| `messages`             | Every message sent, simulated, logged or received, with channel and status                                 | Unique `scheduled_message_id`, so a step is recorded once; bodies nulled by erasure         |
-| `lead_scores`          | The latest rule-based score per lead, with its factor breakdown                                            | Recomputed after each staff action                                                          |
-| `sequence_settings`    | Per-sequence pause switch                                                                                  | Managers only                                                                               |
+| Table                   | Purpose                                                                                                    | Notes                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `leads`                 | Every enquiry (`lead_type` individual or partner), stage, urgency, specialty, assignee, qualifying answers | Personal data columns are nulled by `erase_lead`; check constraints forbid half-erased rows |
+| `consent_records`       | Append-only consent ledger: purpose, granted, text version, text hash, source                              | Current state is the `current_consents` view (latest row per lead and purpose)              |
+| `lead_events`           | Append-only audit trail (`lead.created`, `consent.recorded`, `consent.withdrawn`, `lead.erased`, …)        | Payloads never hold personal data. Phase 2 adds `stage.changed`, `lead.assigned`, …         |
+| `staff`                 | People leads are routed to: level, role, specialties, languages, locations, capacity                       | `auth_user_id` links to `auth.users` (Supabase Auth)                                        |
+| `specialties`           | Offering slugs mirrored from the pack                                                                      | Content stays in `packages/core`                                                            |
+| `rate_limits`           | Fixed-window counters keyed by salted hashes                                                               | Pruned opportunistically after a day                                                        |
+| `notes`, `tasks`        | Staff notes (optionally from a template) and tasks with due dates                                          | Phase 2; deleted by erasure                                                                 |
+| `sequence_enrollments`  | One row per lead per sequence run: active, completed or stopped (with a reason)                            | At most one active run per lead and sequence (partial unique index)                         |
+| `scheduled_messages`    | One row per step to send: due time, status, attempts, last error code                                      | The worker's queue; claimed with `FOR UPDATE SKIP LOCKED`                                   |
+| `messages`              | Every message sent, simulated, logged or received, with channel and status                                 | Unique `scheduled_message_id`, so a step is recorded once; bodies nulled by erasure         |
+| `lead_scores`           | The latest rule-based score per lead, with its factor breakdown                                            | Recomputed after each staff action                                                          |
+| `sequence_settings`     | Per-sequence pause switch                                                                                  | Managers only                                                                               |
+| `call_sessions`         | One row per assistant call: channel, status, outcome, language, flags, summary, transcript, usage          | Phase 3. Created by `start_call` (checks), completed by `record_voice_call` (idempotent)    |
+| `verified_demo_numbers` | Numbers a real (trial-trunk) phone call may ring                                                           | Phase 3. Managers only                                                                      |
 
 Functions: `submit_lead` and `hit_rate_limit` (executable by `service_role` and the least-privilege `web_submitter`
 role), and `withdraw_consent` and `erase_lead` (`service_role` only). `submit_lead` rejects a lead unless every consent
@@ -161,3 +163,44 @@ erases the lead (`erase_lead` v3 also deletes notes and tasks and nulls message 
 it; the CRM stores it in `lead_scores` after each action. `slaStatus` compares the time to first response with the
 pack's target for the lead's urgency (urgent 1 h, high 4 h, normal 24 h, low 48 h) and drives the card badges and
 overdue warnings.
+
+## Phase 3: routing and the AI assistant
+
+```
+ website widget ── /api/assistant/start ──▶ start_web_call (consent, opt-out, daily cap; advisory lock)
+   │ voice: LiveKit token + agent dispatch            │ typed: text service /sessions
+   ▼                                                  ▼
+ LiveKit room ◀──▶ apps/voice agent.py ──┐     apps/voice server.py ◀── CRM "Simulated assistant call"
+                                         │ IntakeSession (dialogue.py): safety → limits → nlu → (Gemini) → reply
+                                         ▼
+                      POST /api/voice/complete (HMAC sha256 of "ts.body", 5-minute window, 256 KB, zod)
+                                         ▼
+ apps/crm applyVoiceResult: record_voice_call → apply_voice_outcome (stage, urgent task) →
+                            routeForSystem (routing engine) → save_call_lead_score
+```
+
+**Routing** (`packages/core/src/routing/engine.ts`) is a pure function of the lead, the roster and the pack's
+`routing` config, so it is unit-tested without a database and gives the same answer every time. It filters the
+specialty's team (or falls back to care coordinators), drops people at capacity and, for urgent leads, anyone below
+the pack's minimum level rank. It scores each candidate on language match, seniority weighted by urgency, spare
+capacity and continuity (has this person worked with the lead before), and breaks ties by load ratio, then by who was
+assigned longest ago, then by id. The decision carries a plain-language explanation for every candidate, which is
+stored in the `lead.assigned` event and shown on the profile. Staff can accept a suggestion or override it with a
+reason code (`OVERRIDE_REASONS`). `routing_context` (RLS, staff) and `system_routing_context` (after a call) build the
+roster in SQL; `assign_lead` checks the target and writes the explanation.
+
+**The assistant.** One deterministic engine serves every channel; the pack's voice script
+(`clinic-voice.ts`, exported to `packages/core/contracts/voice-script.clinic.json`) holds every line it can say.
+Gemini only maps a free answer onto one of the allowed option values, and its output is validated against them.
+Safety checks run before anything else on every turn. See `docs/VOICE.md` for the full flow, providers and limits,
+and `docs/VOICE_EVAL.md` for the evaluation.
+
+**Contracts.** `packages/core/scripts/contracts.ts` writes JSON Schema for `VoiceCallResult` and
+the voice script, then generates `apps/voice/healwyn_voice/contracts.py` with datamodel-code-generator.
+`pnpm contracts:check` (in `pnpm check`) fails when the generated files are stale.
+
+**Calls in SQL.** `start_call` is the single gate for every call: the call consent must be current, the lead not opted
+out or erased, today's count under the cap (a transaction-level advisory lock makes it exact), and for real phone
+calls the time window and the verified number list. Every refusal is written as `call.refused` with a reason code.
+`record_voice_call` is idempotent per call id; `apply_voice_outcome` moves a new lead to AI-triaged with that
+stage's nurture plan and creates an urgent task after a red flag. Erasure scrubs call summaries and transcripts.

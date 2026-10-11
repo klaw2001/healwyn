@@ -122,15 +122,20 @@ class Service:
         log('info', 'text.simulated', callId=call_id, outcome=session.outcome, turns=len(turns), posted=posted)
         return {'outcome': session.outcome, 'posted': posted, 'transcript': session.transcript}
 
-    def sweep(self) -> None:
-        """Ends sessions that outlived the call limit, so their results still reach the CRM."""
+    def sweep(self, idle_after: float = 180) -> None:
+        """Ends abandoned sessions so their results still reach the CRM: chats left idle end as the
+        caller ending the call (timed to their last message); anything past the call limit times out."""
         limit = self.script.limits.maxCallSeconds + 60
         for call_id, (session, lock) in list(self.sessions.items()):
-            if session.elapsed() > limit:
-                with lock:
+            with lock:
+                if session.elapsed() > limit:
                     session.time_up()
-                self.finish(session)
-                log('info', 'text.session_expired', callId=call_id)
+                elif session.idle_seconds() > idle_after:
+                    session.caller_hung_up(idle=True)
+                else:
+                    continue
+            self.finish(session)
+            log('info', 'text.session_expired', callId=call_id, outcome=session.outcome)
 
 
 def make_handler(service: Service):

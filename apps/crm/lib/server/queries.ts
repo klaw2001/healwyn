@@ -337,6 +337,8 @@ export interface UsageTotals {
   completed: number;
   emergencies: number;
   seconds: number;
+  /** Seconds of browser and phone calls: the ones that run on LiveKit. */
+  voice_seconds: number;
   llm_requests: number;
   stt_seconds: number;
   tts_characters: number;
@@ -352,6 +354,8 @@ export interface RecentCall {
   started_at: Date;
   duration_seconds: number | null;
   flags: number;
+  /** Started over 15 minutes ago and never finished (e.g. the voice line never connected). */
+  stale: boolean;
 }
 
 export interface AssistantOverview {
@@ -369,6 +373,7 @@ export async function assistantOverview(session: Session, timeZone: string): Pro
              count(*) filter (where outcome = 'completed')::int as completed,
              count(*) filter (where outcome = 'emergency')::int as emergencies,
              coalesce(sum(duration_seconds), 0)::int as seconds,
+             coalesce(sum(duration_seconds) filter (where channel in ('browser', 'phone')), 0)::int as voice_seconds,
              coalesce(sum((usage ->> 'llmRequests')::int), 0)::int as llm_requests,
              coalesce(sum((usage ->> 'sttSeconds')::numeric), 0)::float as stt_seconds,
              coalesce(sum((usage ->> 'ttsCharacters')::int), 0)::int as tts_characters
@@ -377,7 +382,8 @@ export async function assistantOverview(session: Session, timeZone: string): Pro
     const [month] = await totals(tx`(date_trunc('month', now() at time zone ${timeZone}) at time zone ${timeZone})`);
     const recent = await tx<RecentCall[]>`
       select c.id, c.lead_id, l.full_name as lead_name, c.channel, c.status, c.outcome, c.started_at,
-             c.duration_seconds, jsonb_array_length(c.safety_flags)::int as flags
+             c.duration_seconds, jsonb_array_length(c.safety_flags)::int as flags,
+             (c.status = 'started' and c.started_at < now() - interval '15 minutes') as stale
       from public.call_sessions c join public.leads l on l.id = c.lead_id
       order by c.started_at desc limit 20`;
     const verified = await tx<AssistantOverview['verified']>`
