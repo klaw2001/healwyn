@@ -6,6 +6,72 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      assignment_explanations: {
+        Row: { event_id: number; lead_id: string; lines: string[] };
+        Insert: { event_id: number; lead_id: string; lines: string[] };
+        Update: { event_id?: number; lead_id?: string; lines?: string[] };
+        Relationships: [
+          {
+            foreignKeyName: 'assignment_explanations_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: true;
+            referencedRelation: 'lead_events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'assignment_explanations_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: false;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      call_policies: {
+        Row: {
+          industry: string;
+          channel: string;
+          cap_group: string;
+          consent_purpose: string;
+          max_per_day: number;
+          max_per_phone_per_day: number | null;
+          outbound: boolean;
+          window_start: number | null;
+          window_end: number | null;
+          time_zone: string;
+          require_verified: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          industry: string;
+          channel: string;
+          cap_group: string;
+          consent_purpose: string;
+          max_per_day: number;
+          max_per_phone_per_day?: number | null;
+          outbound: boolean;
+          window_start?: number | null;
+          window_end?: number | null;
+          time_zone?: string;
+          require_verified?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          industry?: string;
+          channel?: string;
+          cap_group?: string;
+          consent_purpose?: string;
+          max_per_day?: number;
+          max_per_phone_per_day?: number | null;
+          outbound?: boolean;
+          window_start?: number | null;
+          window_end?: number | null;
+          time_zone?: string;
+          require_verified?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       call_sessions: {
         Row: {
           id: string;
@@ -27,6 +93,7 @@ export type Database = {
           usage: Json;
           agent_version: string | null;
           completed_at: string | null;
+          fallback_at: string | null;
         };
         Insert: {
           id: string;
@@ -48,6 +115,7 @@ export type Database = {
           usage?: Json;
           agent_version?: string | null;
           completed_at?: string | null;
+          fallback_at?: string | null;
         };
         Update: {
           id?: string;
@@ -69,6 +137,7 @@ export type Database = {
           usage?: Json;
           agent_version?: string | null;
           completed_at?: string | null;
+          fallback_at?: string | null;
         };
         Relationships: [
           {
@@ -798,6 +867,10 @@ export type Database = {
         Args: { p_lead_id: string; p_reason: string };
         Returns: boolean;
       };
+      fail_voice_call: {
+        Args: { p_call_id: string; p_lead_id: string; p_code: string };
+        Returns: boolean;
+      };
       finish_scheduled_message: {
         Args: { p_id: string; p_outcome: string; p_message: Json; p_detail: string };
         Returns: undefined;
@@ -815,7 +888,7 @@ export type Database = {
         Returns: boolean;
       };
       place_assistant_call: {
-        Args: { p_lead_id: string; p_channel: string; p_rules: Json };
+        Args: { p_lead_id: string; p_channel: string };
         Returns: Json;
       };
       purge_stale_leads: {
@@ -863,7 +936,7 @@ export type Database = {
         Returns: unknown[];
       };
       start_web_call: {
-        Args: { p_lead_id: string; p_channel: string; p_rules: Json };
+        Args: { p_lead_id: string; p_channel: string };
         Returns: Json;
       };
       stop_enrollment: {
@@ -877,6 +950,10 @@ export type Database = {
       system_routing_context: {
         Args: { p_lead_id: string; p_open_stages: unknown };
         Returns: Json;
+      };
+      use_text_fallback: {
+        Args: { p_call_id: string; p_lead_id: string };
+        Returns: boolean;
       };
       verify_staff_password: {
         Args: { p_email: string; p_password: string };

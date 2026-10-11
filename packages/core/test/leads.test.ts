@@ -62,7 +62,7 @@ describe('intakeToLeadPayload', () => {
     expect(payload.answers.has_insurance).toBe('yes');
     expect(payload.consents).toEqual([
       expect.objectContaining({ purpose: 'contact', granted: true, textVersion: 'clinic-contact-v1' }),
-      expect.objectContaining({ purpose: 'assistant_call', granted: true, textVersion: 'clinic-assistant-call-v1' }),
+      expect.objectContaining({ purpose: 'assistant_call', granted: true, textVersion: 'clinic-assistant-call-v2' }),
     ]);
   });
 

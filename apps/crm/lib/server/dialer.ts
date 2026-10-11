@@ -1,25 +1,9 @@
 import 'server-only';
 import { getActivePack, simulatedCallerTurns } from '@healwyn/core';
+import { signServiceRequest } from '@healwyn/messaging';
 import { AgentDispatchClient, SipClient } from 'livekit-server-sdk';
-import { signRequest } from './webhooks';
 
 const pack = getActivePack();
-
-/** The call rules the start_call SQL function enforces, from the pack. */
-export function callRules(channel: 'phone' | 'simulated') {
-  const { limits, callConsentId } = pack.voice;
-  return {
-    consent_purpose: callConsentId,
-    max_per_day: limits.maxCallsPerDay,
-    // The 9am-9pm window protects people from calls at night; a simulated call rings nobody,
-    // so it runs every other check (consent, opt-out, daily cap) at any hour.
-    window_start: channel === 'phone' ? limits.callWindow.startHour : 0,
-    window_end: channel === 'phone' ? limits.callWindow.endHour : 24,
-    time_zone: limits.callWindow.timeZone,
-    // A Twilio trial trunk can only call verified numbers.
-    require_verified: channel === 'phone',
-  };
-}
 
 /** Real phone calls need a LiveKit SIP outbound trunk (see docs/VOICE.md); without one, only simulated calls. */
 export function telephonyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -48,7 +32,7 @@ export async function runSimulatedCall(call: {
   });
   const response = await fetch(`${base}/simulate`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...signRequest(body, secret) },
+    headers: { 'content-type': 'application/json', ...signServiceRequest('POST', '/simulate', body, secret) },
     body,
     signal: AbortSignal.timeout(30_000),
     cache: 'no-store',

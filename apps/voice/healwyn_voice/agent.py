@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext, cli, inference
@@ -27,6 +28,8 @@ from .webhook import post_result
 
 CONFIG = settings()
 server = AgentServer()
+# livekit-agents logs user transcripts at DEBUG (dev mode); keep them out of the console.
+logging.getLogger('livekit.agents').setLevel(logging.INFO)
 
 
 class IntakeAgent(Agent):
@@ -66,11 +69,17 @@ async def entrypoint(ctx: JobContext) -> None:
         classifier=OptionClassifier(CONFIG.gemini_api_key, CONFIG.llm_model, CONFIG.use_llm),
     )
     posted = asyncio.Event()
+    joined = asyncio.Event()
 
     async def post_once() -> None:
         if posted.is_set():
             return
         posted.set()
+        if not joined.is_set():
+            # Nobody joined (an unanswered phone call, or a browser that fell back to typed chat before
+            # connecting): there is no call to report, and the typed chat may still finish this call.
+            log('info', 'agent.no_caller', callId=intake.call_id)
+            return
         if not intake.ended:
             intake.caller_hung_up()
         await asyncio.to_thread(post_result, intake.result(), CONFIG.crm_url, CONFIG.webhook_secret)
@@ -80,7 +89,10 @@ async def entrypoint(ctx: JobContext) -> None:
         ctx.shutdown(reason='call finished')
 
     ctx.add_shutdown_callback(post_once)
+    ctx.room.on('participant_connected', lambda _participant: joined.set())
     await ctx.connect()
+    if ctx.room.remote_participants:
+        joined.set()
 
     tts_options = {'voice': CONFIG.tts_voice} if CONFIG.tts_voice else {}
     session = AgentSession(
@@ -118,7 +130,8 @@ async def entrypoint(ctx: JobContext) -> None:
         limit_task.cancel()
 
     ctx.add_shutdown_callback(cancel_limit)
-    await session.start(agent=IntakeAgent(intake, finish), room=ctx.room)
+    # record=False: no audio or transcript upload to LiveKit Cloud, whatever the project setting says.
+    await session.start(agent=IntakeAgent(intake, finish), room=ctx.room, record=False)
     log('info', 'agent.call_started', callId=intake.call_id, channel=intake.channel)
 
 

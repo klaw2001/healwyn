@@ -9,13 +9,13 @@ import {
   type VoiceCallResult,
 } from '@healwyn/core';
 import { system } from './db';
-import { routeForSystem } from './routing';
+import { lockRouting, routeForSystem } from './routing';
 import { scoreFromInput, type ScoreInputJson } from './scores';
 
 const pack = getActivePack();
 
 interface Recorded {
-  status: 'recorded' | 'duplicate';
+  status: 'recorded' | 'duplicate' | 'superseded';
   lead_id: string;
   stage?: string;
   assigned_staff_id?: string | null;
@@ -23,7 +23,7 @@ interface Recorded {
 }
 
 export interface VoiceOutcome {
-  status: 'recorded' | 'duplicate';
+  status: 'recorded' | 'duplicate' | 'superseded';
   stage?: string;
   assignedStaffId?: string | null;
 }
@@ -38,11 +38,12 @@ export interface VoiceOutcome {
 export async function applyVoiceResult(result: VoiceCallResult): Promise<VoiceOutcome> {
   const update = leadUpdateFromCall(result, pack);
   return system().begin(async (tx) => {
-    await tx`select pg_advisory_xact_lock(hashtext('healwyn:routing'))`;
+    await lockRouting(tx);
     const [row] = await tx<{ r: Recorded }[]>`
       select public.record_voice_call(${tx.json(result as never)}, ${tx.json(update as never)}) as r`;
     const recorded = row!.r;
-    if (recorded.status === 'duplicate') return { status: 'duplicate' } as VoiceOutcome;
+    // A replay, or the voice agent reporting a call that continued as a typed chat: nothing to apply.
+    if (recorded.status !== 'recorded') return { status: recorded.status } as VoiceOutcome;
 
     const toStage = stageAfterCall(result, recorded.stage!, pack);
     const plan = toStage ? planStageEntry(pack.sequences, toStage, recorded.active_sequences ?? []) : null;
@@ -70,4 +71,10 @@ export async function applyVoiceResult(result: VoiceCallResult): Promise<VoiceOu
     }
     return { status: 'recorded', stage: applied!.r.stage, assignedStaffId: applied!.r.assigned_staff_id };
   }) as Promise<VoiceOutcome>;
+}
+
+/** Closes a call whose result the CRM cannot accept, so it does not stay "started". */
+export async function failVoiceCall(callId: string, leadId: string, code: string): Promise<boolean> {
+  const [row] = await system()<{ ok: boolean }[]>`select public.fail_voice_call(${callId}, ${leadId}, ${code}) as ok`;
+  return row?.ok === true;
 }

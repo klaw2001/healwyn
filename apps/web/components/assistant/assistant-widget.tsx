@@ -200,6 +200,11 @@ function AssistantPanel({ onClose }: { onClose: () => void }) {
               It cannot give medical advice. Your browser will ask to use your microphone; if you would rather not,
               choose “Type instead”.
             </p>
+            <p className="text-sm text-ink-muted">
+              What you say is processed by automated services: LiveKit and its speech partners turn speech into text and
+              back, and Google Gemini helps understand some answers. Gemini’s free service may use that text to improve
+              Google’s products, so please don’t share test results, ID numbers or other sensitive details.
+            </p>
             {phase.message ? (
               <p role="alert" className="rounded-md border-2 border-danger bg-danger-soft p-3 font-semibold">
                 {phase.message}

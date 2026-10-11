@@ -49,6 +49,7 @@
       "enum": [
         "completed",
         "consent_declined",
+        "no_consent",
         "emergency",
         "caller_ended",
         "limit_reached",

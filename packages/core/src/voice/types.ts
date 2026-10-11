@@ -100,7 +100,10 @@ export interface VoicePackConfig {
   readonly limits: {
     readonly maxCallSeconds: number;
     readonly maxTurns: number;
+    /** Per cap group (website, phone, simulated), across the deployment. */
     readonly maxCallsPerDay: number;
+    /** Website calls from one phone number in a day. */
+    readonly maxCallsPerPhonePerDay: number;
     /** Calls only between these hours, local time (the phone path). */
     readonly callWindow: { readonly startHour: number; readonly endHour: number; readonly timeZone: string };
   };

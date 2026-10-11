@@ -69,5 +69,7 @@ export function stageAfterCall(result: VoiceCallResult, currentStage: string, pa
 
 /** Whether the routing engine should run after a call. */
 export function shouldRouteAfterCall(result: VoiceCallResult, assignedStaffId: string | null): boolean {
-  return assignedStaffId === null && result.outcome !== 'consent_declined';
+  if (result.outcome === 'consent_declined' || result.outcome === 'no_consent') return false;
+  // Nothing was collected before consent, except an emergency, which a person must pick up.
+  return assignedStaffId === null && (result.consentToContinue || result.outcome === 'emergency');
 }

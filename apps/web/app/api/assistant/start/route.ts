@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { CALL_COOKIE, callCookieValue, startAssistant } from '@/lib/server/assistant';
+import { CALL_COOKIE, CALL_COOKIE_MAX_AGE_SECONDS, callCookieValue, startAssistant } from '@/lib/server/assistant';
 import { defaultAssistantDeps } from '@/lib/server/assistant-deps';
+import { readBodyLimited } from '@/lib/server/body';
 
 const MAX_BODY = 4 * 1024;
 
 /** Starts a call with the AI assistant: creates the lead, then a voice room or a typed chat. */
 export async function POST(request: NextRequest) {
-  const raw = await request.text();
-  if (raw.length > MAX_BODY) return NextResponse.json({ status: 'error', message: 'Too large.' }, { status: 413 });
+  const raw = await readBodyLimited(request, MAX_BODY);
+  if (raw === null) return NextResponse.json({ status: 'error', message: 'Too large.' }, { status: 413 });
   let values: Record<string, unknown>;
   try {
     values = JSON.parse(raw) as Record<string, unknown>;
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       sameSite: 'strict',
       secure: process.env.NODE_ENV === 'production',
       path: '/api/assistant',
-      maxAge: 20 * 60,
+      maxAge: CALL_COOKIE_MAX_AGE_SECONDS,
     });
     return response;
   }

@@ -97,10 +97,18 @@ export const sourceLabel = (source: string) => SOURCE_LABELS[source] ?? source.r
 
 export const CHANNEL_LABELS: Record<string, string> = { email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp' };
 
-/** Why a lead went to someone: the explanation stored with an assignment event. */
-export function assignmentExplanation(type: string, payload: Record<string, unknown>): string[] {
-  if (type !== 'lead.assigned') return [];
-  const routing = payload.routing as { explanation?: unknown } | undefined;
+/**
+ * Why a lead went to someone. The words live in `assignment_explanations` (erased with the lead);
+ * events written before that table existed carried them in the payload.
+ */
+export function assignmentExplanation(event: {
+  type: string;
+  payload: Record<string, unknown>;
+  explanation?: string[] | null;
+}): string[] {
+  if (event.type !== 'lead.assigned') return [];
+  if (event.explanation) return event.explanation;
+  const routing = event.payload.routing as { explanation?: unknown } | undefined;
   return Array.isArray(routing?.explanation)
     ? routing.explanation.filter((l): l is string => typeof l === 'string')
     : [];
@@ -115,6 +123,7 @@ const CALL_CHANNELS: Record<string, string> = {
 const CALL_OUTCOMES: Record<string, string> = {
   completed: 'qualified',
   consent_declined: 'caller declined',
+  no_consent: 'no clear consent',
   emergency: 'emergency advice given',
   caller_ended: 'caller ended early',
   limit_reached: 'time limit reached',
@@ -128,6 +137,8 @@ export const CALL_REFUSALS: Record<string, string> = {
   no_phone: 'no phone number',
   number_not_verified: 'number not on the verified demo list',
   daily_limit: 'daily call limit reached',
+  phone_daily_limit: 'this number reached its daily call limit',
+  not_configured: 'assistant calls are not set up for this industry',
   telephony_not_configured: 'phone calling is not set up',
 };
 
@@ -187,7 +198,12 @@ export function describeEvent(
     case 'call.refused':
       return `Assistant call not placed: ${CALL_REFUSALS[String(p.reason)] ?? p.reason}`;
     case 'safety.flagged':
-      return `Safety flag: ${pack.voice.safety.redFlags.find((f) => f.id === p.code)?.label ?? p.code}`;
+      // The category is on the call (AI summary panel), not in the audit trail, which outlives erasure.
+      return 'Safety concern on the assistant call: told to seek emergency help, flagged urgent';
+    case 'call.fallback':
+      return 'Assistant call continued by typing';
+    case 'call.failed':
+      return 'Assistant call result could not be used';
     case 'message.failed':
       return `${CHANNEL_LABELS[String(p.channel)] ?? p.channel} failed after retries`;
     default:

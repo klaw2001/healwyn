@@ -26,11 +26,15 @@ from .config import Settings, load_script, settings
 from .dialogue import IntakeSession
 from .llm import OptionClassifier
 from .log import log
-from .webhook import post_result, verify
+from .webhook import post_result, verify_request
 
 MAX_BODY = 16 * 1024
 MAX_SESSIONS = 25
 SESSION_PATH = re.compile(r'^/sessions/([0-9a-f-]{36})/(turns|end)$')
+CONTENT_LENGTH = re.compile(r'[0-9]{1,7}')
+# A finished call cannot be started again (each call id runs once); remembered this long.
+FINISHED_TTL_SECONDS = 2 * 3600
+REQUEST_TIMEOUT_SECONDS = 15
 
 
 def _uuid(value: Any) -> str:
@@ -42,8 +46,18 @@ class Service:
         self.config = config
         self.script = load_script(str(config.script_path))
         self.sessions: dict[str, tuple[IntakeSession, threading.Lock]] = {}
+        self.finished: dict[str, float] = {}
         self.lock = threading.Lock()
         self.post = post
+
+    def _claim(self, call_id: str) -> None:
+        """Refuses a call id that is running or already ran. Caller holds self.lock."""
+        now = time.monotonic()
+        for done, at in list(self.finished.items()):
+            if now - at > FINISHED_TTL_SECONDS:
+                del self.finished[done]
+        if call_id in self.sessions or call_id in self.finished:
+            raise ValueError('duplicate')
 
     def classifier(self) -> OptionClassifier:
         return OptionClassifier(self.config.gemini_api_key, self.config.llm_model, self.config.use_llm)
@@ -51,6 +65,7 @@ class Service:
     def finish(self, session: IntakeSession) -> int:
         with self.lock:
             self.sessions.pop(session.call_id, None)
+            self.finished[session.call_id] = time.monotonic()
         return self.post(session.result(), self.config.crm_url, self.config.webhook_secret)
 
     def start(self, body: dict) -> dict:
@@ -59,8 +74,7 @@ class Service:
             raise ValueError('channel')
         call_id, lead_id = _uuid(body['callId']), _uuid(body['leadId'])
         with self.lock:
-            if call_id in self.sessions:
-                raise ValueError('duplicate')
+            self._claim(call_id)
             if len(self.sessions) >= MAX_SESSIONS:
                 raise OverflowError('busy')
             session = IntakeSession(
@@ -104,6 +118,9 @@ class Service:
         """A whole call from a list of caller turns: the simulated dialer."""
         call_id, lead_id = _uuid(body['callId']), _uuid(body['leadId'])
         turns = [str(t)[:1000] for t in body.get('turns', [])][:40]
+        with self.lock:
+            self._claim(call_id)
+            self.finished[call_id] = time.monotonic()
         session = IntakeSession(
             self.script,
             call_id=call_id,
@@ -141,6 +158,7 @@ class Service:
 def make_handler(service: Service):
     class Handler(BaseHTTPRequestHandler):
         server_version = f'healwyn-voice/{VERSION}'
+        timeout = REQUEST_TIMEOUT_SECONDS  # slow clients cannot hold a thread open
 
         def log_message(self, *_args) -> None:  # the default logs client addresses; ours log ids only
             return
@@ -160,13 +178,17 @@ def make_handler(service: Service):
                 self._send(404, {'error': 'not_found'})
 
         def do_POST(self) -> None:
-            length = int(self.headers.get('content-length') or 0)
+            declared = self.headers.get('content-length') or '0'
+            if not CONTENT_LENGTH.fullmatch(declared):
+                self._send(400, {'error': 'invalid_request'})
+                return
+            length = int(declared)
             if length > MAX_BODY:
                 self._send(413, {'error': 'too_large'})
                 return
             raw = self.rfile.read(length)
             headers = {k.lower(): v for k, v in self.headers.items()}
-            problem = verify(raw, headers, service.config.agent_secret)
+            problem = verify_request('POST', self.path, raw, headers, service.config.agent_secret)
             if problem:
                 self._send(503 if problem == 'not_configured' else 401, {'error': problem})
                 return
@@ -193,6 +215,13 @@ def make_handler(service: Service):
     return Handler
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address) -> None:  # the default prints the client address
+        log('warn', 'text.request_failed')
+
+
 def serve() -> None:
     config = settings()
     service = Service(config)
@@ -208,7 +237,7 @@ def serve() -> None:
             service.sweep()
 
     threading.Thread(target=sweeper, daemon=True).start()
-    httpd = ThreadingHTTPServer((config.text_host, config.text_port), make_handler(service))
+    httpd = Server((config.text_host, config.text_port), make_handler(service))
     log('info', 'text.listening', host=config.text_host, port=config.text_port, llm=service.classifier().enabled)
     httpd.serve_forever()
 

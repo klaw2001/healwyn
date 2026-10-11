@@ -115,9 +115,11 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
   speaks: Gemini only maps an answer to an allowed option, and its output is validated. Safety checks (red flags,
   advice requests, injection) run first on every turn and must pass 100% in `pnpm eval:voice`. Add a scenario for
   every safety change. After changing zod contracts or the voice script, run `pnpm contracts`.
-- **Calls** start only through `start_call` in SQL (consent, opt-out, daily cap; window and verified numbers for real
-  phone calls), and every refusal is logged as `call.refused`. Results arrive signed at `/api/voice/complete`.
-  Transcripts live only in `call_sessions` under RLS; never log them.
+- **Calls** start only through `start_call` in SQL (consent, opt-out, daily caps; window and verified numbers for real
+  phone calls), with rules from `call_policies`, which the seed writes from the pack (`callPolicies`): re-run
+  `pnpm db:seed` after changing a pack's voice limits. Every refusal is logged as `call.refused`. Results arrive signed
+  at `/api/voice/complete`. Transcripts live only in `call_sessions` under RLS; never log them. Requests to the text
+  service are signed over method, path and body (`signServiceRequest`).
 - **Migrations** are append-only files in `packages/db/supabase/migrations/<14-digit version>_<name>.sql`. Every new
   table needs RLS enabled and explicit grants/revokes (a test checks every `public` table has RLS and that `anon` /
   `authenticated` hold no privileges and cannot execute functions). Run `pnpm db:types` after schema changes.

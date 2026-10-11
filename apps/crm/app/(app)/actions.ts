@@ -14,9 +14,9 @@ import {
 import { revalidatePath } from 'next/cache';
 import { assertCapability } from '@/lib/server/auth';
 import { asStaff } from '@/lib/server/db';
-import { callRules, placePhoneCall, runSimulatedCall, telephonyConfigured } from '@/lib/server/dialer';
+import { placePhoneCall, runSimulatedCall, telephonyConfigured } from '@/lib/server/dialer';
 import { friendlyError, type ActionResult } from '@/lib/server/errors';
-import { routeForStaff } from '@/lib/server/routing';
+import { lockRouting, routeForStaff } from '@/lib/server/routing';
 import { recomputeScore } from '@/lib/server/scores';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -117,6 +117,7 @@ export async function acceptRouting(leadId: string): Promise<ActionResult<{ staf
     const session = await assertCapability('lead.assign');
     if (!UUID.test(leadId)) return { ok: false, error: 'Unknown lead.' };
     const staffName = await asStaff(session, async (tx) => {
+      await lockRouting(tx);
       const { decision } = await routeForStaff(tx, leadId);
       if (!decision.staffId || !decision.routing) throw new AssignmentError('Nobody is available to take this lead.');
       await tx`select public.assign_lead(${leadId}, ${decision.staffId}, 'routing', ${tx.json(assignmentRecord(decision) as never)})`;
@@ -276,6 +277,7 @@ const CALL_REFUSAL_MESSAGES: Record<string, string> = {
   number_not_verified:
     'This number is not on the verified demo list (a trial phone line can only call verified numbers).',
   daily_limit: 'The assistant has reached today’s call limit.',
+  not_configured: 'Assistant calls are not set up yet: run the seed so the call rules exist.',
 };
 
 /**
@@ -300,7 +302,7 @@ export async function placeAssistantCall(
     // Committed before the call runs: the result webhook needs the call session to exist.
     const placed = await asStaff(session, async (tx) => {
       const [row] = await tx<{ r: { allowed: boolean; reason?: string; call_id?: string } }[]>`
-        select public.place_assistant_call(${leadId}, ${channel}, ${tx.json(callRules(channel) as never)}) as r`;
+        select public.place_assistant_call(${leadId}, ${channel}) as r`;
       const [lead] = await tx<
         { answers: Record<string, string>; message: string | null; preferred_language: string; phone: string | null }[]
       >`select answers, message, preferred_language, phone from public.leads where id = ${leadId}`;

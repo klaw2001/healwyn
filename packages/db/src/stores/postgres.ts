@@ -47,13 +47,20 @@ export function createPostgresLeadStore(url: string): LeadStore {
         throw new LeadStoreError('Could not record the unsubscribe', { cause: error });
       }
     },
-    async startWebCall(leadId, channel, rules) {
+    async startWebCall(leadId, channel) {
       try {
-        const [row] = await sql<{ r: CallStart }[]>`
-          select public.start_web_call(${leadId}, ${channel}, ${sql.json(rules as never)}) as r`;
+        const [row] = await sql<{ r: CallStart }[]>`select public.start_web_call(${leadId}, ${channel}) as r`;
         return row!.r;
       } catch (error) {
         throw new LeadStoreError('Could not start the call', { cause: error });
+      }
+    },
+    async useTextFallback(callId, leadId) {
+      try {
+        const [row] = await sql<{ ok: boolean }[]>`select public.use_text_fallback(${callId}, ${leadId}) as ok`;
+        return row?.ok === true;
+      } catch (error) {
+        throw new LeadStoreError('Could not switch the call to typing', { cause: error });
       }
     },
     async close() {

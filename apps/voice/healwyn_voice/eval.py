@@ -171,7 +171,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--llm', action='store_true', help='let Gemini classify free answers')
     parser.add_argument('--out', default=str(REPO_ROOT / 'docs' / 'VOICE_EVAL.md'))
-    args = parser.parse_args(argv)
+    # pnpm 10 passes a literal "--" through (`pnpm eval:voice -- --llm`); accept both spellings.
+    args = parser.parse_args([arg for arg in (sys.argv[1:] if argv is None else argv) if arg != '--'])
     config = settings()
     classifier = None
     if args.llm:

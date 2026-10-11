@@ -173,6 +173,7 @@ class IntakeSession:
 
         # 3. The caller wants to go.
         if self.nlu.wants_hangup(text) and not (self.state == 'question' and self._is_free_text()):
+            # Saying goodbye when asked whether to continue is a clear no.
             self.outcome = 'consent_declined' if self.state == 'consent' else 'caller_ended'
             return self._say(self.t(self.script.goodbye), end=True)
 
@@ -206,8 +207,8 @@ class IntakeSession:
             return self._say(self.t(self.script.consentDeclined), end=True)
         self.consent_attempts += 1
         if self.consent_attempts >= 2:
-            # Still no clear yes: collect nothing.
-            self.outcome = 'consent_declined'
+            # Still no clear yes: collect nothing, but this is not a "no", so the call consent stays.
+            self.outcome = 'no_consent'
             return self._say(self.t(self.script.consentDeclined), end=True)
         return self._say(self.t(self.script.reprompts.unclear, question=self._prompt()))
 
@@ -334,7 +335,8 @@ class IntakeSession:
         """The caller left. When they simply went quiet (`idle`), the call is timed to their last turn."""
         if self.ended:
             return
-        self.outcome = 'caller_ended' if self.consent else 'consent_declined'
+        # Leaving (or never answering) is not declining: only an explicit no withdraws the call consent.
+        self.outcome = 'caller_ended'
         self._close_state(at_last_activity=idle)
 
     def failed(self) -> None:
@@ -380,7 +382,10 @@ class IntakeSession:
             'completed': f'Assistant call in {language}, {length}; the caller confirmed the details.',
             'emergency': f'Assistant call in {language} stopped for emergency advice.',
             'consent_declined': 'The caller did not want to continue with the assistant; nothing was collected.',
-            'caller_ended': f'The caller ended the call early ({language}); details may be incomplete.',
+            'no_consent': 'The caller did not clearly agree to continue with the assistant; nothing was collected.',
+            'caller_ended': f'The caller ended the call early ({language}); details may be incomplete.'
+            if self.consent
+            else 'The call ended before the caller agreed to continue; nothing was collected.',
             'limit_reached': f'The call reached its time limit ({language}); details may be incomplete.',
             'error': 'The call failed; please call the patient back.',
         }.get(self.outcome or 'error', '')

@@ -13,19 +13,13 @@ export interface LeadStore {
   optOut(leadId: string, source: string): Promise<boolean>;
   /**
    * Starts an assistant call (browser voice or typed chat) for a lead, if its call consent,
-   * opt-out status and the daily cap allow it. Refusals are recorded on the lead with a reason.
+   * opt-out status and the daily caps allow it (rules from `call_policies`, written from the pack).
+   * Refusals are recorded on the lead with a reason.
    */
-  startWebCall(leadId: string, channel: 'browser' | 'text', rules: CallRules): Promise<CallStart>;
+  startWebCall(leadId: string, channel: 'browser' | 'text'): Promise<CallStart>;
+  /** Switches a browser call that could not connect to typed chat. Once per call; false otherwise. */
+  useTextFallback(callId: string, leadId: string): Promise<boolean>;
   close(): Promise<void>;
-}
-
-/** Pack-defined call rules (see the start_call SQL function). */
-export interface CallRules {
-  consent_purpose: string;
-  max_per_day: number;
-  window_start: number;
-  window_end: number;
-  time_zone: string;
 }
 
 export type CallStart = { allowed: true; call_id: string } | { allowed: false; reason: string };

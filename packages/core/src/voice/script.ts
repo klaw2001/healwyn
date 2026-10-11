@@ -94,6 +94,7 @@ export function buildVoiceScript(pack: IndustryPack): VoiceScript {
       maxCallSeconds: voice.limits.maxCallSeconds,
       maxTurns: voice.limits.maxTurns,
       maxCallsPerDay: voice.limits.maxCallsPerDay,
+      maxCallsPerPhonePerDay: voice.limits.maxCallsPerPhonePerDay,
       callWindow: { ...voice.limits.callWindow },
     },
   };

@@ -17,6 +17,7 @@ const pack = getActivePack();
 const OUTCOMES: Record<string, string> = {
   completed: 'Qualified',
   consent_declined: 'Declined',
+  no_consent: 'No clear consent',
   emergency: 'Emergency advice',
   caller_ended: 'Ended early',
   limit_reached: 'Time limit',

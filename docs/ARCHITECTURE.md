@@ -61,22 +61,24 @@ in one transaction, and emails the team (or logs the email) after responding.
 
 ## Data model
 
-| Table                   | Purpose                                                                                                    | Notes                                                                                       |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `leads`                 | Every enquiry (`lead_type` individual or partner), stage, urgency, specialty, assignee, qualifying answers | Personal data columns are nulled by `erase_lead`; check constraints forbid half-erased rows |
-| `consent_records`       | Append-only consent ledger: purpose, granted, text version, text hash, source                              | Current state is the `current_consents` view (latest row per lead and purpose)              |
-| `lead_events`           | Append-only audit trail (`lead.created`, `consent.recorded`, `consent.withdrawn`, `lead.erased`, …)        | Payloads never hold personal data. Phase 2 adds `stage.changed`, `lead.assigned`, …         |
-| `staff`                 | People leads are routed to: level, role, specialties, languages, locations, capacity                       | `auth_user_id` links to `auth.users` (Supabase Auth)                                        |
-| `specialties`           | Offering slugs mirrored from the pack                                                                      | Content stays in `packages/core`                                                            |
-| `rate_limits`           | Fixed-window counters keyed by salted hashes                                                               | Pruned opportunistically after a day                                                        |
-| `notes`, `tasks`        | Staff notes (optionally from a template) and tasks with due dates                                          | Phase 2; deleted by erasure                                                                 |
-| `sequence_enrollments`  | One row per lead per sequence run: active, completed or stopped (with a reason)                            | At most one active run per lead and sequence (partial unique index)                         |
-| `scheduled_messages`    | One row per step to send: due time, status, attempts, last error code                                      | The worker's queue; claimed with `FOR UPDATE SKIP LOCKED`                                   |
-| `messages`              | Every message sent, simulated, logged or received, with channel and status                                 | Unique `scheduled_message_id`, so a step is recorded once; bodies nulled by erasure         |
-| `lead_scores`           | The latest rule-based score per lead, with its factor breakdown                                            | Recomputed after each staff action                                                          |
-| `sequence_settings`     | Per-sequence pause switch                                                                                  | Managers only                                                                               |
-| `call_sessions`         | One row per assistant call: channel, status, outcome, language, flags, summary, transcript, usage          | Phase 3. Created by `start_call` (checks), completed by `record_voice_call` (idempotent)    |
-| `verified_demo_numbers` | Numbers a real (trial-trunk) phone call may ring                                                           | Phase 3. Managers only                                                                      |
+| Table                     | Purpose                                                                                                    | Notes                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `leads`                   | Every enquiry (`lead_type` individual or partner), stage, urgency, specialty, assignee, qualifying answers | Personal data columns are nulled by `erase_lead`; check constraints forbid half-erased rows |
+| `consent_records`         | Append-only consent ledger: purpose, granted, text version, text hash, source                              | Current state is the `current_consents` view (latest row per lead and purpose)              |
+| `lead_events`             | Append-only audit trail (`lead.created`, `consent.recorded`, `consent.withdrawn`, `lead.erased`, …)        | Payloads never hold personal data. Phase 2 adds `stage.changed`, `lead.assigned`, …         |
+| `staff`                   | People leads are routed to: level, role, specialties, languages, locations, capacity                       | `auth_user_id` links to `auth.users` (Supabase Auth)                                        |
+| `specialties`             | Offering slugs mirrored from the pack                                                                      | Content stays in `packages/core`                                                            |
+| `rate_limits`             | Fixed-window counters keyed by salted hashes                                                               | Pruned opportunistically after a day                                                        |
+| `notes`, `tasks`          | Staff notes (optionally from a template) and tasks with due dates                                          | Phase 2; deleted by erasure                                                                 |
+| `sequence_enrollments`    | One row per lead per sequence run: active, completed or stopped (with a reason)                            | At most one active run per lead and sequence (partial unique index)                         |
+| `scheduled_messages`      | One row per step to send: due time, status, attempts, last error code                                      | The worker's queue; claimed with `FOR UPDATE SKIP LOCKED`                                   |
+| `messages`                | Every message sent, simulated, logged or received, with channel and status                                 | Unique `scheduled_message_id`, so a step is recorded once; bodies nulled by erasure         |
+| `lead_scores`             | The latest rule-based score per lead, with its factor breakdown                                            | Recomputed after each staff action                                                          |
+| `sequence_settings`       | Per-sequence pause switch                                                                                  | Managers only                                                                               |
+| `call_sessions`           | One row per assistant call: channel, status, outcome, language, flags, summary, transcript, usage          | Phase 3. Created by `start_call` (checks), completed by `record_voice_call` (idempotent)    |
+| `verified_demo_numbers`   | Numbers a real (trial-trunk) phone call may ring                                                           | Phase 3. Managers only                                                                      |
+| `call_policies`           | Call rules per industry and channel: consent purpose, caps, window, verified numbers                       | Phase 3. Written by the seed from the pack; read only by `start_call`                       |
+| `assignment_explanations` | Why a lead was assigned, in words, beside the `lead.assigned` event                                        | Phase 3. Deleted by erasure; the event keeps codes, ids and scores                          |
 
 Functions: `submit_lead` and `hit_rate_limit` (executable by `service_role` and the least-privilege `web_submitter`
 role), and `withdraw_consent` and `erase_lead` (`service_role` only). `submit_lead` rejects a lead unless every consent
@@ -199,8 +201,10 @@ and `docs/VOICE_EVAL.md` for the evaluation.
 the voice script, then generates `apps/voice/healwyn_voice/contracts.py` with datamodel-code-generator.
 `pnpm contracts:check` (in `pnpm check`) fails when the generated files are stale.
 
-**Calls in SQL.** `start_call` is the single gate for every call: the call consent must be current, the lead not opted
-out or erased, today's count under the cap (a transaction-level advisory lock makes it exact), and for real phone
-calls the time window and the verified number list. Every refusal is written as `call.refused` with a reason code.
-`record_voice_call` is idempotent per call id; `apply_voice_outcome` moves a new lead to AI-triaged with that
-stage's nurture plan and creates an urgent task after a red flag. Erasure scrubs call summaries and transcripts.
+**Calls in SQL.** `start_call` is the single gate for every call, with rules from `call_policies` (never from the
+caller): the call consent must be current, the lead not opted out or erased, today's count under the group's cap and
+the phone number's cap (a transaction-level advisory lock makes them exact), and for real phone calls the time window
+and the verified number list. Every refusal is written as `call.refused` with a reason code. A browser call can switch
+to typed chat once (`use_text_fallback`). `record_voice_call` is idempotent per call id and ignores the voice agent's
+result for a call that continued as typed chat; `apply_voice_outcome` moves a new lead to AI-triaged with that stage's
+nurture plan and creates an urgent task after a red flag. Erasure scrubs call summaries, transcripts and flags.

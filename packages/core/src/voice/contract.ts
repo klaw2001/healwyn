@@ -73,6 +73,7 @@ export const voiceScriptSchema = z
       maxCallSeconds: z.number().int().positive(),
       maxTurns: z.number().int().positive(),
       maxCallsPerDay: z.number().int().positive(),
+      maxCallsPerPhonePerDay: z.number().int().positive(),
       callWindow: z.object({ startHour: z.number().int(), endHour: z.number().int(), timeZone: z.string() }),
     }),
   })
@@ -84,9 +85,11 @@ export const voiceScriptSchema = z
 export type VoiceScript = z.infer<typeof voiceScriptSchema>;
 
 export const VOICE_CHANNELS = ['browser', 'phone', 'simulated', 'text'] as const;
+export type VoiceChannel = (typeof VOICE_CHANNELS)[number];
 export const VOICE_OUTCOMES = [
   'completed',
   'consent_declined',
+  'no_consent',
   'emergency',
   'caller_ended',
   'limit_reached',

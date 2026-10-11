@@ -15,6 +15,7 @@ export function createMemoryLeadStore(): MemoryLeadStore {
   const leads = new Map<string, NewLeadPayload & { createdAt: Date }>();
   const windows = new Map<string, number>();
   const optedOut = new Set<string>();
+  const browserCalls = new Map<string, string>();
 
   return {
     kind: 'memory',
@@ -37,10 +38,17 @@ export function createMemoryLeadStore(): MemoryLeadStore {
       optedOut.add(leadId);
       return true;
     },
-    async startWebCall(leadId) {
+    async startWebCall(leadId, channel) {
       // Development only: no consent ledger or cap here.
       if (!leads.has(leadId)) return { allowed: false, reason: 'not_found' };
-      return { allowed: true, call_id: crypto.randomUUID() };
+      const callId = crypto.randomUUID();
+      if (channel === 'browser') browserCalls.set(callId, leadId);
+      return { allowed: true, call_id: callId };
+    },
+    async useTextFallback(callId, leadId) {
+      if (browserCalls.get(callId) !== leadId) return false;
+      browserCalls.delete(callId);
+      return true;
     },
     async close() {},
   };

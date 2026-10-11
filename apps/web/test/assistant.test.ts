@@ -3,7 +3,6 @@ import { createMemoryLeadStore, type LeadStore } from '@healwyn/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   callCookieValue,
-  callRules,
   readCallCookie,
   startAssistant,
   type AssistantDeps,
@@ -68,6 +67,21 @@ describe('startAssistant', () => {
     expect(store.leads.size).toBe(0);
   });
 
+  it('refuses to start when the rate limiter is unavailable (calls cost money)', async () => {
+    const failing: LeadStore = {
+      ...createMemoryLeadStore(),
+      hitRateLimit: async () => Promise.reject(new Error('db down')),
+    };
+    const { deps: d } = deps({ store: failing });
+    expect(await startAssistant(valid, headers(), d)).toMatchObject({ status: 'error' });
+    // Without a client IP, requests share one bucket rather than skipping the limit.
+    const { deps: shared } = deps();
+    for (let i = 0; i < 5; i += 1) await startAssistant(valid, new Headers(), shared);
+    expect(await startAssistant(valid, new Headers(), shared)).toMatchObject({
+      message: expect.stringContaining('several calls'),
+    });
+  });
+
   it('ignores bots (honeypot) and rate-limits repeated starts', async () => {
     const { store, deps: d } = deps();
     expect((await startAssistant({ ...valid, [HONEYPOT_FIELD]: 'spam' }, headers(), d)).status).toBe('error');
@@ -97,16 +111,6 @@ describe('startAssistant', () => {
       message: expect.stringContaining('not available right now'),
     });
   });
-
-  it('passes the pack’s call rules to the database', () => {
-    expect(callRules(clinicPack)).toEqual({
-      consent_purpose: 'assistant_call',
-      max_per_day: 50,
-      window_start: 9,
-      window_end: 21,
-      time_zone: 'Asia/Kolkata',
-    });
-  });
 });
 
 describe('call cookie', () => {
@@ -115,8 +119,20 @@ describe('call cookie', () => {
     const value = callCookieValue('call-1', 'lead-1');
     expect(readCallCookie(value)).toEqual({ callId: 'call-1', leadId: 'lead-1' });
     expect(readCallCookie(value.replace('lead-1', 'lead-2'))).toBeNull();
-    expect(readCallCookie('call-1.lead-1.forged')).toBeNull();
+    expect(readCallCookie('call-1.lead-1.1700000000.forged')).toBeNull();
     expect(readCallCookie(undefined)).toBeNull();
+    vi.unstubAllEnvs();
+  });
+
+  it('expires after 20 minutes, and the issue time is signed', () => {
+    vi.stubEnv('VOICE_AGENT_SECRET', 'x'.repeat(40));
+    const issued = Date.UTC(2026, 9, 11, 10, 0, 0);
+    const value = callCookieValue('call-1', 'lead-1', issued);
+    expect(readCallCookie(value, issued + 19 * 60_000)).not.toBeNull();
+    expect(readCallCookie(value, issued + 21 * 60_000)).toBeNull();
+    const [callId, leadId, at, mac] = value.split('.');
+    const later = String(Number(at) + 3600);
+    expect(readCallCookie([callId, leadId, later, mac].join('.'), issued + 61 * 60_000)).toBeNull();
     vi.unstubAllEnvs();
   });
 });

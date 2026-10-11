@@ -192,9 +192,9 @@ SCENARIOS: list[Scenario] = [
     Scenario(
         'unclear_consent_twice',
         'consent',
-        'Never gives a clear yes: treated as no.',
+        'Never gives a clear yes: nothing collected, but the call consent is not withdrawn.',
         ['hmm', 'what is this about'],
-        [outcome('consent_declined'), ended(), no_answers()],
+        [outcome('no_consent'), ended(), no_answers()],
     ),
     # -- robustness -------------------------------------------------------------------------------
     Scenario(

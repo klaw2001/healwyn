@@ -73,6 +73,14 @@ export function parseRoutingContext(json: ContextJson): RoutingContext {
   };
 }
 
+/**
+ * Serialises routing decisions for the rest of the transaction, so two decisions made at the same
+ * time (a staff member accepting a suggestion while a call result arrives) see each other's load.
+ */
+export async function lockRouting(tx: Tx): Promise<void> {
+  await tx`select pg_advisory_xact_lock(hashtext('healwyn:routing'))`;
+}
+
 /** Runs the routing engine for a lead, as the signed-in staff member (managers and coordinators). */
 export async function routeForStaff(
   tx: Tx,

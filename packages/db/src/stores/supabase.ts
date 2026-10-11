@@ -41,14 +41,15 @@ export function createSupabaseLeadStore(
       if (error) throw new LeadStoreError(`Could not record the unsubscribe (${error.code})`, { cause: error });
       return data === true;
     },
-    async startWebCall(leadId, channel, rules) {
-      const { data, error } = await client.rpc('start_web_call', {
-        p_lead_id: leadId,
-        p_channel: channel,
-        p_rules: rules as unknown as Json,
-      });
+    async startWebCall(leadId, channel) {
+      const { data, error } = await client.rpc('start_web_call', { p_lead_id: leadId, p_channel: channel });
       if (error) throw new LeadStoreError(`Could not start the call (${error.code})`, { cause: error });
       return data as CallStart;
+    },
+    async useTextFallback(callId, leadId) {
+      const { data, error } = await client.rpc('use_text_fallback', { p_call_id: callId, p_lead_id: leadId });
+      if (error) throw new LeadStoreError(`Could not switch the call to typing (${error.code})`, { cause: error });
+      return data === true;
     },
     async close() {},
   };

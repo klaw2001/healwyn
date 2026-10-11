@@ -112,16 +112,23 @@ describe.skipIf(!databaseUrl)('routing in the database', () => {
       { assigned_staff_id: string }[]
     >`select assigned_staff_id from public.leads where id = ${leadId}`;
     expect(lead!.assigned_staff_id).toBe(decision.staffId);
-    const events = await sql<{ payload: { method: string; routing: { explanation: string[] } } }[]>`
-      select payload from public.lead_events where lead_id = ${leadId} and type = 'lead.assigned'`;
+    const events = await sql<{ id: string; payload: { method: string; routing: Record<string, unknown> } }[]>`
+      select id, payload from public.lead_events where lead_id = ${leadId} and type = 'lead.assigned'`;
     expect(events).toHaveLength(1);
     expect(events[0]!.payload.method).toBe('routing');
-    expect(events[0]!.payload.routing.explanation.join(' ')).toMatch(/dermatology team/i);
+    // The audit trail keeps codes, ids and scores; the words live beside it and go with erasure.
+    expect(events[0]!.payload.routing).not.toHaveProperty('explanation');
+    expect(events[0]!.payload.routing).toMatchObject({ pool: 'specialty' });
+    const [explained] = await sql<{ lines: string[] }[]>`
+      select lines from public.assignment_explanations where event_id = ${events[0]!.id}`;
+    expect(explained!.lines.join(' ')).toMatch(/dermatology team/i);
     const tasks = await sql<{ title: string; assignee_staff_id: string }[]>`
       select title, assignee_staff_id from public.tasks where lead_id = ${leadId}`;
     expect(tasks).toEqual([
       { title: 'Check insurance cover', assignee_staff_id: decision.routing!.copyIn[0]!.staffId },
     ]);
+    await sql`select public.erase_lead(${leadId}, 'test')`;
+    expect(await sql`select 1 from public.assignment_explanations where lead_id = ${leadId}`).toHaveLength(0);
   });
 
   it('rejects unknown methods, free-text reasons and oversized routing payloads', async () => {
@@ -141,5 +148,13 @@ describe.skipIf(!databaseUrl)('routing in the database', () => {
     await expect(
       attempt('manual', { method: 'manual', copy_in: [{ staff_id: staffId, reason: 'free text here' }] }),
     ).rejects.toThrow(/short code/);
+    // Only known fields, and nothing but codes, ids and numbers outside the explanation.
+    await expect(attempt('manual', { method: 'manual', note: 'the patient said…' })).rejects.toThrow(/unexpected/);
+    await expect(
+      attempt('manual', { method: 'manual', candidates: [{ staff_id: staffId, total: 1, why: 'free text' }] }),
+    ).rejects.toThrow(/unexpected/);
+    await expect(attempt('manual', { method: 'manual', explanation: ['x'.repeat(400)] })).rejects.toThrow(
+      /short lines/,
+    );
   });
 });

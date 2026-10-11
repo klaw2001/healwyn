@@ -13,6 +13,7 @@ export function createUnconfiguredLeadStore(): LeadStore {
     hitRateLimit: fail,
     optOut: fail,
     startWebCall: fail,
+    useTextFallback: fail,
     async close() {},
   };
 }

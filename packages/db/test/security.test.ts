@@ -42,7 +42,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
     }
   });
 
-  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead and start_web_call', async () => {
+  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead and its call functions', async () => {
     const rows = await sql<{ fn: string }[]>`
       select p.oid::regprocedure::text as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -51,8 +51,9 @@ describe.skipIf(!databaseUrl)('database security', () => {
     expect(rows.map((r) => r.fn)).toEqual([
       'hit_rate_limit(text,integer,integer)',
       'opt_out_lead(uuid,text)',
-      'start_web_call(uuid,text,jsonb)',
+      'start_web_call(uuid,text)',
       'submit_lead(jsonb)',
+      'use_text_fallback(uuid,uuid)',
     ]);
   });
 
@@ -91,7 +92,7 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'current_staff_role()',
       'enroll_lead(uuid,jsonb)',
       'mark_replied(uuid)',
-      'place_assistant_call(uuid,text,jsonb)',
+      'place_assistant_call(uuid,text)',
       'record_consent_withdrawal(uuid,text,boolean)',
       'remove_verified_number(text)',
       'routing_context(uuid,text[])',

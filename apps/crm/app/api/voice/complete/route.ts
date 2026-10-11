@@ -1,6 +1,7 @@
 import { voiceCallResultSchema, VoiceResultError, type VoiceCallResult } from '@healwyn/core';
 import { NextResponse, type NextRequest } from 'next/server';
-import { applyVoiceResult } from '@/lib/server/voice';
+import { readBodyLimited } from '@/lib/server/body';
+import { applyVoiceResult, failVoiceCall } from '@/lib/server/voice';
 import { verifySignedRequest } from '@/lib/server/webhooks';
 
 /** Generous for a five-minute call (200 transcript lines at most); anything bigger is refused unread. */
@@ -21,10 +22,8 @@ function log(level: 'info' | 'warn' | 'error', event: string, fields: Record<str
  * callId). The call must have been started through the website or the dialer.
  */
 export async function POST(request: NextRequest) {
-  const length = Number(request.headers.get('content-length') ?? '0');
-  if (length > MAX_BODY_BYTES) return NextResponse.json({ error: 'too_large' }, { status: 413 });
-  const raw = await request.text();
-  if (Buffer.byteLength(raw) > MAX_BODY_BYTES) return NextResponse.json({ error: 'too_large' }, { status: 413 });
+  const raw = await readBodyLimited(request, MAX_BODY_BYTES);
+  if (raw === null) return NextResponse.json({ error: 'too_large' }, { status: 413 });
 
   const check = verifySignedRequest(raw, request.headers, process.env.VOICE_WEBHOOK_SECRET);
   if (!check.ok) {
@@ -48,13 +47,16 @@ export async function POST(request: NextRequest) {
       outcome: result.outcome,
       channel: result.channel,
       durationSeconds: result.durationSeconds,
-      flags: result.safetyFlags.map((f) => f.code),
+      flags: result.safetyFlags.length,
       routed: Boolean(outcome.assignedStaffId),
     });
     return NextResponse.json({ ok: true, ...outcome });
   } catch (error) {
     if (error instanceof VoiceResultError) {
+      // Signed by our agent but not acceptable for the pack (e.g. the voice script and the pack drifted):
+      // close the call as failed so it does not stay "started", and say so on the lead's timeline.
       log('warn', 'voice.webhook_invalid', { callId: result.callId });
+      await failVoiceCall(result.callId, result.leadId, 'invalid_result').catch(() => undefined);
       return NextResponse.json({ error: 'invalid_payload' }, { status: 400 });
     }
     const code = (error as { code?: string }).code;

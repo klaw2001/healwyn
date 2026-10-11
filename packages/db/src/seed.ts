@@ -1,5 +1,6 @@
 import {
   BRAND,
+  callPolicies,
   clinicDemoLeads,
   clinicDemoStaff,
   clinicPack,
@@ -10,6 +11,7 @@ import {
   renderTemplate,
   scoreLead,
   sha256Hex,
+  type CallPolicy,
   type DemoLead,
   type IndustryPack,
   type PlannedStep,
@@ -35,6 +37,20 @@ function uuid(seed: string): string {
 }
 
 export const DEFAULT_DEMO_PASSWORD = 'demo-pass-2026';
+
+/** Upserts one call policy (the rules `start_call` enforces), derived from the pack. */
+export function callPolicySql(policy: CallPolicy): string {
+  const num = (value: number | null) => (value === null ? 'null' : String(Math.trunc(value)));
+  return `insert into public.call_policies (industry, channel, cap_group, consent_purpose, max_per_day,
+  max_per_phone_per_day, outbound, window_start, window_end, time_zone, require_verified)
+values (${lit(policy.industry)}, ${lit(policy.channel)}, ${lit(policy.cap_group)}, ${lit(policy.consent_purpose)},
+  ${num(policy.max_per_day)}, ${num(policy.max_per_phone_per_day)}, ${policy.outbound}, ${num(policy.window_start)},
+  ${num(policy.window_end)}, ${lit(policy.time_zone)}, ${policy.require_verified})
+on conflict (industry, channel) do update set cap_group = excluded.cap_group, consent_purpose = excluded.consent_purpose,
+  max_per_day = excluded.max_per_day, max_per_phone_per_day = excluded.max_per_phone_per_day,
+  outbound = excluded.outbound, window_start = excluded.window_start, window_end = excluded.window_end,
+  time_zone = excluded.time_zone, require_verified = excluded.require_verified, updated_at = now();`;
+}
 
 export function staffEmail(fullName: string): string {
   const local = fullName
@@ -198,7 +214,7 @@ function simulate(lead: DemoLead, pack: IndustryPack, now: Date) {
 
 /**
  * Builds an idempotent seed script for the clinic demo:
- * - specialties, staff (with roles) and one Supabase Auth user per staff member;
+ * - specialties, the assistant's call policies, staff (with roles) and one Supabase Auth user per staff member;
  * - 40 demo leads (is_demo) with consent records, events, notes, tasks,
  *   nurture enrolments, schedules, messages and scores.
  * Demo leads are replaced on every run; real leads are never touched.
@@ -220,6 +236,8 @@ values (${lit(offering.slug)}, ${lit(pack.id)}, ${lit(offering.name)}, ${lit(off
 on conflict (slug) do update set name = excluded.name, summary = excluded.summary, sort_order = excluded.sort_order, active = true;`,
     );
   });
+
+  for (const policy of callPolicies(pack)) statements.push(callPolicySql(policy));
 
   for (const member of clinicDemoStaff) {
     const authId = demoAuthUserId(member.id);

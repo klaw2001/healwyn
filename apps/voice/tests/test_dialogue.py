@@ -65,7 +65,17 @@ def test_unclear_consent_is_asked_once_more_then_treated_as_no(new_session):
     first = run(session, 'hmm what')
     assert not first.end and 'yes or no' in first.text
     assert session.handle('the weather is nice').end
-    assert session.outcome == 'consent_declined'
+    # Nothing is collected, but an unclear answer is not a "no": the call consent is not withdrawn.
+    assert session.outcome == 'no_consent'
+
+
+def test_leaving_before_answering_is_not_declining(new_session):
+    session = new_session()
+    session.caller_hung_up()
+    result = session.result()
+    assert result.outcome == 'caller_ended'
+    assert dict(result.answers) == {}
+    assert 'before the caller agreed' in result.summary[-1].root
 
 
 def test_vague_answers_get_one_retry_then_a_coordinator_triages(new_session):

@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { CALL_COOKIE, readCallCookie } from '@/lib/server/assistant';
+import { getLeadStore } from '@/lib/server/lead-store';
 import { errorFields, log } from '@/lib/server/log';
 import { textService } from '@/lib/server/voice-service';
 
-/** The microphone was refused or the voice call could not connect: continue the same call by typing. */
+/**
+ * The microphone was refused or the voice call could not connect: continue the same call by typing.
+ * Once per call (the database flips the call from browser to typed), so a kept cookie cannot start
+ * more chats; a late result from the voice agent for this call is then ignored.
+ */
 export async function POST(request: NextRequest) {
   const call = readCallCookie(request.cookies.get(CALL_COOKIE)?.value);
   if (!call) return NextResponse.json({ error: 'no_call' }, { status: 401 });
@@ -15,6 +20,10 @@ export async function POST(request: NextRequest) {
     /* default language */
   }
   try {
+    if (!(await getLeadStore().useTextFallback(call.callId, call.leadId))) {
+      log.warn('assistant.fallback_refused', { callId: call.callId });
+      return NextResponse.json({ error: 'call_ended' }, { status: 410 });
+    }
     const started = await textService().start({ callId: call.callId, leadId: call.leadId, channel: 'text', language });
     log.info('assistant.fallback_to_text', { callId: call.callId });
     return NextResponse.json({ status: 'text', ...started });

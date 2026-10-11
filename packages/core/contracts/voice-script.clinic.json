@@ -1285,6 +1285,7 @@
     "maxCallSeconds": 300,
     "maxTurns": 40,
     "maxCallsPerDay": 50,
+    "maxCallsPerPhonePerDay": 3,
     "callWindow": {
       "startHour": 9,
       "endHour": 21,

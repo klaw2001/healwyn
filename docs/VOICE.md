@@ -6,7 +6,9 @@ English or Hindi, confirms what it heard, and hangs up. The CRM receives a signe
 AI-triaged, routes it with an explanation, and shows the summary to staff.
 
 **Synthetic data only.** The language model runs on Gemini's free tier, whose inputs may be used to improve Google's
-products. The agent refuses to start when `VOICE_REAL_DATA=true`.
+products. The agent refuses to start when `VOICE_REAL_DATA=true`. The call consent, the widget and the privacy notice
+name LiveKit and Gemini as processors. The agent starts LiveKit sessions with `record=False`, so no audio or
+transcript is uploaded to LiveKit Cloud, whatever the project's setting.
 
 ## How it works
 
@@ -80,8 +82,9 @@ The CRM validates the answers against the pack. In one transaction it then:
 - rescores the lead.
 
 Replays of the same call change nothing. Before the caller agrees to continue, their words are not kept: the
-transcript stores only the assistant's lines. Declining withdraws the call consent, so the dialer will not call again.
-Erasure scrubs call content.
+transcript stores only the assistant's lines. An explicit "no" withdraws the call consent, so the dialer will not call
+again; an unclear answer or a hang-up collects nothing and withdraws nothing. Erasure scrubs call content, including
+which red flag was raised (the audit trail only records that one was).
 
 ## Providers (checked 2026-10-10; see DECISIONS.md)
 
@@ -102,8 +105,10 @@ Every provider is swappable through config. Fallbacks:
 ## Cost guards
 
 - **Per call:** 5 minutes and 40 turns, both from the pack. The agent ends the call politely when either runs out.
-- **Per day:** 50 calls (pack, `limits.maxCallsPerDay`), enforced in SQL when a call starts. A transaction-level
-  advisory lock makes the cap exact under concurrency. The website and the dialer then refuse with a clear message.
+- **Per day:** 50 calls per group (website, real phone, simulated; pack `limits.maxCallsPerDay`) and 3 website calls
+  per phone number (`limits.maxCallsPerPhonePerDay`), enforced in SQL when a call starts from `call_policies`, which
+  the seed writes from the pack. A transaction-level advisory lock makes the caps exact under concurrency. The website
+  and the dialer then refuse with a clear message. Starts are also limited to 5 per 10 minutes per IP, failing closed.
 - **Per call to Gemini:** only when the deterministic matcher fails, with a 6-second timeout. Failures (including the
   free tier's 429) count as "no match". Batch runs pace themselves (one request every 4.5 s).
 - **Visibility:** the manager's **AI assistant** screen in the CRM shows today against the cap, and the month
@@ -190,4 +195,5 @@ The agent logs the measured parts per turn: `agent.latency` with `endOfUtterance
 - choose a TTS with a low first byte.
 
 When the browser cannot connect to LiveKit, the widget hands over to typed chat in about 5 seconds (measured here).
-`room.connect` is capped at 12 seconds.
+`room.connect` is capped at 12 seconds. The fallback happens once per call: the database switches the call from
+browser to typed, and a late result from the voice agent for it is ignored.

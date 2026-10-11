@@ -136,6 +136,7 @@ class Limits(BaseModel):
     maxCallSeconds: int = Field(..., gt=0, le=9007199254740991)
     maxTurns: int = Field(..., gt=0, le=9007199254740991)
     maxCallsPerDay: int = Field(..., gt=0, le=9007199254740991)
+    maxCallsPerPhonePerDay: int = Field(..., gt=0, le=9007199254740991)
     callWindow: CallWindow
 
 
@@ -182,6 +183,7 @@ class CallChannel(StrEnum):
 class CallOutcome(StrEnum):
     completed = "completed"
     consent_declined = "consent_declined"
+    no_consent = "no_consent"
     emergency = "emergency"
     caller_ended = "caller_ended"
     limit_reached = "limit_reached"

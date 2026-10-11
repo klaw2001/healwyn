@@ -137,10 +137,10 @@ export const clinicPack = {
       },
       {
         id: 'assistant_call',
-        version: 'clinic-assistant-call-v1',
+        version: 'clinic-assistant-call-v2',
         required: false,
         title: 'Call from the AI assistant (9am to 9pm)',
-        text: "Optional: I agree to receive a call from {brand}'s AI assistant between 9am and 9pm India time, so it can understand what I need before I am matched with a doctor's team. I can withdraw this consent at any time by emailing {email} or by saying so on the call.",
+        text: "Optional: I agree to receive a call from {brand}'s AI assistant between 9am and 9pm India time, so it can understand what I need before I am matched with a doctor's team. The call is handled by automated services (LiveKit speech services and Google Gemini), and Gemini's free service may use what I say to improve Google's products. I can withdraw this consent at any time by emailing {email} or by saying so on the call.",
         erasesDataOnWithdrawal: false,
       },
     ],

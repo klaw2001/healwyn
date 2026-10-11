@@ -117,6 +117,8 @@ export interface TimelineEvent {
   actor_type: string;
   actor_name: string | null;
   payload: Record<string, unknown>;
+  /** Why a lead was assigned, in words (kept outside the audit trail; erased with the lead). */
+  explanation: string[] | null;
   created_at: Date;
 }
 
@@ -211,8 +213,11 @@ export async function getLeadProfile(session: Session, id: string): Promise<Lead
       { factors: LeadProfile['factors'] }[]
     >`select factors from public.lead_scores where lead_id = ${id}`;
     const events = await tx<TimelineEvent[]>`
-      select e.id::text, e.type, e.actor_type, st.full_name as actor_name, e.payload, e.created_at
-      from public.lead_events e left join public.staff st on st.id = e.actor_id
+      select e.id::text, e.type, e.actor_type, st.full_name as actor_name, e.payload, x.lines as explanation,
+             e.created_at
+      from public.lead_events e
+      left join public.staff st on st.id = e.actor_id
+      left join public.assignment_explanations x on x.event_id = e.id
       where e.lead_id = ${id} order by e.created_at desc, e.id desc`;
     const notes = await tx<NoteRow[]>`
       select n.id, n.body, n.template_id, st.full_name as author_name, n.created_at

@@ -83,7 +83,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   if (!profile) notFound();
   const { lead, calls, events, notes, tasks, messages, consents, enrollments, factors } = profile;
   const routed = events.find((e) => e.type === 'lead.assigned' && e.payload.method === 'routing');
-  const routingExplanation = routed ? assignmentExplanation(routed.type, routed.payload) : [];
+  const routingExplanation = routed ? assignmentExplanation(routed) : [];
   const now = new Date();
   const erased = lead.erased_at !== null;
   const name = lead.full_name ?? 'Erased lead';
@@ -270,7 +270,7 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
             <ol className="mt-3 border-l-2 border-line pl-5">
               {events.map((event) => {
                 const note = event.type === 'note.added' ? noteById.get(String(event.payload.note_id)) : undefined;
-                const why = assignmentExplanation(event.type, event.payload);
+                const why = assignmentExplanation(event);
                 return (
                   <li key={event.id} className="relative pb-4">
                     <span

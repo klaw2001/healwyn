@@ -1,16 +1,16 @@
 import json
+import socket
 import threading
 import urllib.error
 import urllib.request
 import uuid
 from dataclasses import replace
-from http.server import ThreadingHTTPServer
 
 import pytest
 
 from healwyn_voice.config import REPO_ROOT, Settings
-from healwyn_voice.server import Service, make_handler
-from healwyn_voice.webhook import sign
+from healwyn_voice.server import Server, Service, make_handler
+from healwyn_voice.webhook import sign_request
 
 SECRET = 'a' * 40
 LEAD = '1ead0000-0000-4000-8000-000000000001'
@@ -42,16 +42,17 @@ def service():
 
 @pytest.fixture
 def base_url(service):
-    httpd = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(service))
+    httpd = Server(('127.0.0.1', 0), make_handler(service))
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     yield f'http://127.0.0.1:{httpd.server_address[1]}'
     httpd.shutdown()
 
 
-def call(base_url, path, body, secret=SECRET, timestamp=None):
+def call(base_url, path, body, secret=SECRET, timestamp=None, signed_path=None):
     data = json.dumps(body).encode()
-    headers = {'content-type': 'application/json', **(sign(data, secret, timestamp) if secret else {})}
+    signature = sign_request('POST', signed_path or path, data, secret, timestamp) if secret else {}
+    headers = {'content-type': 'application/json', **signature}
     request = urllib.request.Request(base_url + path, data=data, headers=headers, method='POST')
     try:
         with urllib.request.urlopen(request) as response:
@@ -65,6 +66,25 @@ def test_rejects_unsigned_forged_and_stale_requests(base_url):
     assert call(base_url, '/sessions', body, secret=None) == (401, {'error': 'missing_signature'})
     assert call(base_url, '/sessions', body, secret='b' * 40) == (401, {'error': 'bad_signature'})
     assert call(base_url, '/sessions', body, timestamp=1_000) == (401, {'error': 'stale'})
+    # A request signed for one endpoint is refused at another.
+    assert call(base_url, '/simulate', body, signed_path='/sessions') == (401, {'error': 'bad_signature'})
+
+
+def test_survives_malformed_requests(base_url):
+    host, port = base_url.removeprefix('http://').split(':')
+    for length in ('-1', 'abc', '\u0661'):
+        with socket.create_connection((host, int(port)), timeout=5) as conn:
+            conn.sendall(f'POST /sessions HTTP/1.1\r\nHost: x\r\nContent-Length: {length}\r\n\r\n'.encode())
+            assert b' 400 ' in conn.recv(200)
+
+
+def test_a_call_id_runs_once(base_url, service):
+    call_id = str(uuid.uuid4())
+    body = {'callId': call_id, 'leadId': LEAD, 'channel': 'text'}
+    assert call(base_url, '/sessions', body)[0] == 200
+    assert call(base_url, '/sessions', body)[0] == 400  # already running
+    call(base_url, f'/sessions/{call_id}/end', {})
+    assert call(base_url, '/sessions', body)[0] == 400  # finished: a kept cookie cannot restart it
 
 
 def test_a_typed_chat_from_greeting_to_result(base_url, service):

@@ -29,7 +29,11 @@ export default function PrivacyPage() {
         <li>the language you would like us to use;</li>
         <li>the answers you choose on the form, such as the kind of help you need and when to contact you;</li>
         <li>an optional short note. Please do not include test results, diagnoses, medicines or ID numbers;</li>
-        <li>a record of the consents you gave or withdrew, which wording you saw, and when.</li>
+        <li>a record of the consents you gave or withdrew, which wording you saw, and when;</li>
+        <li>
+          if you talk to our AI assistant: a summary, the answers it understood and a transcript, kept with your
+          enquiry. Until you agree to continue the call, only the assistant&apos;s words are kept.
+        </li>
       </ul>
       <p>
         We do not use analytics, advertising cookies or third-party trackers. To stop spam we keep a short-lived,
@@ -80,7 +84,12 @@ export default function PrivacyPage() {
         <li>our database provider, which stores enquiries in access-controlled storage;</li>
         <li>
           our email provider, which sends notifications to our team. Notification emails leave out your name, full phone
-          number and note.
+          number and note;
+        </li>
+        <li>
+          for calls with the AI assistant: LiveKit and its speech partners, which carry the call and turn speech into
+          text and back, and Google Gemini, which helps understand some answers. Gemini&apos;s free service may use that
+          text to improve Google&apos;s products, so this demo uses made-up details only. No audio is recorded.
         </li>
       </ul>
 

@@ -1,19 +1,13 @@
-import { clinicDemoStaff, DEMO_USERS, demoAuthUserId, type StaffRole } from '@healwyn/core';
+import { callPolicies, clinicDemoStaff, clinicPack, DEMO_USERS, demoAuthUserId, type StaffRole } from '@healwyn/core';
 import { randomUUID } from 'node:crypto';
 import type postgres from 'postgres';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createPostgresLeadStore } from '../src';
+import { callPolicySql } from '../src/seed';
 import { asUser, connect, databaseUrl, samplePayload } from './helpers';
 
 const user = (role: StaffRole) => demoAuthUserId(DEMO_USERS.find((u) => u.role === role)!.staffId);
-const RULES = {
-  consent_purpose: 'assistant_call',
-  max_per_day: 10_000,
-  window_start: 0,
-  window_end: 24,
-  time_zone: 'Asia/Kolkata',
-  require_verified: false,
-};
+const callPolicyRows = async () => callPolicies(clinicPack).map(callPolicySql).join('\n');
 
 describe.skipIf(!databaseUrl)('voice calls in the database', () => {
   const sql = databaseUrl ? connect() : (null as never);
@@ -28,12 +22,30 @@ describe.skipIf(!databaseUrl)('voice calls in the database', () => {
       await tx.unsafe(`set local role ${role}`);
       return fn(tx);
     }) as Promise<T>;
-  const startWeb = (leadId: string, rules: object = RULES) =>
+  const startWeb = (leadId: string, channel: 'browser' | 'text' = 'browser') =>
     asRole('web_submitter', async (tx) => {
       const [row] = await tx<{ r: { allowed: boolean; reason?: string; call_id?: string } }[]>`
-        select public.start_web_call(${leadId}, 'browser', ${tx.json(rules as never)}) as r`;
+        select public.start_web_call(${leadId}, ${channel}) as r`;
       return row!.r;
     });
+  /** The call rules live in SQL (written from the pack by the seed); a test changes one and restores it. */
+  const withPolicy = async <T>(channel: string, changes: Record<string, unknown>, fn: () => Promise<T>) => {
+    const [before] = await sql`select * from public.call_policies where industry = 'clinic' and channel = ${channel}`;
+    await sql`update public.call_policies set ${sql(changes)} where industry = 'clinic' and channel = ${channel}`;
+    try {
+      return await fn();
+    } finally {
+      const restore = Object.fromEntries(Object.keys(changes).map((k) => [k, before![k]]));
+      await sql`update public.call_policies set ${sql(restore)} where industry = 'clinic' and channel = ${channel}`;
+    }
+  };
+  const callsToday = async (channels: string[]) => {
+    const [counted] = await sql<{ n: number }[]>`
+      select count(*)::int as n from public.call_sessions
+      where channel in ${sql(channels)}
+        and started_at >= date_trunc('day', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata'`;
+    return counted!.n;
+  };
   const result = (callId: string, leadId: string, overrides: object = {}) => ({
     version: 1,
     callId,
@@ -75,35 +87,68 @@ describe.skipIf(!databaseUrl)('voice calls in the database', () => {
     expect(events.map((e) => e.payload.reason)).toEqual(['no_call_consent']);
   });
 
-  it('enforces the daily cap', async () => {
+  it('enforces a daily cap per group, so website calls cannot use up the dialer', async () => {
     const lead = await store.submitLead(await samplePayload());
-    const [counted] = await sql<{ n: number }[]>`
-      select count(*)::int as n from public.call_sessions
-      where started_at >= date_trunc('day', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata'`;
-    const n = counted!.n;
-    expect(await startWeb(lead.id, { ...RULES, max_per_day: n })).toMatchObject({
-      allowed: false,
-      reason: 'daily_limit',
+    const n = await callsToday(['browser', 'text']);
+    await withPolicy('browser', { max_per_day: n }, async () => {
+      expect(await startWeb(lead.id)).toMatchObject({ allowed: false, reason: 'daily_limit' });
+      // The simulated dialer has its own cap.
+      const placed = await asUser(sql, user('care_coordinator'), async (tx) => {
+        const [row] = await tx<{ r: { allowed: boolean } }[]>`
+          select public.place_assistant_call(${lead.id}, 'simulated') as r`;
+        return row!.r;
+      });
+      expect(placed).toMatchObject({ allowed: true });
     });
-    expect(await startWeb(lead.id, { ...RULES, max_per_day: n + 1 })).toMatchObject({ allowed: true });
+    await withPolicy('browser', { max_per_day: n + 1 }, async () => {
+      expect(await startWeb(lead.id)).toMatchObject({ allowed: true });
+    });
+  });
+
+  it('caps website calls per phone number, across leads', async () => {
+    const phone = `98${String(Date.now()).slice(-8)}`;
+    const first = await store.submitLead(await samplePayload({ phone }));
+    const second = await store.submitLead(await samplePayload({ phone }));
+    await withPolicy('browser', { max_per_phone_per_day: 2 }, async () => {
+      expect(await startWeb(first.id)).toMatchObject({ allowed: true });
+      expect(await startWeb(second.id)).toMatchObject({ allowed: true });
+      expect(await startWeb(second.id)).toMatchObject({ allowed: false, reason: 'phone_daily_limit' });
+    });
+  });
+
+  it('refuses calls on channels with no policy', async () => {
+    const lead = await store.submitLead(await samplePayload());
+    await sql`delete from public.call_policies where industry = 'clinic' and channel = 'text'`;
+    try {
+      expect(await startWeb(lead.id, 'text')).toMatchObject({ allowed: false, reason: 'not_configured' });
+    } finally {
+      await sql.unsafe(await callPolicyRows());
+    }
   });
 
   it('lets only the front desk place outbound calls, inside the call window, to verified numbers when required', async () => {
     const lead = await store.submitLead(await samplePayload());
-    const place = (role: StaffRole, rules: object) =>
+    const place = (role: StaffRole) =>
       asUser(sql, user(role), async (tx) => {
         const [row] = await tx<{ r: { allowed: boolean; reason?: string } }[]>`
-          select public.place_assistant_call(${lead.id}, 'simulated', ${tx.json(rules as never)}) as r`;
+          select public.place_assistant_call(${lead.id}, 'phone') as r`;
         return row!.r;
       });
-    await expect(place('specialist_doctor', RULES)).rejects.toThrow(/may not do this/);
-    expect(await place('care_coordinator', { ...RULES, window_start: 0, window_end: 0 })).toMatchObject({
-      allowed: false,
-      reason: 'outside_call_window',
+    // Rules come from call_policies, not from the caller: the old signature with rules is gone.
+    await expect(
+      asUser(sql, user('care_coordinator'), (tx) => tx`select public.place_assistant_call(${lead.id}, 'phone', '{}')`),
+    ).rejects.toThrow(/does not exist/);
+    await expect(place('specialist_doctor')).rejects.toThrow(/may not do this/);
+    await withPolicy('phone', { window_start: 0, window_end: 1, time_zone: 'Pacific/Kiritimati' }, async () => {
+      const [hour] = await sql<
+        { h: number }[]
+      >`select extract(hour from now() at time zone 'Pacific/Kiritimati')::int as h`;
+      if (hour!.h !== 0) expect(await place('care_coordinator')).toMatchObject({ reason: 'outside_call_window' });
     });
-    expect(await place('care_coordinator', { ...RULES, require_verified: true })).toMatchObject({
-      allowed: false,
-      reason: 'number_not_verified',
+    // Any hour: the window is checked first, so open it for the rest of the test.
+    const open = { window_start: 0, window_end: 24 };
+    await withPolicy('phone', open, async () => {
+      expect(await place('care_coordinator')).toMatchObject({ allowed: false, reason: 'number_not_verified' });
     });
     const [row] = await sql<{ phone: string }[]>`select phone from public.leads where id = ${lead.id}`;
     const phone = row!.phone;
@@ -111,7 +156,9 @@ describe.skipIf(!databaseUrl)('voice calls in the database', () => {
     await expect(
       asUser(sql, user('care_coordinator'), (tx) => tx`select public.add_verified_number(${phone}, 'x')`),
     ).rejects.toThrow(/may not do this/);
-    expect(await place('care_coordinator', { ...RULES, require_verified: true })).toMatchObject({ allowed: true });
+    await withPolicy('phone', open, async () => {
+      expect(await place('care_coordinator')).toMatchObject({ allowed: true });
+    });
     await asUser(sql, user('manager'), (tx) => tx`select public.remove_verified_number(${phone})`);
   });
 
@@ -175,8 +222,58 @@ describe.skipIf(!databaseUrl)('voice calls in the database', () => {
     const tasks = await sql<{ title: string; assignee_staff_id: string }[]>`
       select title, assignee_staff_id from public.tasks where lead_id = ${lead.id} and title like 'Urgent:%'`;
     expect(tasks).toEqual([{ title: expect.stringMatching(/safety concern/), assignee_staff_id: senior }]);
-    const flagged = await sql`select 1 from public.lead_events where lead_id = ${lead.id} and type = 'safety.flagged'`;
-    expect(flagged).toHaveLength(1);
+    const flagged = await sql<{ payload: object }[]>`
+      select payload from public.lead_events where lead_id = ${lead.id} and type = 'safety.flagged'`;
+    // The audit trail (which outlives erasure) says a red flag happened, not which one.
+    expect(flagged.map((f) => f.payload)).toEqual([{ call_id: call_id!, kind: 'red_flag' }]);
+    const [completed] = await sql<{ payload: Record<string, unknown> }[]>`
+      select payload from public.lead_events where lead_id = ${lead.id} and type = 'call.completed'`;
+    expect(completed!.payload).toMatchObject({ flag_count: 1 });
+    expect(JSON.stringify(completed!.payload)).not.toContain('chest_pain');
+  });
+
+  it('continues a browser call by typing once, and ignores the voice agent’s late result', async () => {
+    const lead = await store.submitLead(await samplePayload());
+    const { call_id } = await startWeb(lead.id);
+    const fallback = await createPostgresLeadStore(databaseUrl!);
+    try {
+      expect(await fallback.useTextFallback(call_id!, randomUUID())).toBe(false);
+      expect(await fallback.useTextFallback(call_id!, lead.id)).toBe(true);
+      expect(await fallback.useTextFallback(call_id!, lead.id)).toBe(false); // once per call
+    } finally {
+      await fallback.close();
+    }
+    expect(
+      await record(result(call_id!, lead.id, { outcome: 'caller_ended', consentToContinue: false }), {}),
+    ).toMatchObject({ status: 'superseded' });
+    expect(await record(result(call_id!, lead.id, { channel: 'text' }), { answers: {} })).toMatchObject({
+      status: 'recorded',
+    });
+    await expect(record(result(call_id!, lead.id, { channel: 'phone' }), {})).resolves.toMatchObject({
+      status: 'duplicate',
+    });
+    const typed = await startWeb(lead.id, 'text');
+    expect(
+      await asRole('web_submitter', (tx) => tx`select public.use_text_fallback(${typed.call_id!}, ${lead.id}) as ok`),
+    ).toEqual([{ ok: false }]);
+    await expect(record(result(typed.call_id!, lead.id, { channel: 'phone' }), {})).rejects.toThrow(/channel/);
+  });
+
+  it('closes a call the CRM cannot use as failed', async () => {
+    const lead = await store.submitLead(await samplePayload());
+    const { call_id } = await startWeb(lead.id);
+    const fail = () =>
+      asRole('crm_server', async (tx) => {
+        const [row] = await tx<
+          { ok: boolean }[]
+        >`select public.fail_voice_call(${call_id!}, ${lead.id}, 'invalid_result') as ok`;
+        return row!.ok;
+      });
+    expect(await fail()).toBe(true);
+    expect(await fail()).toBe(false);
+    const [session] = await sql`select status, outcome from public.call_sessions where id = ${call_id!}`;
+    expect(session).toEqual({ status: 'failed', outcome: 'error' });
+    expect(await record(result(call_id!, lead.id), {})).toMatchObject({ status: 'duplicate' });
   });
 
   it('withdraws call consent when the caller declines, so the dialer will not call again', async () => {
@@ -207,7 +304,8 @@ describe.skipIf(!databaseUrl)('voice calls in the database', () => {
     expect(asCoordinator).toHaveLength(1);
 
     await sql`select public.erase_lead(${lead.id}, 'test')`;
-    const [scrubbed] = await sql`select answers, summary, transcript from public.call_sessions where id = ${call_id!}`;
-    expect(scrubbed).toEqual({ answers: {}, summary: [], transcript: [] });
+    const [scrubbed] = await sql`
+      select answers, summary, transcript, safety_flags from public.call_sessions where id = ${call_id!}`;
+    expect(scrubbed).toEqual({ answers: {}, summary: [], transcript: [], safety_flags: [] });
   });
 });

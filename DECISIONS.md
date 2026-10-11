@@ -164,12 +164,13 @@ An independent review pass found no secret leaks, no injection risks and no high
 - **No LLM attached to the LiveKit session.** The agent overrides `on_user_turn_completed` and answers with `session.say()`, so LiveKit's pipeline cannot generate a reply on its own.
 - **One engine for every channel.** The LiveKit agent, the typed chat, the simulated dialer and the eval drive the same `IntakeSession`, so the evaluated behaviour is the shipped behaviour.
 - **English and Hindi, switching on the caller's language** (Devanagari, or several common romanised words), with synonyms in both, Hinglish included. These are the pack's languages; more are a pack change.
-- **Before the caller agrees, their words are not kept**: the transcript stores only the assistant's lines. Declining withdraws the call consent, so the dialer will not call again.
+- **Before the caller agrees, their words are not kept**: the transcript stores only the assistant's lines. Only an explicit "no" (or a goodbye when asked whether to continue) withdraws the call consent, so the dialer will not call again. An unclear answer twice (`no_consent`) or hanging up (`caller_ended`) collects nothing but withdraws nothing: an unanswered phone call must not count as a refusal.
 - **Idle sessions end as `caller_ended`.** A typed chat abandoned for 3 minutes is closed by the service's sweeper with what it has, the same as a hang-up, so the lead still reaches the CRM.
 
 ### Calls and cost
 
-- **Every call starts in SQL (`start_call`)**, which checks the call consent, opt-out, erasure and the daily cap (50, from the pack) under a transaction-level advisory lock, and logs every refusal as `call.refused` with a reason code. Limits per call: 5 minutes and 40 turns.
+- **Every call starts in SQL (`start_call`)**, which checks the call consent, opt-out, erasure and the daily caps under a transaction-level advisory lock, and logs every refusal as `call.refused` with a reason code. The rules live in `call_policies` (one row per industry and channel), which the seed writes from the pack with `callPolicies(pack)`; callers pass only the lead and the channel, so nobody can name another consent or skip the window through the API. Limits per call: 5 minutes and 40 turns.
+- **Separate daily caps per group** (website calls, real phone calls, simulated calls: 50 each from the pack) and **3 website calls per phone number a day**, so one visitor cannot use up the calls staff need. The assistant's start limit (5 per 10 minutes per IP) fails closed: requests without an IP share one bucket, and a limiter error refuses the start.
 - **The 9am–9pm India-time window applies to real phone calls only.** A simulated call rings nobody, so it runs every other check at any hour; this also keeps the e2e suite independent of the time of day.
 - **Real phone calls need a LiveKit SIP trunk, which was not created.** A Twilio trial (verified numbers only) needs sign-up and phone verification, which this build did not do on the user's behalf. The code path exists (`placePhoneCall`), is gated on `LIVEKIT_SIP_TRUNK_ID`, and also refuses numbers not on the CRM's verified list. The simulated dialer runs the real engine with the lead's own form answers as the caller's lines.
 - **The website creates the lead before the call starts** (source `voice`, with both consents), so a dropped call still leaves a lead staff can follow up, and the call result has a lead to attach to.
@@ -179,10 +180,27 @@ An independent review pass found no secret leaks, no injection risks and no high
 
 - **`Permissions-Policy: microphone=(self)`.** Phase 1 set `microphone=()`, which silently blocks `getUserMedia` on our own page. Only this origin may ask; frames still get nothing.
 - **Voice falls back to typed chat.** If LiveKit cannot connect (the connect call is capped at 12 seconds) or the microphone is refused, the widget switches to typing in the same session. In this sandbox the fallback took about 5 seconds.
-- **The call cookie (`hw_call`) is an HMAC of the call and lead ids** (`VOICE_AGENT_SECRET`), httpOnly and SameSite=Strict, so a visitor can only send turns to their own call.
+- **The call cookie (`hw_call`) is an HMAC of the call id, lead id and issue time** (`VOICE_AGENT_SECRET`), httpOnly, SameSite=Strict, scoped to `/api/assistant` and valid for 20 minutes, so a visitor can only continue their own, recent call.
+- **A browser call can fall back to typing once** (`use_text_fallback` flips the call from browser to typed in SQL). The text service also refuses a call id it has already run, and a late result from the voice agent for that call is ignored (`superseded`), so the typed answers win and a kept cookie cannot start more chats.
+- **The LiveKit token lives 60 seconds and allows the microphone only** (no video, screen share or data). It is only needed to join; LiveKit refreshes it for a connected caller.
 - **Assistant starts are rate-limited like the forms** (5 per 10 minutes per IP hash), on top of the daily cap.
 
 ### Contracts
 
 - **zod is the source of truth; JSON Schema and pydantic are generated** (`pnpm contracts`, datamodel-code-generator 0.83). `contracts:check` in `pnpm check` fails on drift. zod's `pattern` on `uuid` and `datetime` strings is dropped from the JSON Schema because pydantic rejects `pattern` alongside those formats; the format still validates.
 - **Python tooling lives in `apps/voice/.venv`, created by `scripts/voice.sh`** (uv when available). ruff and pytest run inside `pnpm check`, so the Python side shares the commit gate.
+
+### Security review (end of Phase 3)
+
+A review of the Phase 3 code found no authorisation bypass. Fixed before tagging:
+
+- **Hang-ups were recorded as consent withdrawals** and a voice agent left alone in a room could report a call that had continued as a typed chat. Now only an explicit "no" withdraws, the agent reports nothing when nobody joined, and the typed fallback supersedes the agent's result (see above).
+- **Call rules came from the caller.** Moved to `call_policies` in SQL (see above).
+- **One visitor could use up the shared daily cap.** Separate caps per group, a per-phone cap, and a start limit that fails closed (see above).
+- **Third-party processing was not disclosed.** The call consent (now `clinic-assistant-call-v2`), the widget and the privacy notice name LiveKit and Gemini and say Gemini's free tier may use the text. The agent passes `record=False`, so no audio or transcript goes to LiveKit Cloud whatever the project setting, and the LiveKit agents logger stays at INFO (it logs user transcripts at DEBUG).
+- **Health categories outlived erasure in the audit trail.** `safety.flagged` and `call.completed` now carry `kind: red_flag` and counts; the category stays in `call_sessions`, whose flags erasure clears.
+- **Routing explanations (free text) were stored in `lead_events`.** They move to `assignment_explanations`, deleted by erasure; `assign_lead` now accepts only known fields, and codes, ids and numbers outside the explanation lines. Assignees must belong to the lead's industry.
+- **Text-service signatures did not cover the endpoint.** Requests now sign `{timestamp}.{METHOD} {path}.{body}` (`signServiceRequest` in `packages/messaging`), so a captured request cannot be replayed to another endpoint or call.
+- **The Python HTTP handler trusted its input before checking signatures.** Strict Content-Length and header parsing, a 15-second socket timeout, and no tracebacks with client addresses.
+- **Results the CRM could not accept left calls "started".** They are now closed as `failed` (`fail_voice_call`), and request bodies are read with a hard size limit even without Content-Length.
+- **Accepting a routing suggestion did not take the routing lock** the webhook takes; both now serialise (`lockRouting`).

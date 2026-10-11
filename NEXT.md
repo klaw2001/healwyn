@@ -47,10 +47,16 @@ listed here. Recreate a tag anywhere with `git tag -a phase-N-complete <sha> -m 
   of the microphone; voice through LiveKit with live captions, an "AI assistant" label, mute and end; typed chat when
   the microphone is refused or LiveKit is unreachable (connect capped at 12 s). The lead is created first, so a dropped
   call still reaches staff.
-- **Data.** Migrations `20261012000001` to `…03`: routing context functions, `assign_lead` with the method and
+- **Data.** Migrations `20261012000001` to `…04`: routing context functions, `assign_lead` with the method and
   explanation, `call_sessions`, `verified_demo_numbers`, `start_call` (consent, opt-out, erasure, cap; window and
   verified number for phone), `record_voice_call` (idempotent, stores the channel), `apply_voice_outcome`,
   `save_call_lead_score`, and erasure of call content.
+
+- **Security review fixes** (see `DECISIONS.md`, "Security review"): only an explicit "no" withdraws the call
+  consent; call rules in SQL (`call_policies`); separate caps per group and per phone; an expiring call cookie and a
+  single typed fallback per call; method-and-path signatures to the text service; disclosure of LiveKit and Gemini;
+  `record=False`; red-flag categories and routing explanations out of the audit trail; failed results closed as
+  `failed`; the routing lock on accept. Migration `20261012000004_call_safeguards`.
 
 ## Verified, and how
 
@@ -78,6 +84,8 @@ listed here. Recreate a tag anywhere with `git tag -a phase-N-complete <sha> -m 
 - **Latency**: engine under 1 ms per turn; Gemini classification 0.7–1.1 s when needed; typed chat 50–190 ms per turn
   at a phone-sized viewport; voice-to-typed fallback about 5 s.
 - **LiveKit**: the agent registered with LiveKit Cloud from this sandbox.
+- **Security review** of the webhook, the text service, the website routes and the SQL by a separate review pass: no
+  authorisation bypass; 3 medium and 8 low findings, all fixed with tests (above).
 
 ## Not verified
 

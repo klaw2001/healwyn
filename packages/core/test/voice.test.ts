@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BRAND,
   buildVoiceScript,
+  callPolicies,
   clinicPack,
   leadUpdateFromCall,
   shouldRouteAfterCall,
@@ -186,10 +187,21 @@ describe('applying a call to a lead', () => {
     expect(stageAfterCall(base, 'appointment_booked', clinicPack)).toBeNull();
   });
 
-  it('routes unassigned leads unless the caller declined', () => {
+  it('routes unassigned leads the caller agreed to, and emergencies', () => {
     expect(shouldRouteAfterCall(base, null)).toBe(true);
     expect(shouldRouteAfterCall(base, 'someone')).toBe(false);
     expect(shouldRouteAfterCall({ ...base, outcome: 'consent_declined' }, null)).toBe(false);
+    expect(shouldRouteAfterCall({ ...base, outcome: 'no_consent', consentToContinue: false }, null)).toBe(false);
+    const leftEarly = { ...base, outcome: 'caller_ended', consentToContinue: false, answers: {} } as const;
+    expect(shouldRouteAfterCall(leftEarly, null)).toBe(false);
+    expect(shouldRouteAfterCall({ ...leftEarly, outcome: 'emergency' }, null)).toBe(true);
+  });
+
+  it('withdraws the call consent only when the caller said no', () => {
+    for (const outcome of ['no_consent', 'caller_ended'] as const) {
+      const update = leadUpdateFromCall({ ...base, outcome, consentToContinue: false, answers: {} }, clinicPack);
+      expect(update.withdraw_purpose).toBeUndefined();
+    }
   });
 });
 
@@ -205,5 +217,22 @@ describe('simulated caller', () => {
     expect(
       simulatedCallerTurns(clinicPack, { answers: { preferred_time: 'morning' }, message: null, language: 'hi' }),
     ).toEqual(['हाँ', 'अभी पक्का नहीं', 'कुछ नहीं', 'सुबह', 'कुछ नहीं', 'कुछ नहीं', 'हाँ']);
+  });
+});
+
+describe('call policies', () => {
+  it('derives the rules SQL enforces from the pack: separate caps, window and verified numbers for phones only', () => {
+    const policies = callPolicies(clinicPack);
+    expect(policies.map((p) => [p.channel, p.cap_group])).toEqual([
+      ['browser', 'website'],
+      ['text', 'website'],
+      ['phone', 'phone'],
+      ['simulated', 'simulated'],
+    ]);
+    const phone = policies.find((p) => p.channel === 'phone')!;
+    expect(phone).toMatchObject({ window_start: 9, window_end: 21, require_verified: true, outbound: true });
+    expect(policies.filter((p) => p.window_start !== null)).toEqual([phone]);
+    expect(policies.every((p) => p.consent_purpose === 'assistant_call' && p.max_per_day === 50)).toBe(true);
+    expect(policies.find((p) => p.channel === 'browser')!.max_per_phone_per_day).toBe(3);
   });
 });

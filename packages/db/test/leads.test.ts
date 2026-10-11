@@ -42,7 +42,7 @@ describe.skipIf(!databaseUrl)('lead storage (Postgres store)', () => {
       expect.objectContaining({
         purpose: 'assistant_call',
         granted: true,
-        text_version: 'clinic-assistant-call-v1',
+        text_version: 'clinic-assistant-call-v2',
         source: 'web_form',
       }),
       expect.objectContaining({
