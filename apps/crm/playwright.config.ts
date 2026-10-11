@@ -33,6 +33,7 @@ const role = (command: string) => (hasDb ? execFileSync('bash', [localDb, comman
 
 const WEB = 3200;
 const CRM = 3201;
+const VOICE = 3290;
 process.env.E2E_WEB_URL = `http://127.0.0.1:${WEB}`;
 process.env.E2E_CRM_URL = `http://127.0.0.1:${CRM}`;
 
@@ -44,6 +45,9 @@ const shared = {
   CRON_SECRET: process.env.CRON_SECRET ?? 'e2e-cron-secret-0123456789abcdef0123456789',
   INBOUND_WEBHOOK_SECRET: process.env.INBOUND_WEBHOOK_SECRET ?? 'e2e-inbound-secret-0123456789abcdef012345',
   SESSION_SECRET: process.env.SESSION_SECRET ?? 'e2e-session-secret-0123456789abcdef0123456789',
+  VOICE_TEXT_URL: `http://127.0.0.1:${VOICE}`,
+  VOICE_AGENT_SECRET: process.env.VOICE_AGENT_SECRET ?? 'e2e-voice-agent-secret-0123456789abcdef0123',
+  VOICE_WEBHOOK_SECRET: process.env.VOICE_WEBHOOK_SECRET ?? 'e2e-voice-webhook-secret-0123456789abcdef01',
 };
 Object.assign(process.env, shared);
 
@@ -73,6 +77,8 @@ export default defineConfig({
             WEB_DATABASE_URL: role('web-url'),
             DATABASE_URL: '',
             RATE_LIMIT_SALT: 'e2e',
+            // Typed chat in tests: a voice call would need a microphone and the LiveKit agent.
+            VOICE_BROWSER_CALLS: 'false',
           },
         },
         {
@@ -86,6 +92,14 @@ export default defineConfig({
             DEMO_LOGIN: 'true',
             AUTH_PROVIDER: 'local',
           },
+        },
+        {
+          // The agent's text service (typed chat and the simulated dialer), posting results to this CRM.
+          command: 'bash scripts/voice.sh run python -m healwyn_voice.server',
+          cwd: root,
+          url: `http://127.0.0.1:${VOICE}/health`,
+          reuseExistingServer: false,
+          env: { ...shared, CRM_URL: process.env.E2E_CRM_URL, VOICE_USE_LLM: 'false', VOICE_REAL_DATA: 'false' },
         },
       ]
     : undefined,

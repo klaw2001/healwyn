@@ -7,5 +7,12 @@ export function createUnconfiguredLeadStore(): LeadStore {
       'No lead store configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, or DATABASE_URL.',
     );
   };
-  return { kind: 'unconfigured', submitLead: fail, hitRateLimit: fail, optOut: fail, async close() {} };
+  return {
+    kind: 'unconfigured',
+    submitLead: fail,
+    hitRateLimit: fail,
+    optOut: fail,
+    startWebCall: fail,
+    async close() {},
+  };
 }

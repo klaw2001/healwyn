@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   HONEYPOT_FIELD,
+  assistantToLeadPayload,
+  buildAssistantSchema,
   buildIntakeSchema,
   buildPartnerSchema,
   clinicPack,
@@ -153,5 +155,46 @@ describe('formDataToValues', () => {
     data.set(HONEYPOT_FIELD, 'http://spam.example');
     data.set('$ACTION_ID_abc', '');
     expect(formDataToValues(data)).toEqual({ full_name: 'Ananya' });
+  });
+});
+
+describe('assistant start (website widget)', () => {
+  const schema = buildAssistantSchema(clinicPack);
+  const valid = {
+    full_name: 'Asha Test',
+    phone: '98765 43210',
+    preferred_language: 'hi',
+    mode: 'text',
+    consent_contact: 'on',
+    consent_assistant_call: 'on',
+  };
+
+  it('needs both consents, an Indian mobile and a pack language', () => {
+    expect(schema.parse(valid)).toEqual({
+      fullName: 'Asha Test',
+      phone: '+919876543210',
+      preferredLanguage: 'hi',
+      mode: 'text',
+      consents: { contact: true, assistant_call: true },
+    });
+    for (const broken of [
+      { ...valid, consent_assistant_call: undefined },
+      { ...valid, consent_contact: undefined },
+      { ...valid, phone: '12345' },
+      { ...valid, preferred_language: 'fr' },
+      { ...valid, mode: 'video' },
+    ]) {
+      expect(schema.safeParse(broken).success).toBe(false);
+    }
+  });
+
+  it('builds a voice-sourced lead with no answers yet and hashed consent evidence', async () => {
+    const payload = await assistantToLeadPayload(schema.parse(valid), clinicPack);
+    expect(payload).toMatchObject({ source: 'voice', stage: 'new', answers: {}, specialtySlug: null });
+    expect(payload.consents.map((c) => [c.purpose, c.granted])).toEqual([
+      ['contact', true],
+      ['assistant_call', true],
+    ]);
+    expect(payload.consents[0]!.textHash).toMatch(/^[0-9a-f]{64}$/);
   });
 });

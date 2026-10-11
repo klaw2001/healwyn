@@ -1,7 +1,7 @@
 import type { NewLeadPayload } from '@healwyn/core';
 import postgres from 'postgres';
 import { sslModeFor } from '../sql-target';
-import { LeadStoreError, type LeadStore } from './types';
+import { LeadStoreError, type CallStart, type LeadStore } from './types';
 
 /**
  * Direct Postgres connection. On serverless hosts use Supabase's transaction
@@ -45,6 +45,15 @@ export function createPostgresLeadStore(url: string): LeadStore {
         return row?.changed ?? false;
       } catch (error) {
         throw new LeadStoreError('Could not record the unsubscribe', { cause: error });
+      }
+    },
+    async startWebCall(leadId, channel, rules) {
+      try {
+        const [row] = await sql<{ r: CallStart }[]>`
+          select public.start_web_call(${leadId}, ${channel}, ${sql.json(rules as never)}) as r`;
+        return row!.r;
+      } catch (error) {
+        throw new LeadStoreError('Could not start the call', { cause: error });
       }
     },
     async close() {

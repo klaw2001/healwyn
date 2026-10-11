@@ -37,6 +37,11 @@ export function createMemoryLeadStore(): MemoryLeadStore {
       optedOut.add(leadId);
       return true;
     },
+    async startWebCall(leadId) {
+      // Development only: no consent ledger or cap here.
+      if (!leads.has(leadId)) return { allowed: false, reason: 'not_found' };
+      return { allowed: true, call_id: crypto.randomUUID() };
+    },
     async close() {},
   };
 }

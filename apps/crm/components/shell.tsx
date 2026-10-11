@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { signOut } from '@/app/login/actions';
 import type { Session } from '@/lib/server/session';
-import { BoardIcon, FlowIcon, InboxIcon } from './icons';
+import { BoardIcon, FlowIcon, InboxIcon, SparkIcon } from './icons';
 import { NavLinks, type NavItem } from './nav-links';
 import { ThemeToggle } from './theme-toggle';
 import { UndoProvider } from './undo';
@@ -30,6 +30,9 @@ export async function AppShell({
     },
     { href: '/pipeline', label: 'Pipeline', icon: <BoardIcon /> },
     ...(can(session.role, 'screen.sequences') ? [{ href: '/sequences', label: 'Sequences', icon: <FlowIcon /> }] : []),
+    ...(can(session.role, 'screen.assistant')
+      ? [{ href: '/assistant', label: 'AI assistant', icon: <SparkIcon /> }]
+      : []),
   ];
   const userBlock = (
     <div className="grid gap-3">

@@ -5,6 +5,7 @@ import {
   clinicPack,
   leadUpdateFromCall,
   shouldRouteAfterCall,
+  simulatedCallerTurns,
   stageAfterCall,
   voiceCallResultSchema,
   VoiceResultError,
@@ -189,5 +190,20 @@ describe('applying a call to a lead', () => {
     expect(shouldRouteAfterCall(base, null)).toBe(true);
     expect(shouldRouteAfterCall(base, 'someone')).toBe(false);
     expect(shouldRouteAfterCall({ ...base, outcome: 'consent_declined' }, null)).toBe(false);
+  });
+});
+
+describe('simulated caller', () => {
+  it('answers with what the lead wrote on the form, in their language', () => {
+    expect(
+      simulatedCallerTurns(clinicPack, {
+        answers: { concern_category: 'dental', preferred_time: 'evening', visit_type: 'first', has_insurance: 'no' },
+        message: 'Sensitive tooth',
+        language: 'en',
+      }),
+    ).toEqual(['yes', 'Dental', 'Sensitive tooth', 'Evening', 'First visit', 'No', 'yes']);
+    expect(
+      simulatedCallerTurns(clinicPack, { answers: { preferred_time: 'morning' }, message: null, language: 'hi' }),
+    ).toEqual(['हाँ', 'अभी पक्का नहीं', 'कुछ नहीं', 'सुबह', 'कुछ नहीं', 'कुछ नहीं', 'हाँ']);
   });
 });

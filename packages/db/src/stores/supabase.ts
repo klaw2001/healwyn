@@ -1,7 +1,7 @@
 import type { NewLeadPayload } from '@healwyn/core';
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../database.types';
-import { LeadStoreError, type LeadStore } from './types';
+import { LeadStoreError, type CallStart, type LeadStore } from './types';
 
 /**
  * Supabase over HTTPS (PostgREST RPC) with the service-role key. Preferred in
@@ -40,6 +40,15 @@ export function createSupabaseLeadStore(
       const { data, error } = await client.rpc('opt_out_lead', { p_lead_id: leadId, p_source: source });
       if (error) throw new LeadStoreError(`Could not record the unsubscribe (${error.code})`, { cause: error });
       return data === true;
+    },
+    async startWebCall(leadId, channel, rules) {
+      const { data, error } = await client.rpc('start_web_call', {
+        p_lead_id: leadId,
+        p_channel: channel,
+        p_rules: rules as unknown as Json,
+      });
+      if (error) throw new LeadStoreError(`Could not start the call (${error.code})`, { cause: error });
+      return data as CallStart;
     },
     async close() {},
   };

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Session } from './session';
 import { asStaff, type Tx } from './db';
+import type postgres from 'postgres';
 
 export interface LeadRow {
   id: string;
@@ -329,4 +330,58 @@ export async function listEnrollments(session: Session, sequenceId?: string): Pr
       order by (e.status = 'active') desc, e.enrolled_at desc
       limit 100`,
   );
+}
+
+export interface UsageTotals {
+  calls: number;
+  completed: number;
+  emergencies: number;
+  seconds: number;
+  llm_requests: number;
+  stt_seconds: number;
+  tts_characters: number;
+}
+
+export interface RecentCall {
+  id: string;
+  lead_id: string;
+  lead_name: string | null;
+  channel: string;
+  status: string;
+  outcome: string | null;
+  started_at: Date;
+  duration_seconds: number | null;
+  flags: number;
+}
+
+export interface AssistantOverview {
+  today: UsageTotals;
+  month: UsageTotals;
+  recent: RecentCall[];
+  verified: { phone: string; label: string; created_at: Date }[];
+}
+
+/** Assistant usage for the manager screen (India time days and months). */
+export async function assistantOverview(session: Session, timeZone: string): Promise<AssistantOverview> {
+  return asStaff(session, async (tx) => {
+    const totals = (since: postgres.PendingQuery<postgres.Row[]>) => tx<UsageTotals[]>`
+      select count(*)::int as calls,
+             count(*) filter (where outcome = 'completed')::int as completed,
+             count(*) filter (where outcome = 'emergency')::int as emergencies,
+             coalesce(sum(duration_seconds), 0)::int as seconds,
+             coalesce(sum((usage ->> 'llmRequests')::int), 0)::int as llm_requests,
+             coalesce(sum((usage ->> 'sttSeconds')::numeric), 0)::float as stt_seconds,
+             coalesce(sum((usage ->> 'ttsCharacters')::int), 0)::int as tts_characters
+      from public.call_sessions where started_at >= ${since}`;
+    const [today] = await totals(tx`(date_trunc('day', now() at time zone ${timeZone}) at time zone ${timeZone})`);
+    const [month] = await totals(tx`(date_trunc('month', now() at time zone ${timeZone}) at time zone ${timeZone})`);
+    const recent = await tx<RecentCall[]>`
+      select c.id, c.lead_id, l.full_name as lead_name, c.channel, c.status, c.outcome, c.started_at,
+             c.duration_seconds, jsonb_array_length(c.safety_flags)::int as flags
+      from public.call_sessions c join public.leads l on l.id = c.lead_id
+      order by c.started_at desc limit 20`;
+    const verified = await tx<AssistantOverview['verified']>`
+      select phone, label, created_at from public.verified_demo_numbers order by created_at`;
+    return { today: today!, month: month!, recent, verified };
+  });
 }

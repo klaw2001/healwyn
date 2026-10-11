@@ -10,6 +10,7 @@ import {
 } from '@healwyn/core';
 import { ArrowRightIcon, buttonClasses, CheckIcon, Container, Eyebrow, Notice, Section } from '@healwyn/ui';
 import Link from 'next/link';
+import { AssistantLauncher } from '@/components/assistant/assistant-widget';
 import { HeroIllustration, Swash } from '@/components/illustrations/hero';
 import { SpecialtyIcon } from '@/components/illustrations/specialty-icon';
 
@@ -59,10 +60,11 @@ export default function HomePage() {
                 Talk to us
                 <ArrowRightIcon className="text-xl" />
               </Link>
-              <Link href="/specialties" className={buttonClasses({ size: 'lg', variant: 'secondary' })}>
-                Explore specialties
-              </Link>
+              <AssistantLauncher />
             </div>
+            <p className="mt-3 text-sm text-ink-muted">
+              The assistant is an AI, not a person. It asks a few short questions and never gives medical advice.
+            </p>
             <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-ink-muted">
               {highlights.map((item) => (
                 <li key={item} className="inline-flex items-center gap-2">

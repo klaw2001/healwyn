@@ -1,6 +1,7 @@
 import { consentPlainText, sha256Hex } from './consent';
 import { planStageEntry, type SequencePlan } from './crm/sequences';
 import type { IndustryPack } from './industries/types';
+import type { AssistantStart } from './schemas/assistant';
 import type { IntakeSubmission, PartnerSubmission } from './schemas/intake';
 
 export const LEAD_SOURCES = ['web_form', 'partner_form', 'voice', 'phone', 'staff', 'seed'] as const;
@@ -92,6 +93,32 @@ export async function intakeToLeadPayload(
     answers,
     consents: await consentEvidence(pack.intake.consents, submission.consents),
     billingFlag,
+    urgency: 'normal',
+    sequencePlan: planStageEntry(pack.sequences, pack.initialStageId, [], options.now ?? new Date()),
+    isDemo: options.isDemo ?? false,
+  };
+}
+
+/** A lead started from the website's assistant: contact details now, answers from the call. */
+export async function assistantToLeadPayload(
+  start: AssistantStart,
+  pack: IndustryPack,
+  options: { isDemo?: boolean; now?: Date } = {},
+): Promise<NewLeadPayload> {
+  return {
+    industry: pack.id,
+    leadType: 'individual',
+    source: 'voice',
+    stage: pack.initialStageId,
+    fullName: start.fullName,
+    phone: start.phone,
+    email: null,
+    preferredLanguage: start.preferredLanguage,
+    specialtySlug: null,
+    message: null,
+    answers: {},
+    consents: await consentEvidence(pack.intake.consents, start.consents),
+    billingFlag: false,
     urgency: 'normal',
     sequencePlan: planStageEntry(pack.sequences, pack.initialStageId, [], options.now ?? new Date()),
     isDemo: options.isDemo ?? false,

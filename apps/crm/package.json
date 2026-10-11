@@ -20,6 +20,7 @@
     "@healwyn/messaging": "workspace:*",
     "@healwyn/ui": "workspace:*",
     "jose": "^6.2.12",
+    "livekit-server-sdk": "2.19.1",
     "next": "16.4.0",
     "postgres": "^3.4.9",
     "react": "19.3.0",

@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/empty-state';
 import {
   AcceptRoutingButton,
   AssignControl,
+  CallControls,
   EnrolButton,
   ReplyButton,
   StageControl,
@@ -48,6 +49,7 @@ import {
 } from '@/lib/format';
 import { requireSession } from '@/lib/server/auth';
 import { getLeadProfile, listStaff } from '@/lib/server/queries';
+import { telephonyConfigured } from '@/lib/server/dialer';
 import { suggestRouting } from '@/lib/server/routing';
 
 export const metadata: Metadata = { title: 'Lead' };
@@ -96,6 +98,8 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const offeringQuestion = pack.intake.offeringQuestionId;
   const answerEntries = Object.entries(lead.answers).filter(([key]) => key !== offeringQuestion);
   const canFrontDesk = can(session.role, 'lead.assign');
+  const canPlaceCall = can(session.role, 'lead.placeCall');
+  const phoneEnabled = telephonyConfigured();
   const stageIsOpen = pack.stages.find((s) => s.id === lead.stage)?.kind === 'open';
   const suggestion = canFrontDesk && !erased && stageIsOpen ? await suggestRouting(session, lead.id) : null;
   const overrideReasons = Object.entries(OVERRIDE_REASONS).map(([value, label]) => ({ value, label }));
@@ -311,6 +315,19 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
             {!erased ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 <ReplyButton leadId={lead.id} />
+              </div>
+            ) : null}
+            {!erased && canPlaceCall ? (
+              <div className="mt-4 border-t border-line pt-3">
+                <p className="text-xs font-semibold text-ink-muted">AI assistant call</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {currentConsent.get(pack.voice.callConsentId)
+                    ? 'The lead agreed to assistant calls (9am to 9pm India time).'
+                    : 'The lead has not agreed to assistant calls; a call would be refused.'}
+                </p>
+                <div className="mt-2">
+                  <CallControls leadId={lead.id} phoneEnabled={phoneEnabled} />
+                </div>
               </div>
             ) : null}
           </Panel>

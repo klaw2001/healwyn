@@ -5,6 +5,7 @@ import {
   assignLead as decideAssignment,
   assignmentRecord,
   isOverrideReason,
+  normalizeIndianMobile,
   getActivePack,
   planStageEntry,
   scheduleSteps,
@@ -13,6 +14,7 @@ import {
 import { revalidatePath } from 'next/cache';
 import { assertCapability } from '@/lib/server/auth';
 import { asStaff } from '@/lib/server/db';
+import { callRules, placePhoneCall, runSimulatedCall, telephonyConfigured } from '@/lib/server/dialer';
 import { friendlyError, type ActionResult } from '@/lib/server/errors';
 import { routeForStaff } from '@/lib/server/routing';
 import { recomputeScore } from '@/lib/server/scores';
@@ -259,6 +261,97 @@ export async function setSequencePaused(sequenceId: string, paused: boolean): Pr
     if (!pack.sequences.some((s) => s.id === sequenceId)) return { ok: false, error: 'Unknown sequence.' };
     await asStaff(session, (tx) => tx`select public.set_sequence_paused(${pack.id}, ${sequenceId}, ${paused})`);
     revalidatePath('/sequences');
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error) };
+  }
+}
+
+const CALL_REFUSAL_MESSAGES: Record<string, string> = {
+  no_call_consent: 'This lead has not agreed to calls from the assistant (or withdrew that consent).',
+  opted_out: 'This lead has unsubscribed, so the assistant will not call.',
+  erased: 'This lead’s details were erased.',
+  outside_call_window: 'Assistant calls are only placed between 9am and 9pm India time.',
+  no_phone: 'This lead has no phone number.',
+  number_not_verified:
+    'This number is not on the verified demo list (a trial phone line can only call verified numbers).',
+  daily_limit: 'The assistant has reached today’s call limit.',
+};
+
+/**
+ * Places an assistant call from the dialer. Every check (call consent, opt-out,
+ * the 9am-9pm window, verified numbers for real calls, the daily cap) runs in
+ * the database, which records each refusal with its reason. A simulated call
+ * runs the real conversation engine with the lead's form answers as the
+ * caller's lines; its result arrives through the same webhook as a real call.
+ */
+export async function placeAssistantCall(
+  leadId: string,
+  channel: 'simulated' | 'phone',
+): Promise<ActionResult<{ outcome: string }>> {
+  try {
+    const session = await assertCapability('lead.placeCall');
+    if (!UUID.test(leadId) || (channel !== 'simulated' && channel !== 'phone')) {
+      return { ok: false, error: 'Unknown lead.' };
+    }
+    if (channel === 'phone' && !telephonyConfigured()) {
+      return { ok: false, error: 'Phone calling is not set up. Use a simulated call (see docs/VOICE.md).' };
+    }
+    // Committed before the call runs: the result webhook needs the call session to exist.
+    const placed = await asStaff(session, async (tx) => {
+      const [row] = await tx<{ r: { allowed: boolean; reason?: string; call_id?: string } }[]>`
+        select public.place_assistant_call(${leadId}, ${channel}, ${tx.json(callRules(channel) as never)}) as r`;
+      const [lead] = await tx<
+        { answers: Record<string, string>; message: string | null; preferred_language: string; phone: string | null }[]
+      >`select answers, message, preferred_language, phone from public.leads where id = ${leadId}`;
+      return { ...row!.r, lead: lead! };
+    });
+    if (!placed.allowed || !placed.call_id) {
+      refresh(leadId);
+      return { ok: false, error: CALL_REFUSAL_MESSAGES[placed.reason ?? ''] ?? 'The call was not placed.' };
+    }
+    const call = {
+      callId: placed.call_id,
+      leadId,
+      language: placed.lead.preferred_language,
+      answers: placed.lead.answers,
+      message: placed.lead.message,
+    };
+    if (channel === 'phone') {
+      await placePhoneCall({ ...call, phone: placed.lead.phone! });
+      refresh(leadId);
+      return { ok: true, outcome: 'dialling' };
+    }
+    const result = await runSimulatedCall(call);
+    refresh(leadId);
+    return { ok: true, outcome: result.outcome };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error) };
+  }
+}
+
+export async function addVerifiedNumber(_previous: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const session = await assertCapability('assistant.manage');
+    const phone = normalizeIndianMobile(String(formData.get('phone') ?? ''));
+    const label = String(formData.get('label') ?? '').trim();
+    if (!phone) return { ok: false, error: 'Enter a 10-digit Indian mobile number.' };
+    if (!/^[A-Za-z0-9 .,()'-]{1,60}$/.test(label)) {
+      return { ok: false, error: 'Give it a short label (letters, numbers and spaces, up to 60).' };
+    }
+    await asStaff(session, (tx) => tx`select public.add_verified_number(${phone}, ${label})`);
+    revalidatePath('/assistant');
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: friendlyError(error) };
+  }
+}
+
+export async function removeVerifiedNumber(phone: string): Promise<ActionResult> {
+  try {
+    const session = await assertCapability('assistant.manage');
+    await asStaff(session, (tx) => tx`select public.remove_verified_number(${phone})`);
+    revalidatePath('/assistant');
     return { ok: true };
   } catch (error) {
     return { ok: false, error: friendlyError(error) };

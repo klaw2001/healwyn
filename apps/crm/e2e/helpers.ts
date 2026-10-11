@@ -55,7 +55,10 @@ export function uniquePhone() {
 }
 
 /** Submits the patient form on the public website and returns the lead's name. */
-export async function submitWebsiteEnquiry(page: Page, overrides: { name?: string; email?: string } = {}) {
+export async function submitWebsiteEnquiry(
+  page: Page,
+  overrides: { name?: string; email?: string; assistantCall?: boolean } = {},
+) {
   const name = overrides.name ?? uniqueName('Tara');
   await page.context().setExtraHTTPHeaders({
     'x-forwarded-for': `10.9.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`,
@@ -82,6 +85,7 @@ export async function submitWebsiteEnquiry(page: Page, overrides: { name?: strin
     .getByRole('radio', { name: 'Yes', exact: true })
     .check();
   await page.getByRole('checkbox', { name: /store and use the details/ }).check();
+  if (overrides.assistantCall) await page.getByRole('checkbox', { name: /AI assistant between 9am/ }).check();
   await page.getByRole('button', { name: 'Send enquiry' }).click();
   await expect(page.getByRole('heading', { name: 'Thank you. We have your enquiry.' })).toBeVisible();
   await page.context().setExtraHTTPHeaders({});

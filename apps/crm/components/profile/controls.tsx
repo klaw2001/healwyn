@@ -9,6 +9,7 @@ import {
   changeStage,
   enrollInSequence,
   markReplied,
+  placeAssistantCall,
   recordWithdrawal,
   stopEnrollment,
 } from '@/app/(app)/actions';
@@ -308,5 +309,37 @@ export function StopEnrollmentButton({
     >
       Stop<span className="sr-only"> {label}</span>
     </button>
+  );
+}
+
+/**
+ * The dialer: place an assistant call for this lead. Simulated calls run the
+ * real conversation engine; phone calls need a SIP trunk (docs/VOICE.md).
+ */
+export function CallControls({ leadId, phoneEnabled }: { leadId: string; phoneEnabled: boolean }) {
+  const [pending, start] = useTransition();
+  const { notify } = useUndo();
+  const router = useRouter();
+  const place = (channel: 'simulated' | 'phone') =>
+    start(async () => {
+      const result = await placeAssistantCall(leadId, channel);
+      if (result.ok) {
+        notify(
+          channel === 'phone'
+            ? 'Dialling. The summary appears here when the call ends.'
+            : `Simulated call finished: ${result.outcome.replaceAll('_', ' ')}.`,
+        );
+      } else notify(result.error, 'error');
+      router.refresh();
+    });
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button size="sm" variant="secondary" disabled={pending} onClick={() => place('simulated')}>
+        {pending ? 'Calling…' : 'Simulated assistant call'}
+      </Button>
+      <Button size="sm" variant="secondary" disabled={pending || !phoneEnabled} onClick={() => place('phone')}>
+        Phone call
+      </Button>
+    </div>
   );
 }

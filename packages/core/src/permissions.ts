@@ -22,6 +22,7 @@ export const CAPABILITIES = [
   'screen.sequences',
   'screen.dashboard',
   'screen.team',
+  'screen.assistant',
   // Leads
   'lead.changeStage',
   'lead.assign',
@@ -30,10 +31,12 @@ export const CAPABILITIES = [
   'lead.markReplied',
   'lead.recordWithdrawal',
   'lead.overrideRouting',
+  'lead.placeCall',
   // Configuration
   'sequence.manage',
   'staff.manage',
   'booking.manage',
+  'assistant.manage',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
@@ -46,6 +49,7 @@ export const PERMISSIONS: Record<Capability, readonly StaffRole[]> = {
   'screen.sequences': ['manager'],
   'screen.dashboard': ['manager'],
   'screen.team': ['manager'],
+  'screen.assistant': ['manager'],
   'lead.changeStage': ALL,
   'lead.assign': FRONT_DESK,
   'lead.note': ALL,
@@ -53,9 +57,11 @@ export const PERMISSIONS: Record<Capability, readonly StaffRole[]> = {
   'lead.markReplied': ALL,
   'lead.recordWithdrawal': FRONT_DESK,
   'lead.overrideRouting': FRONT_DESK,
+  'lead.placeCall': FRONT_DESK,
   'sequence.manage': ['manager'],
   'staff.manage': ['manager'],
   'booking.manage': ['manager', 'care_coordinator', 'billing_desk'],
+  'assistant.manage': ['manager'],
 };
 
 export function isStaffRole(value: unknown): value is StaffRole {

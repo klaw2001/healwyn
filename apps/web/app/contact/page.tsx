@@ -2,6 +2,7 @@ import { BRAND } from '@healwyn/core';
 import { Container, Notice } from '@healwyn/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { AssistantLauncher } from '@/components/assistant/assistant-widget';
 import { PatientForm } from '@/components/forms/patient-form';
 import { PageHeader } from '@/components/page-header';
 
@@ -29,6 +30,15 @@ export default function ContactPage() {
           <Notice tone="emergency" title="Not for emergencies" className="mb-8">
             {BRAND.emergencyNotice}
           </Notice>
+          <div className="mb-8 flex flex-col gap-4 rounded-xl border border-line bg-surface-teal p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div>
+              <h2 className="text-xl">Prefer to talk?</h2>
+              <p className="mt-1 text-ink-muted">
+                Our AI assistant asks the same questions by voice, in English or Hindi. Or fill in the form below.
+              </p>
+            </div>
+            <AssistantLauncher className="shrink-0" />
+          </div>
           <div className="rounded-xl border border-line bg-surface p-5 shadow-soft sm:p-8">
             <PatientForm />
           </div>
