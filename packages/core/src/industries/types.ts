@@ -312,7 +312,7 @@ export interface BookingConfig {
   readonly bookedStageId: string;
   readonly attendedStageId: string;
   readonly noShowStageId: string;
-  /** Default weekly hours for demo staff, India time. */
+  /** Default weekly hours for demo staff, India time. ISO weekdays: 1 = Monday … 7 = Sunday. */
   readonly defaultHours: { readonly weekdays: readonly number[]; readonly start: string; readonly end: string };
 }
 
@@ -390,9 +390,19 @@ export interface IndustryPack {
  */
 export type FormPack = Pick<IndustryPack, 'id' | 'leadNoun' | 'brand' | 'languages' | 'intake' | 'partnerIntake'> & {
   readonly voice: Pick<VoicePackConfig, 'callConsentId'>;
+  readonly booking: Pick<BookingConfig, 'noun'>;
 };
 
 export function toFormPack(pack: IndustryPack): FormPack {
-  const { id, leadNoun, brand, languages, intake, partnerIntake, voice } = pack;
-  return { id, leadNoun, brand, languages, intake, partnerIntake, voice: { callConsentId: voice.callConsentId } };
+  const { id, leadNoun, brand, languages, intake, partnerIntake, voice, booking } = pack;
+  return {
+    id,
+    leadNoun,
+    brand,
+    languages,
+    intake,
+    partnerIntake,
+    voice: { callConsentId: voice.callConsentId },
+    booking: { noun: booking.noun },
+  };
 }

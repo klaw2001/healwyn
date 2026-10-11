@@ -2,6 +2,7 @@ import {
   formatLeadReference,
   getIndustryPack,
   isIndustryId,
+  planStageEntry,
   renderTemplate,
   stopReasonFor,
   type IndustryPack,
@@ -24,6 +25,8 @@ export interface WorkerOptions {
   deliverEmail?: (email: OutgoingEmail, env: WorkerEnv) => Promise<DeliveryResult>;
   /** Erase leads idle for this many months (privacy notice). 0 disables. */
   retentionMonths?: number;
+  /** Appointments still open this many minutes after they ended become no-shows. */
+  noShowGraceMinutes?: number;
 }
 
 export interface WorkerResult {
@@ -34,6 +37,7 @@ export interface WorkerResult {
   skipped: number;
   retried: number;
   erased: number;
+  noShows: number;
 }
 
 interface ClaimedStep {
@@ -71,7 +75,30 @@ export async function runNurtureWorker(options: WorkerOptions): Promise<WorkerRe
     throw new Error('UNSUBSCRIBE_SECRET must be set (16+ characters): every email needs a working unsubscribe link.');
   }
   const siteUrl = env.SITE_URL || 'http://localhost:3000';
-  const result: WorkerResult = { claimed: 0, sent: 0, logged: 0, simulated: 0, skipped: 0, retried: 0, erased: 0 };
+  const result: WorkerResult = {
+    claimed: 0,
+    sent: 0,
+    logged: 0,
+    simulated: 0,
+    skipped: 0,
+    retried: 0,
+    erased: 0,
+    noShows: 0,
+  };
+
+  // Appointments nobody marked attended become no-shows: the lead moves to the
+  // pack's no-show stage, which enrols the recovery sequence (sent below or on
+  // a later run).
+  const overdue = await sql<{ appointment_id: string; industry: string; active_sequences: string[] }[]>`
+    select * from public.overdue_appointments(make_interval(mins => ${options.noShowGraceMinutes ?? 120}), 50)`;
+  for (const appointment of overdue) {
+    if (!isIndustryId(appointment.industry)) continue;
+    const pack = getIndustryPack(appointment.industry);
+    const plan = planStageEntry(pack.sequences, pack.booking.noShowStageId, appointment.active_sequences);
+    const [row] = await sql<{ r: { changed?: boolean; status?: string } }[]>`
+      select public.record_no_show(${appointment.appointment_id}, ${sql.json(plan as never)}) as r`;
+    if (row?.r.status === 'no_show') result.noShows += 1;
+  }
 
   const steps = await sql<ClaimedStep[]>`select * from public.claim_due_messages(${options.limit ?? 50})`;
   result.claimed = steps.length;

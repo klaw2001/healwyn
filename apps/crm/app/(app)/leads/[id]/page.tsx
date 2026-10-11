@@ -1,4 +1,12 @@
-import { can, formatLeadReference, formatIndianMobile, OVERRIDE_REASONS, renderTemplate } from '@healwyn/core';
+import {
+  can,
+  formatAppointment,
+  formatLeadReference,
+  formatIndianMobile,
+  OVERRIDE_REASONS,
+  renderTemplate,
+  zoneLabel,
+} from '@healwyn/core';
 import { Badge } from '@healwyn/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -24,6 +32,7 @@ import {
   StopEnrollmentButton,
   WithdrawalControl,
 } from '@/components/profile/controls';
+import { BookingPanel } from '@/components/booking/booking-panel';
 import { AiSummary } from '@/components/profile/ai-summary';
 import { CompleteTaskButton, NoteForm, TaskForm } from '@/components/profile/forms';
 import {
@@ -37,6 +46,8 @@ import {
   stopReasonLabel,
 } from '@/lib/format';
 import { requireSession } from '@/lib/server/auth';
+import { leadAppointments, staffCalendars, toSlotChoices } from '@/lib/server/booking';
+import { asStaff } from '@/lib/server/db';
 import { packFor } from '@/lib/server/pack';
 import { getLeadProfile, listStaff } from '@/lib/server/queries';
 import { telephonyConfigured } from '@/lib/server/dialer';
@@ -93,6 +104,16 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
   const stageIsOpen = pack.stages.find((s) => s.id === lead.stage)?.kind === 'open';
   const suggestion = canFrontDesk && !erased && stageIsOpen ? await suggestRouting(session, lead.id) : null;
   const overrideReasons = Object.entries(OVERRIDE_REASONS).map(([value, label]) => ({ value, label }));
+  const canBook = can(session.role, 'booking.manage') && !erased && lead.lead_type === 'individual';
+  const [appointments, choices] = await Promise.all([
+    leadAppointments(session, lead.id),
+    canBook
+      ? asStaff(session, (tx) =>
+          staffCalendars(tx, pack, session.role === 'specialist_doctor' ? [session.staffId] : null),
+        ).then((calendars) => toSlotChoices(calendars, pack))
+      : Promise.resolve([]),
+  ]);
+  const tz = pack.brand.timeZone;
   const tomorrowNine = `${indiaDay(new Date(now.getTime() + 86_400_000))}T09:00`;
   const sampleVars = {
     brand: pack.brand,
@@ -323,6 +344,26 @@ export default async function LeadPage({ params }: PageProps<'/leads/[id]'>) {
               </div>
             ) : null}
           </Panel>
+
+          {lead.lead_type === 'individual' ? (
+            <Panel title={pack.booking.noun} id="booking-title">
+              <BookingPanel
+                leadId={lead.id}
+                noun={pack.booking.noun}
+                zone={zoneLabel(tz)}
+                canManage={canBook}
+                defaultStaffId={lead.assigned_staff_id}
+                choices={choices}
+                appointments={appointments.map((a) => ({
+                  id: a.id,
+                  staffName: a.staff_name,
+                  when: formatAppointment(new Date(a.starts_at), tz),
+                  status: a.status,
+                  started: new Date(a.starts_at) <= now,
+                }))}
+              />
+            </Panel>
+          ) : null}
 
           <Panel title="Enquiry" id="enquiry-title">
             <dl>

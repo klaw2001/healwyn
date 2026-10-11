@@ -8,7 +8,7 @@ import {
   type ConsentDefinition,
   type FieldErrors,
 } from '@healwyn/core';
-import { AlertIcon, Button, Checkbox, CheckIcon } from '@healwyn/ui';
+import { AlertIcon, Button, buttonClasses, Checkbox, CheckIcon } from '@healwyn/ui';
 import type { ReactNode, RefObject } from 'react';
 
 export interface ErrorLink {
@@ -161,12 +161,15 @@ export function SuccessPanel({
   title,
   steps,
   privacyEmail,
+  booking,
 }: {
   reference: string;
   successRef: RefObject<HTMLHeadingElement | null>;
   title: string;
   steps: readonly string[];
   privacyEmail: string;
+  /** The person's own booking page, when booking is available. */
+  booking?: { href: string; label: string; note: string };
 }) {
   return (
     <div className="rounded-lg border border-success bg-success-soft p-6 sm:p-8" role="status">
@@ -188,6 +191,14 @@ export function SuccessPanel({
           <li key={step}>{step}</li>
         ))}
       </ol>
+      {booking ? (
+        <div className="mt-6 rounded-md border border-line bg-surface p-5">
+          <p>{booking.note}</p>
+          <a href={booking.href} className={`${buttonClasses({ size: 'lg' })} mt-4`}>
+            {booking.label}
+          </a>
+        </div>
+      ) : null}
       <p className="mt-6 text-sm text-ink-muted">
         To change your details or withdraw consent, email {privacyEmail} with your reference.
       </p>

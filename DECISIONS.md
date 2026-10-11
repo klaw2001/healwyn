@@ -239,3 +239,27 @@ A review of the Phase 3 code found no authorisation bypass. Fixed before tagging
   of every page.
 - **Missed visits.** Every pack now has a no-show stage (the clinic's "Missed visit"), which the no-show recovery
   sequence enrols on.
+
+### Booking
+
+- **Calendars in the database, slots in TypeScript.** Bookable staff (`booking.bookableRoles`) have a weekly template
+  (one range per weekday) and exceptions (a day or hours off, extra hours) in India time. `openSlots` in
+  `packages/core/src/booking` turns a calendar into slots, so the website and the CRM offer exactly the same times.
+- **The database refuses double booking.** `appointments` has an exclusion constraint (`btree_gist`) on staff and time
+  range over every appointment that is not cancelled, plus one open appointment per lead. Every booking function also
+  re-checks the slot against the published hours, the notice period (60 minutes) and the horizon
+  (`app_private.slot_is_open`, rules from `booking_policies`, seeded from the pack like `call_policies`).
+- **Stages follow bookings.** Booking moves the lead to the pack's booked stage (and assigns it if nobody had it),
+  attended and missed move it to the attended and no-show stages, and a cancellation returns it to the stage it was in
+  before booking. Each change applies the stage's nurture plan in the same transaction, so reminders and no-show
+  recovery start on their own. The worker turns appointments still unmarked two hours after they end into no-shows.
+- **The public flow starts with an enquiry.** The thank-you panel offers a signed booking link (`/book?t=…`: lead id,
+  expiry and an HMAC with the unsubscribe secret under a different purpose prefix, 30 days). It lets that person book,
+  move or cancel their own appointment and nothing else, works without JavaScript, and offers the assigned expert's
+  calendar, or the experts for the service they asked about. A booking page open to anyone would have needed its own
+  contact form and consent; one intake path keeps consent evidence in one place.
+- **Who books what.** Managers and the front desk book into anyone's calendar in their industry; experts only into
+  their own; the billing desk sees bookings but cannot change them. The same rules hold in the server actions and in
+  SQL.
+- `next dev` writes an `AGENTS.md` into each app unless `agentRules: false`; both configs turn it off (CLAUDE.md is the
+  guide here).

@@ -23,6 +23,7 @@ export const CAPABILITIES = [
   'screen.dashboard',
   'screen.team',
   'screen.assistant',
+  'screen.bookings',
   // Leads
   'lead.changeStage',
   'lead.assign',
@@ -36,6 +37,8 @@ export const CAPABILITIES = [
   'sequence.manage',
   'staff.manage',
   'booking.manage',
+  'availability.manage',
+  'payment.request',
   'assistant.manage',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
@@ -50,6 +53,7 @@ export const PERMISSIONS: Record<Capability, readonly StaffRole[]> = {
   'screen.dashboard': ['manager'],
   'screen.team': ['manager'],
   'screen.assistant': ['manager'],
+  'screen.bookings': ALL,
   'lead.changeStage': ALL,
   'lead.assign': FRONT_DESK,
   'lead.note': ALL,
@@ -60,7 +64,12 @@ export const PERMISSIONS: Record<Capability, readonly StaffRole[]> = {
   'lead.placeCall': FRONT_DESK,
   'sequence.manage': ['manager'],
   'staff.manage': ['manager'],
-  'booking.manage': ['manager', 'care_coordinator', 'billing_desk'],
+  // Book, move, cancel and close appointments. Experts only in their own calendar (checked in SQL too).
+  'booking.manage': ['manager', 'care_coordinator', 'specialist_doctor'],
+  // Weekly hours and time off. Experts only their own.
+  'availability.manage': ['manager', 'care_coordinator', 'specialist_doctor'],
+  // Send a lead a test-mode payment link.
+  'payment.request': ['manager', 'care_coordinator', 'billing_desk'],
   'assistant.manage': ['manager'],
 };
 

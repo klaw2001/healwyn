@@ -1,4 +1,5 @@
 export * from './brand';
+export * from './booking/slots';
 export * from './consent';
 export * from './crm';
 export * from './industries';

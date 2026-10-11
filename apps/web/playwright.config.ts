@@ -71,6 +71,8 @@ export default defineConfig({
       RESEND_API_KEY: '',
       LEAD_NOTIFY_EMAIL: '',
       RATE_LIMIT_SALT: 'e2e-salt',
+      // Signs unsubscribe and booking links (the root .env's value wins when set).
+      UNSUBSCRIBE_SECRET: process.env.UNSUBSCRIBE_SECRET || 'e2e-link-secret-0123456789',
     },
   },
 });

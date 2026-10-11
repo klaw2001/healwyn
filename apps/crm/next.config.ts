@@ -19,6 +19,8 @@ const securityHeaders = [
 ];
 
 const config: NextConfig = {
+  // `next dev` would otherwise write an AGENTS.md into the app; CLAUDE.md is the guide here.
+  agentRules: false,
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@healwyn/core', '@healwyn/db', '@healwyn/messaging', '@healwyn/ui'],

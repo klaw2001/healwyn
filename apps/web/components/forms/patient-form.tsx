@@ -144,6 +144,15 @@ export function PatientForm({ pack, successSteps }: { pack: FormPack; successSte
         title="Thank you. We have your enquiry."
         steps={successSteps}
         privacyEmail={pack.brand.privacyEmail}
+        booking={
+          state.bookingPath
+            ? {
+                href: state.bookingPath,
+                label: `Choose a time for your ${pack.booking.noun}`,
+                note: `You can pick a ${pack.booking.noun} time now, or wait for our call. The link works for 30 days.`,
+              }
+            : undefined
+        }
       />
     );
   }

@@ -290,7 +290,7 @@ export const realEstatePack = {
     attendedStageId: 'site_visit_done',
     noShowStageId: 'site_visit_missed',
     // Tuesday to Sunday: weekends are when most people can visit a site.
-    defaultHours: { weekdays: [0, 2, 3, 4, 5, 6], start: '10:00', end: '18:00' },
+    defaultHours: { weekdays: [2, 3, 4, 5, 6, 7], start: '10:00', end: '18:00' },
   },
   payments: {
     // Fictional test-mode amounts; nothing is ever charged and no home is ever sold.

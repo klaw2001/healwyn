@@ -29,6 +29,8 @@ export interface SubmissionDeps {
   notify: (notification: LeadNotification) => Promise<unknown>;
   /** Runs work after the response is sent (Next.js `after`). */
   schedule: (task: () => Promise<unknown>) => void;
+  /** The lead's own booking page (a signed link), offered on the thank-you panel; null when booking is unavailable. */
+  bookingPath?: (leadId: string) => Promise<string | null>;
 }
 
 export const RATE_LIMIT = { limit: 5, windowSeconds: 600 } as const;
@@ -123,7 +125,15 @@ async function processSubmission<T>(
     await deps.notify(notification);
   });
 
-  return { status: 'success', reference };
+  let bookingPath: string | null = null;
+  if (kind === 'patient' && deps.bookingPath) {
+    try {
+      bookingPath = await deps.bookingPath(leadId);
+    } catch (error) {
+      log.warn('booking.link_failed', { reference, ...errorFields(error) });
+    }
+  }
+  return bookingPath ? { status: 'success', reference, bookingPath } : { status: 'success', reference };
 }
 
 function patientSummary(pack: IndustryPack, payload: NewLeadPayload): LeadNotification['summary'] {

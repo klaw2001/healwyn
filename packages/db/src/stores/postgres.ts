@@ -1,7 +1,7 @@
-import type { NewLeadPayload } from '@healwyn/core';
+import type { NewLeadPayload, StaffCalendar } from '@healwyn/core';
 import postgres from 'postgres';
 import { sslModeFor } from '../sql-target';
-import { LeadStoreError, type CallStart, type LeadStore } from './types';
+import { bookingFailure, LeadStoreError, type BookingContext, type CallStart, type LeadStore } from './types';
 
 /**
  * Direct Postgres connection. On serverless hosts use Supabase's transaction
@@ -61,6 +61,46 @@ export function createPostgresLeadStore(url: string): LeadStore {
         return row?.ok === true;
       } catch (error) {
         throw new LeadStoreError('Could not switch the call to typing', { cause: error });
+      }
+    },
+    async bookingContext(leadId) {
+      try {
+        const [row] = await sql<{ r: BookingContext | null }[]>`select public.booking_context(${leadId}) as r`;
+        return row?.r ?? null;
+      } catch (error) {
+        throw new LeadStoreError('Could not read the booking', { cause: error });
+      }
+    },
+    async bookingCalendar(industry, staffIds, from, to) {
+      try {
+        const [row] = await sql<{ r: StaffCalendar[] }[]>`
+          select public.booking_calendar(${industry}, ${staffIds ? [...staffIds] : null}::uuid[], ${from}::date, ${to}::date) as r`;
+        return row?.r ?? [];
+      } catch (error) {
+        throw new LeadStoreError('Could not read the calendar', { cause: error });
+      }
+    },
+    async bookAppointment({ leadId, staffId, startsAt, endsAt, plan, replaces }) {
+      try {
+        const [row] = await sql<{ r: { appointment_id: string } }[]>`
+          select public.book_appointment_public(${leadId}, ${staffId}, ${startsAt}, ${endsAt},
+            ${sql.json(plan as unknown as postgres.JSONValue)}, ${replaces ?? null}) as r`;
+        return { ok: true, appointmentId: row!.r.appointment_id };
+      } catch (error) {
+        const reason = bookingFailure((error as { code?: string }).code);
+        if (reason) return { ok: false, reason };
+        throw new LeadStoreError('Could not book the appointment', { cause: error });
+      }
+    },
+    async cancelAppointment(leadId, appointmentId, plan) {
+      try {
+        await sql`select public.cancel_appointment_public(${leadId}, ${appointmentId},
+          ${plan ? sql.json(plan as unknown as postgres.JSONValue) : null})`;
+        return { ok: true, appointmentId };
+      } catch (error) {
+        const reason = bookingFailure((error as { code?: string }).code);
+        if (reason) return { ok: false, reason };
+        throw new LeadStoreError('Could not cancel the appointment', { cause: error });
       }
     },
     async close() {

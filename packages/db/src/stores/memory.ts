@@ -50,6 +50,19 @@ export function createMemoryLeadStore(): MemoryLeadStore {
       browserCalls.delete(callId);
       return true;
     },
+    // Booking needs the database (calendars, the no-double-booking constraint).
+    async bookingContext() {
+      return null;
+    },
+    async bookingCalendar() {
+      return [];
+    },
+    async bookAppointment() {
+      return { ok: false, reason: 'not_found' };
+    },
+    async cancelAppointment() {
+      return { ok: false, reason: 'not_found' };
+    },
     async close() {},
   };
 }

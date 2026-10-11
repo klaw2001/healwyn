@@ -1,25 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import { countLeadsWithPhone, databaseUrl, demoPhone, findLeadByReference, uniqueIp, useClientIp } from './helpers';
-
-const group = (page: Page, name: RegExp | string) => page.getByRole('radiogroup', { name });
-
-async function fillValid(page: Page, phone: string) {
-  await page.getByLabel('Full name').fill('Asha Demo');
-  await page.getByLabel('Mobile number').fill(phone);
-  await group(page, /which language/i)
-    .getByRole('radio', { name: /English/ })
-    .check();
-  await page.getByLabel('What would you like help with?').selectOption('dermatology');
-  await page.getByLabel('Tell us a little more (optional)').fill('Synthetic end-to-end enquiry.');
-  await group(page, 'When should we get in touch?')
-    .getByRole('radio', { name: /Evening/ })
-    .check();
-  await group(page, 'Is this your first visit?').getByRole('radio', { name: 'First visit' }).check();
-  await group(page, /health insurance/)
-    .getByRole('radio', { name: 'No', exact: true })
-    .check();
-  await page.getByRole('checkbox', { name: /store and use the details/ }).check();
-}
+import {
+  countLeadsWithPhone,
+  databaseUrl,
+  demoPhone,
+  fillValid,
+  findLeadByReference,
+  uniqueIp,
+  useClientIp,
+} from './helpers';
 
 const submit = (page: Page) => page.getByRole('button', { name: 'Send enquiry' }).click();
 

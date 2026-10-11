@@ -42,13 +42,17 @@ describe.skipIf(!databaseUrl)('database security', () => {
     }
   });
 
-  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead and its call functions', async () => {
+  it('lets the website role run only submit_lead, hit_rate_limit, opt_out_lead, its call and booking functions', async () => {
     const rows = await sql<{ fn: string }[]>`
       select p.oid::regprocedure::text as fn
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and has_function_privilege('web_submitter', p.oid, 'execute')
       order by 1`;
     expect(rows.map((r) => r.fn)).toEqual([
+      'book_appointment_public(uuid,uuid,timestamp with time zone,timestamp with time zone,jsonb,uuid)',
+      'booking_calendar(text,uuid[],date,date)',
+      'booking_context(uuid)',
+      'cancel_appointment_public(uuid,uuid,jsonb)',
       'hit_rate_limit(text,integer,integer)',
       'opt_out_lead(uuid,text)',
       'start_web_call(uuid,text)',
@@ -82,9 +86,12 @@ describe.skipIf(!databaseUrl)('database security', () => {
 
   it('lets anon execute nothing, staff only the CRM functions, and the service role everything', async () => {
     const STAFF_FUNCTIONS = [
+      'add_availability_exception(uuid,date,text,time without time zone,time without time zone,text)',
       'add_note(uuid,text,text)',
       'add_verified_number(text,text)',
       'assign_lead(uuid,uuid,text,jsonb)',
+      'book_appointment(uuid,uuid,timestamp with time zone,timestamp with time zone,jsonb,uuid)',
+      'cancel_appointment(uuid,jsonb)',
       'change_lead_stage(uuid,text,jsonb,text)',
       'complete_task(uuid)',
       'create_task(uuid,text,timestamp with time zone,uuid,timestamp with time zone)',
@@ -92,13 +99,17 @@ describe.skipIf(!databaseUrl)('database security', () => {
       'current_staff_industry()',
       'current_staff_role()',
       'enroll_lead(uuid,jsonb)',
+      'mark_appointment(uuid,text,jsonb)',
       'mark_replied(uuid)',
       'place_assistant_call(uuid,text)',
       'record_consent_withdrawal(uuid,text,boolean)',
+      'remove_availability_exception(uuid)',
       'remove_verified_number(text)',
       'routing_context(uuid,text[])',
       'save_lead_score(uuid,integer,text,jsonb)',
+      'set_availability(uuid,jsonb)',
       'set_sequence_paused(text,text,boolean)',
+      'staff_calendar(uuid[],date,date)',
       'staff_can_see_lead(text,uuid,boolean,text)',
       'stop_enrollment(uuid)',
     ];

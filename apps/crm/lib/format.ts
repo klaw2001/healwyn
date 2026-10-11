@@ -178,6 +178,16 @@ function describeEvent(
       return `Assigned to ${staffName(p.to_staff_id)}${p.method === 'override' ? ' (overriding the suggestion)' : ''}`;
     case 'note.added':
       return 'Note added';
+    case 'appointment.booked':
+      return `Booked with ${staffName(p.staff_id)}${p.via === 'website' ? ' (by the lead, online)' : ''}`;
+    case 'appointment.rescheduled':
+      return `Moved the booking with ${staffName(p.staff_id)}`;
+    case 'appointment.cancelled':
+      return 'Booking cancelled';
+    case 'appointment.attended':
+      return 'Attended';
+    case 'appointment.no_show':
+      return 'Missed the booking';
     case 'task.created':
       return `Task created for ${staffName(p.assignee_staff_id)}`;
     case 'task.completed':

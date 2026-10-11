@@ -173,7 +173,7 @@ describe.each(packs)('industry pack $id', (pack) => {
     for (const role of booking.bookableRoles) expect(STAFF_ROLES).toContain(role);
     expect(booking.defaultHours.start).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/);
     expect(booking.defaultHours.end > booking.defaultHours.start).toBe(true);
-    for (const day of booking.defaultHours.weekdays) expect(day).toBeGreaterThanOrEqual(0);
+    for (const day of booking.defaultHours.weekdays) expect([1, 2, 3, 4, 5, 6, 7]).toContain(day);
     expect(payments.products.length).toBeGreaterThanOrEqual(1);
     expect(unique(payments.products.map((p) => p.id))).toBe(true);
     for (const product of payments.products) {

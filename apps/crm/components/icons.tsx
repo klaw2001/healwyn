@@ -67,3 +67,15 @@ export const ListIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
   </svg>
 );
+export const CalendarIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base} {...p}>
+    <rect x="3.5" y="5" width="17" height="15" rx="2" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </svg>
+);
+export const ChartIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base} {...p}>
+    <path d="M4 20V4M4 20h16" />
+    <path d="M8 16v-4M12 16V8M16 16v-6" />
+  </svg>
+);

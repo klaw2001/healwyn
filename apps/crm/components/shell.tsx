@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { signOut } from '@/app/login/actions';
 import { packFor } from '@/lib/server/pack';
 import type { Session } from '@/lib/server/session';
-import { BoardIcon, FlowIcon, InboxIcon, SparkIcon } from './icons';
+import { BoardIcon, CalendarIcon, ChartIcon, FlowIcon, InboxIcon, SparkIcon } from './icons';
 import { NavLinks, type NavItem } from './nav-links';
 import { ThemeToggle } from './theme-toggle';
 import { UndoProvider } from './undo';
@@ -31,6 +31,8 @@ export async function AppShell({
       badge: { count: reminders, label: `task${reminders === 1 ? '' : 's'} due soon or overdue` },
     },
     { href: '/pipeline', label: 'Pipeline', icon: <BoardIcon /> },
+    ...(can(session.role, 'screen.bookings') ? [{ href: '/bookings', label: 'Bookings', icon: <CalendarIcon /> }] : []),
+    ...(can(session.role, 'screen.dashboard') ? [{ href: '/dashboard', label: 'Dashboard', icon: <ChartIcon /> }] : []),
     ...(can(session.role, 'screen.sequences') ? [{ href: '/sequences', label: 'Sequences', icon: <FlowIcon /> }] : []),
     ...(can(session.role, 'screen.assistant')
       ? [{ href: '/assistant', label: 'AI assistant', icon: <SparkIcon /> }]

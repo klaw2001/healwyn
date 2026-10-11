@@ -5,7 +5,7 @@ export type FormState =
   | { status: 'idle' }
   | { status: 'invalid'; fieldErrors: FieldErrors; values: Record<string, string> }
   | { status: 'error'; message: string; values: Record<string, string> }
-  | { status: 'success'; reference: string };
+  | { status: 'success'; reference: string; bookingPath?: string };
 
 export const initialFormState: FormState = { status: 'idle' };
 

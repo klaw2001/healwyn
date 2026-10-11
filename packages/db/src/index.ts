@@ -7,7 +7,17 @@ import { createUnconfiguredLeadStore } from './stores/unconfigured';
 export { createMemoryLeadStore, type MemoryLeadStore } from './stores/memory';
 export { createPostgresLeadStore } from './stores/postgres';
 export { createSupabaseLeadStore } from './stores/supabase';
-export { LeadStoreError, type CallStart, type LeadStore, type LeadStoreKind } from './stores/types';
+export {
+  bookingFailure,
+  LeadStoreError,
+  type BookingContext,
+  type BookingFailure,
+  type BookingOutcome,
+  type BookingRequest,
+  type CallStart,
+  type LeadStore,
+  type LeadStoreKind,
+} from './stores/types';
 export type { Database, Json } from './database.types';
 
 export interface LeadStoreEnv {

@@ -6,6 +6,73 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          id: string;
+          lead_id: string;
+          staff_id: string;
+          industry: string;
+          starts_at: string;
+          ends_at: string;
+          status: string;
+          booked_via: string;
+          previous_stage: string | null;
+          replaces_appointment_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          staff_id: string;
+          industry: string;
+          starts_at: string;
+          ends_at: string;
+          status?: string;
+          booked_via: string;
+          previous_stage?: string | null;
+          replaces_appointment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          staff_id?: string;
+          industry?: string;
+          starts_at?: string;
+          ends_at?: string;
+          status?: string;
+          booked_via?: string;
+          previous_stage?: string | null;
+          replaces_appointment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'appointments_lead_id_fkey';
+            columns: ['lead_id'];
+            isOneToOne: true;
+            referencedRelation: 'leads';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'appointments_replaces_appointment_id_fkey';
+            columns: ['replaces_appointment_id'];
+            isOneToOne: false;
+            referencedRelation: 'appointments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'appointments_staff_id_fkey';
+            columns: ['staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       assignment_explanations: {
         Row: { event_id: number; lead_id: string; lines: string[] };
         Insert: { event_id: number; lead_id: string; lines: string[] };
@@ -26,6 +93,128 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      availability_exceptions: {
+        Row: {
+          id: string;
+          staff_id: string;
+          on_date: string;
+          kind: string;
+          start_time: string | null;
+          end_time: string | null;
+          reason: string;
+          created_by_staff_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          on_date: string;
+          kind: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          reason?: string;
+          created_by_staff_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          on_date?: string;
+          kind?: string;
+          start_time?: string | null;
+          end_time?: string | null;
+          reason?: string;
+          created_by_staff_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'availability_exceptions_created_by_staff_id_fkey';
+            columns: ['created_by_staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'availability_exceptions_staff_id_fkey';
+            columns: ['staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      availability_rules: {
+        Row: {
+          id: string;
+          staff_id: string;
+          weekday: number;
+          start_time: string;
+          end_time: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          weekday: number;
+          start_time: string;
+          end_time: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          weekday?: number;
+          start_time?: string;
+          end_time?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'availability_rules_staff_id_fkey';
+            columns: ['staff_id'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      booking_policies: {
+        Row: {
+          industry: string;
+          slot_minutes: number;
+          horizon_days: number;
+          min_notice_minutes: number;
+          bookable_roles: string[];
+          booked_stage: string;
+          attended_stage: string;
+          no_show_stage: string;
+          time_zone: string;
+        };
+        Insert: {
+          industry: string;
+          slot_minutes: number;
+          horizon_days: number;
+          min_notice_minutes?: number;
+          bookable_roles: string[];
+          booked_stage: string;
+          attended_stage: string;
+          no_show_stage: string;
+          time_zone?: string;
+        };
+        Update: {
+          industry?: string;
+          slot_minutes?: number;
+          horizon_days?: number;
+          min_notice_minutes?: number;
+          bookable_roles?: string[];
+          booked_stage?: string;
+          attended_stage?: string;
+          no_show_stage?: string;
+          time_zone?: string;
+        };
+        Relationships: [];
       };
       call_policies: {
         Row: {
@@ -812,6 +1001,10 @@ export type Database = {
       };
     };
     Functions: {
+      add_availability_exception: {
+        Args: { p_staff_id: string; p_date: string; p_kind: string; p_start: string; p_end: string; p_reason: string };
+        Returns: string;
+      };
       add_note: {
         Args: { p_lead_id: string; p_body: string; p_template_id: string };
         Returns: string;
@@ -835,9 +1028,47 @@ export type Database = {
         Args: { p_lead_id: string; p_staff_id: string; p_reason: string; p_routing: Json };
         Returns: undefined;
       };
+      book_appointment: {
+        Args: {
+          p_lead_id: string;
+          p_staff_id: string;
+          p_starts: string;
+          p_ends: string;
+          p_plan: Json;
+          p_replaces: string;
+        };
+        Returns: Json;
+      };
+      book_appointment_public: {
+        Args: {
+          p_lead_id: string;
+          p_staff_id: string;
+          p_starts: string;
+          p_ends: string;
+          p_plan: Json;
+          p_replaces: string;
+        };
+        Returns: Json;
+      };
+      booking_calendar: {
+        Args: { p_industry: string; p_staff_ids: unknown; p_from: string; p_to: string };
+        Returns: Json;
+      };
+      booking_context: {
+        Args: { p_lead_id: string };
+        Returns: Json;
+      };
       call_lead_industry: {
         Args: { p_call_id: string; p_lead_id: string };
         Returns: string;
+      };
+      cancel_appointment: {
+        Args: { p_appointment_id: string; p_plan: Json };
+        Returns: Json;
+      };
+      cancel_appointment_public: {
+        Args: { p_lead_id: string; p_appointment_id: string; p_plan: Json };
+        Returns: Json;
       };
       change_lead_stage: {
         Args: { p_lead_id: string; p_to_stage: string; p_plan: Json; p_reason: string };
@@ -893,6 +1124,10 @@ export type Database = {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
       };
+      mark_appointment: {
+        Args: { p_appointment_id: string; p_status: string; p_plan: Json };
+        Returns: Json;
+      };
       mark_replied: {
         Args: { p_lead_id: string };
         Returns: number;
@@ -900,6 +1135,10 @@ export type Database = {
       opt_out_lead: {
         Args: { p_lead_id: string; p_source: string };
         Returns: boolean;
+      };
+      overdue_appointments: {
+        Args: { p_grace: string; p_limit: number };
+        Returns: unknown[];
       };
       place_assistant_call: {
         Args: { p_lead_id: string; p_channel: string };
@@ -917,9 +1156,17 @@ export type Database = {
         Args: { p_lead_id: string; p_channel: string; p_body: string; p_source: string };
         Returns: string;
       };
+      record_no_show: {
+        Args: { p_appointment_id: string; p_plan: Json };
+        Returns: Json;
+      };
       record_voice_call: {
         Args: { p_call: Json; p_update: Json };
         Returns: Json;
+      };
+      remove_availability_exception: {
+        Args: { p_exception_id: string };
+        Returns: boolean;
       };
       remove_verified_number: {
         Args: { p_phone: string };
@@ -937,9 +1184,17 @@ export type Database = {
         Args: { p_lead_id: string; p_score: number; p_band: string; p_factors: Json };
         Returns: undefined;
       };
+      set_availability: {
+        Args: { p_staff_id: string; p_rules: Json };
+        Returns: number;
+      };
       set_sequence_paused: {
         Args: { p_industry: string; p_sequence_id: string; p_paused: boolean };
         Returns: undefined;
+      };
+      staff_calendar: {
+        Args: { p_staff_ids: unknown; p_from: string; p_to: string };
+        Returns: Json;
       };
       staff_can_see_lead: {
         Args: { p_industry: string; p_assigned_staff_id: string; p_billing_flag: boolean; p_stage: string };

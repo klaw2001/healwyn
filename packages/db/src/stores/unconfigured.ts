@@ -14,6 +14,10 @@ export function createUnconfiguredLeadStore(): LeadStore {
     optOut: fail,
     startWebCall: fail,
     useTextFallback: fail,
+    bookingContext: fail,
+    bookingCalendar: fail,
+    bookAppointment: fail,
+    cancelAppointment: fail,
     async close() {},
   };
 }

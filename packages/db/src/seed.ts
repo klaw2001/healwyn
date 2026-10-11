@@ -1,9 +1,11 @@
 import {
+  BOOKING_MIN_NOTICE_MINUTES,
   callPolicies,
   consentPlainText,
   demoAuthUserId,
   formatLeadReference,
   industryPacks,
+  openSlots,
   planStageEntry,
   renderTemplate,
   scoreLead,
@@ -211,7 +213,7 @@ function simulate(lead: DemoLead, pack: IndustryPack, now: Date) {
     }
   }
 
-  return { createdAt, events, enrollments, repliedAt, optedOutAt };
+  return { createdAt, events, enrollments, repliedAt, optedOutAt, stageTimes };
 }
 
 /**
@@ -286,6 +288,48 @@ on conflict (id) do update set full_name = excluded.full_name, title = excluded.
     );
   }
 
+  // Booking: the pack's rules, and the default weekly hours for every bookable
+  // demo staff member (reset on every run, like the demo leads).
+  const { booking } = pack;
+  statements.push(
+    `insert into public.booking_policies (industry, slot_minutes, horizon_days, min_notice_minutes, bookable_roles,
+  booked_stage, attended_stage, no_show_stage, time_zone)
+values (${lit(pack.id)}, ${booking.slotMinutes}, ${booking.horizonDays}, ${BOOKING_MIN_NOTICE_MINUTES}, ${textArray(
+      booking.bookableRoles,
+    )}, ${lit(booking.bookedStageId)}, ${lit(booking.attendedStageId)}, ${lit(booking.noShowStageId)}, ${lit(pack.brand.timeZone)})
+on conflict (industry) do update set slot_minutes = excluded.slot_minutes, horizon_days = excluded.horizon_days,
+  min_notice_minutes = excluded.min_notice_minutes, bookable_roles = excluded.bookable_roles, booked_stage = excluded.booked_stage,
+  attended_stage = excluded.attended_stage, no_show_stage = excluded.no_show_stage, time_zone = excluded.time_zone;`,
+  );
+  const bookable = pack.demo.staff.filter((m) => (booking.bookableRoles as readonly string[]).includes(m.role));
+  const defaultRules = booking.defaultHours.weekdays.map((weekday) => ({
+    weekday,
+    start: booking.defaultHours.start,
+    end: booking.defaultHours.end,
+  }));
+  if (bookable.length > 0) {
+    const ids = bookable.map((m) => lit(m.id)).join(', ');
+    statements.push(
+      `delete from public.availability_rules where staff_id in (${ids});`,
+      `delete from public.availability_exceptions where staff_id in (${ids});`,
+    );
+    for (const member of bookable) {
+      for (const rule of defaultRules) {
+        statements.push(
+          `insert into public.availability_rules (staff_id, weekday, start_time, end_time)
+values (${lit(member.id)}, ${rule.weekday}, ${lit(rule.start)}, ${lit(rule.end)});`,
+        );
+      }
+    }
+  }
+  // Appointments already given out to demo leads, per staff member, so seeded
+  // appointments never overlap (the database would refuse them).
+  const taken = new Map<string, { start: Date; end: Date }[]>();
+  const isFree = (staffId: string, start: Date, end: Date) =>
+    !(taken.get(staffId) ?? []).some((r) => r.start < end && start < r.end);
+  const take = (staffId: string, start: Date, end: Date) =>
+    taken.set(staffId, [...(taken.get(staffId) ?? []), { start, end }]);
+
   // Replace demo leads. Their consent records, events, notes, tasks, messages,
   // enrolments and scores go with them (cascade).
   statements.push(`delete from public.leads where is_demo and industry = ${lit(pack.id)};`);
@@ -301,7 +345,7 @@ on conflict (id) do update set full_name = excluded.full_name, title = excluded.
     const offering = answers[pack.intake.offeringQuestionId] ?? null;
     const specialty = offering && pack.offerings.some((o) => o.slug === offering) ? offering : null;
     const billingFlag = pack.billingRule ? answers[pack.billingRule.questionId] === pack.billingRule.equals : false;
-    const { createdAt, events, enrollments, repliedAt, optedOutAt } = simulate(lead, pack, now);
+    const { createdAt, events, enrollments, repliedAt, optedOutAt, stageTimes } = simulate(lead, pack, now);
     const firstResponseAt =
       lead.firstResponseAfterMinutes === null ? null : addMinutes(createdAt, lead.firstResponseAfterMinutes);
     const replied = repliedAt !== null && repliedAt < now;
@@ -415,6 +459,65 @@ values (${lit(enrollment.id)}, ${lit(lead.id)}, ${lit(pack.id)}, ${lit(enrollmen
         )}, ${ts(enrollment.enrolledAt)}, ${ts(endedAt)});`,
         ...stepRows,
       );
+    }
+
+    // An appointment matching the lead's stage history: upcoming for a lead in
+    // the booked stage, attended or missed for one that went on from it.
+    const bookedAt = stageTimes.findIndex((s) => s.stage === booking.bookedStageId);
+    const expert =
+      bookable.find((m) => m.id === lead.assignedStaffId) ??
+      bookable.find((m) => specialty !== null && m.specialties.includes(specialty)) ??
+      bookable[0];
+    if (bookedAt >= 0 && expert) {
+      const next = stageTimes[bookedAt + 1];
+      const outcome =
+        next?.stage === booking.attendedStageId ? 'attended' : next?.stage === booking.noShowStageId ? 'no_show' : null;
+      const appointmentId = uuid(`${lead.id}:appointment`);
+      const slotMs = booking.slotMinutes * 60_000;
+      let start: Date | null = null;
+      if (lead.stage === booking.bookedStageId) {
+        const open = openSlots(
+          { rules: defaultRules, exceptions: [], busy: taken.get(expert.id) ?? [] },
+          { slotMinutes: booking.slotMinutes, horizonDays: booking.horizonDays, timeZone: pack.brand.timeZone, now },
+        );
+        const index = pack.demo.leads.indexOf(lead);
+        start = open[(index * 3) % Math.max(1, Math.min(open.length, 24))]?.start ?? null;
+      } else if (outcome && next) {
+        start = inClinicHours(addMinutes(next.at, -90));
+        while (
+          start.getTime() + slotMs > now.getTime() ||
+          !isFree(expert.id, start, new Date(start.getTime() + slotMs))
+        ) {
+          start = addMinutes(start, -24 * 60);
+        }
+      }
+      if (start) {
+        const end = new Date(start.getTime() + slotMs);
+        take(expert.id, start, end);
+        const previousStage = stageTimes[bookedAt - 1]?.stage ?? pack.initialStageId;
+        statements.push(
+          `insert into public.appointments (id, lead_id, staff_id, industry, starts_at, ends_at, status, booked_via, previous_stage, created_at, updated_at)
+values (${lit(appointmentId)}, ${lit(lead.id)}, ${lit(expert.id)}, ${lit(pack.id)}, ${ts(start)}, ${ts(end)}, ${lit(
+            outcome ?? 'booked',
+          )}, 'seed', ${lit(previousStage)}, ${ts(stageTimes[bookedAt]!.at)}, ${ts(next?.at ?? stageTimes[bookedAt]!.at)});`,
+        );
+        events.push({
+          at: stageTimes[bookedAt]!.at,
+          type: 'appointment.booked',
+          actor: 'staff',
+          actorId: lead.assignedStaffId,
+          payload: { appointment_id: appointmentId, staff_id: expert.id, starts_at: start.toISOString(), via: 'staff' },
+        });
+        if (outcome && next) {
+          events.push({
+            at: next.at,
+            type: `appointment.${outcome}`,
+            actor: 'staff',
+            actorId: expert.id,
+            payload: { appointment_id: appointmentId, staff_id: expert.id },
+          });
+        }
+      }
     }
 
     // Events in time order, so the timeline (ordered by created_at, id) reads naturally.
