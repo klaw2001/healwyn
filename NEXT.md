@@ -1,136 +1,121 @@
 # NEXT.md
 
-Status at the end of **Phase 3** (2026-10-11). The next session starts here.
+Status at the end of **Phase 4** (2026-10-11), the last planned phase. The platform is a complete, tested demo. This
+file says what is done, what was verified and how, what was not, the known limitations, and what to do before showing
+it to a real client.
 
 ## Milestones
 
 Tag pushes are refused by the git proxy in cloud sessions (HTTP 403), so the tags exist locally and their commits are
 listed here. Recreate a tag anywhere with `git tag -a phase-N-complete <sha> -m "Phase N complete"`.
 
-| Tag                | Commit                                  | What                                                 |
-| ------------------ | --------------------------------------- | ---------------------------------------------------- |
-| `phase-1-complete` | `10988d3`                               | Brand kit, website, intake forms, data model         |
-| `phase-2-complete` | `30d1ea7`                               | CRM, staff workspace, nurture sequences              |
-| `phase-3-complete` | the commit titled "Phase 3 complete: …" | Routing engine, AI intake assistant, simulated calls |
+| Tag                | Commit                                  | What                                                   |
+| ------------------ | --------------------------------------- | ------------------------------------------------------ |
+| `phase-1-complete` | `10988d3`                               | Brand kit, website, intake forms, data model           |
+| `phase-2-complete` | `30d1ea7`                               | CRM, staff workspace, nurture sequences                |
+| `phase-3-complete` | `c4ed355`                               | Routing engine, AI intake assistant, simulated calls   |
+| `phase-4-complete` | the commit titled "Phase 4 complete: …" | Industry packs, booking, payments, dashboard, demo kit |
 
-## Done in Phase 3
+## Done in Phase 4
 
-- **Routing engine** (`packages/core/src/routing/engine.ts`).
-  - Pure and deterministic. Filters the specialty's team (or falls back to care coordinators), capacity, and level
-    rank 3+ for urgent leads; scores language, seniority × urgency, spare load and continuity; breaks ties by load
-    ratio, last assignment, then id. The billing desk is copied in on insured leads.
-  - Weights live in the pack (`routing`). Every decision explains each candidate's score; the profile shows it.
-  - `assignLead(lead, { mode: 'auto' })` uses it with the Phase 2 signature. The profile offers **Accept suggestion**
-    or an override with a reason code; both are stored in the `lead.assigned` payload.
-  - Table-driven tests plus a simulated week checking that nobody is starved or overloaded.
-- **Contracts.** zod → JSON Schema (`packages/core/contracts/`) → pydantic (`apps/voice/healwyn_voice/contracts.py`).
-  `pnpm contracts:check` is part of `pnpm check`.
-- **The assistant** (`apps/voice`, see `docs/VOICE.md`).
-  - One deterministic engine (`IntakeSession`) for the LiveKit voice agent, the typed chat, the simulated dialer and
-    the eval. Every line it says comes from the pack's voice script (`clinic-voice.ts`).
-  - It says it is an AI, asks for consent before collecting anything, asks five questions in English or Hindi
-    (following the caller), recovers from vague or off-topic answers, confirms, and explains what happens next.
-  - Safety runs first on every turn: 12 red-flag categories with negations (stop, give 112, flag urgent, urgent task),
-    advice requests (declined, intake continues), prompt injection, "are you a person?".
-  - Gemini (`gemini-3.5-flash-lite`, free tier) only maps an answer to an allowed option; its output is validated.
-  - Limits from the pack: 5 minutes and 40 turns per call, 50 calls a day (SQL, advisory lock).
-  - The agent refuses to start with `VOICE_REAL_DATA=true`. Logs carry ids and codes only.
-- **CRM.**
-  - `/api/voice/complete`: HMAC-SHA256 over `timestamp.body`, 5-minute window, 256 KB cap, zod validation, answers
-    checked against the pack. Records the call, merges answers, moves a new lead to AI-triaged (with its nurture
-    plan), routes it, creates an urgent task after a red flag and rescores. Replays change nothing.
-  - The AI summary panel: summary, outcome, flags, answers and the transcript (behind a disclosure).
-  - **Simulated assistant call** on the profile (front desk), and **Phone call** when a SIP trunk is configured.
-  - The manager's **AI assistant** screen: today against the daily cap, the month against LiveKit's free minutes
-    and credit, Gemini requests, recent calls, and the verified demo numbers.
-- **Website.** **Talk to our assistant** on Home and Contact: a dialog with the consent text and a plain explanation
-  of the microphone; voice through LiveKit with live captions, an "AI assistant" label, mute and end; typed chat when
-  the microphone is refused or LiveKit is unreachable (connect capped at 12 s). The lead is created first, so a dropped
-  call still reaches staff.
-- **Data.** Migrations `20261012000001` to `…04`: routing context functions, `assign_lead` with the method and
-  explanation, `call_sessions`, `verified_demo_numbers`, `start_call` (consent, opt-out, erasure, cap; window and
-  verified number for phone), `record_voice_call` (idempotent, stores the channel), `apply_voice_outcome`,
-  `save_call_lead_score`, and erasure of call content.
-
-- **Security review fixes** (see `DECISIONS.md`, "Security review"): only an explicit "no" withdraws the call
-  consent; call rules in SQL (`call_policies`); separate caps per group and per phone; an expiring call cookie and a
-  single typed fallback per call; method-and-path signatures to the text service; disclosure of LiveKit and Gemini;
-  `record=False`; red-flag categories and routing explanations out of the audit trail; failed results closed as
-  `failed`; the routing lock on accept. Migration `20261012000004_call_safeguards`.
+- **Four industry packs** (`packages/core/src/industries`): Healwyn Clinics, Nestwyn Realty, Ledgerwyn Wealth and
+  Loomwyn Interiors. Each has its brand (in `BRANDS`), theme (light and dark, contrast-tested), site copy, intake and
+  consents, stages (including a no-show stage), staff levels, routing weights, sequences and templates, SLA and
+  scoring, booking and payment settings, voice script in English and Hindi with its own safety lists, and 40 demo
+  leads. A generic contract test holds every pack to the same shape.
+- **Runtime selection.** The website is generated per pack under `/[industry]` and `proxy.ts` picks one (demo cookie,
+  else `INDUSTRY`); the CRM follows the signed-in staff member's industry; anything acting on a lead uses the lead's
+  pack. Industry is enforced in RLS (`staff_can_see_lead`, `industry_stages`).
+- **Booking** (`20261014000001_booking.sql`, `packages/core/src/booking`): weekly hours and exceptions, `openSlots`,
+  an exclusion constraint against double booking, booking functions that re-check slots and move stages with their
+  nurture plans, the worker's automatic no-shows, the public `/book` flow from a signed link, and the CRM's booking
+  panel, Bookings screen and Hours screen.
+- **Payments** (`20261015000001_payments.sql`): Razorpay test mode or a simulated checkout through the same signed,
+  idempotent, forward-only event handling; live keys refused at start-up and in SQL; `/pay` from the person's link; the
+  CRM payment panel and payment links.
+- **Manager dashboard** (`/dashboard`, `docs/METRICS.md`).
+- **Demo kit**: demo bars (industry switch, Reset demo, guided tour), `pnpm demo:reset`, the case-study page, the
+  architecture diagram (`docs/architecture.svg`, Mermaid in `docs/ARCHITECTURE.md`), `docs/PITCH.md`,
+  `docs/WALKTHROUGH_SCRIPT.md`, `docs/DECK_OUTLINE.md`, `docs/FREE_TIER_REPORT.md` and `docs/DEPLOY.md`.
+- **Hardening**: a Content-Security-Policy on both apps; zod in jitless mode (no runtime code generation); the voice
+  engine no longer lets the model read an answer out of an advice request (found by the Gemini eval run); a dependency
+  audit (no known vulnerabilities); new public endpoints rate-limited and tied to the link's own lead.
 
 ## Verified, and how
 
-- **`pnpm check`** passes: ESLint and Prettier, ruff, typecheck, `contracts:check`, Vitest, pytest and both builds
-  (with the client-bundle secrets check).
-- **Vitest** (core, ui, db against a real Postgres 16, messaging, web): routing tables and fairness, assignment,
-  voice outcome rules, the assistant start pipeline, call checks in SQL (consent withdrawn, opted out, window, verified
-  numbers, cap under concurrency), the webhook's idempotency, RLS on `call_sessions`, erasure of call content.
-- **pytest**: safety lists in both languages (with negations), conversation flows, the text service's signatures and
-  limits, the webhook signer, and the eval's required scenarios.
-- **Voice eval** (`docs/VOICE_EVAL.md`): 43 scenarios. Deterministic 42/43, with Gemini 43/43; every red-flag and
-  no-advice scenario passes in both. The deterministic miss is a description that names no option ("red itchy
-  patches"): it is asked again and handed to a coordinator.
-- **Playwright.**
-  - Website (375 px and 1280 px): the security headers (including `microphone=(self)`), the assistant dialog's
-    consent and validation, plus every Phase 1 check.
-  - CRM (laptop and tablet): website form → simulated assistant call → the lead is AI-triaged, routed with an
-    explanation and shows the summary; a red-flag call creates an urgent task; refusals (no consent) are logged;
-    accept and override routing; the manager's assistant screen and verified numbers; the webhook rejects unsigned,
-    stale and invalid requests.
-- **By hand, end to end** with the local servers: typed chat from the website (triaged and routed to the right
-  doctor, with a summary), a red-flag chat (urgent flag and task) and the simulated dialer.
-- **Lighthouse**: Home and Contact (mobile) 98 performance, 100 accessibility, 100 best practices; the CRM's
-  assistant screen and a lead profile 100.
-- **Latency**: engine under 1 ms per turn; Gemini classification 0.7–1.1 s when needed; typed chat 50–190 ms per turn
-  at a phone-sized viewport; voice-to-typed fallback about 5 s.
-- **LiveKit**: the agent registered with LiveKit Cloud from this sandbox.
-- **Security review** of the webhook, the text service, the website routes and the SQL by a separate review pass: no
-  authorisation bypass; 3 medium and 8 low findings, all fixed with tests (above).
+- **`pnpm check`** passes: ESLint and Prettier, ruff, typecheck, `contracts:check`, Vitest (602 tests: core, ui,
+  messaging, web, crm, and db against a real Postgres 16), pytest (99), and both production builds with the
+  client-bundle secrets check.
+- **Database tests** for Phase 4: double booking refused by the constraint and by the functions, slots outside the
+  hours refused, rescheduling and cancelling with stage return, who may book whom, attended and automatic no-shows
+  starting recovery, calendars invisible across industries; payments marked paid once (duplicate events ignored), a
+  late failure never undoing a payment, unknown orders and live mode refused; every staff member of every industry
+  seeing exactly the leads `canSeeLead` allows.
+- **Playwright**, against production builds and the local database:
+  - Website (375 and 1280 px): every page of the default pack (now including `/book`, `/pay`, `/case-study`), the CSP
+    and other headers, redirects from the Phase 1 addresses, booking (book, move, cancel) and payments (decline, retry,
+    pay) from the person's link.
+  - CRM (laptop and tablet): booking from a lead, the Bookings screen, marking attended, an expert's own hours, the
+    billing desk's limits, payment links, the dashboard (numbers match a direct query; filters; 403 for non-managers).
+  - **The full journey for each of the four industries**: site re-skinned by the demo cookie, the pack's own form,
+    a simulated assistant call, routing, the CRM, booking on the person's link and a test payment that moves the lead to
+    the pack's won stage.
+- **Voice eval** (`docs/VOICE_EVAL.md`): 233 scenarios across the four packs. Deterministic 229/233 (the four misses are
+  descriptions that name no option, marked as needing the model); with Gemini 233/233. Every red-flag and no-advice
+  scenario passes in both.
+- **Lighthouse** (mobile emulation, production build) for every industry theme: Home, Contact, Services and the case
+  study scored 94 to 99 for performance and 100 for accessibility and best practices (after removing zod's `Function`
+  probe, which the CSP reported); Book scored 98 to 99.
+- **The five-minute demo in `docs/PITCH.md`, run in a browser** with `DEMO_MODE` and `DEMO_LOGIN` on: the demo bar,
+  the form, the assistant button, booking, the test payment, the front desk's view of the lead in Package active, a
+  simulated assistant call, the summary, booking and payment panels, the Bookings screen, the manager's dashboard, the
+  industry switch and the tour. Also Reset demo and the CRM's industry switch. **One step needed fixing**: the script
+  told the presenter to show the assistant's summary on the form's lead, but the website chat creates its own enquiry;
+  the script now ticks both consents and runs the CRM's simulated call on that lead. Every example phrase in the
+  industry talk tracks was checked against that pack's safety rules.
 
 ## Not verified
 
-- **Voice latency (caller stops speaking → assistant speaks) and real speech.** This sandbox blocks WebRTC media (UDP,
-  no TURN) and headless Chromium could not open LiveKit's WebSocket through the proxy. The agent logs
-  `agent.latency` and `agent.turn` per turn; measure on a real network and phone. Recognition quality for Hindi and
-  Hinglish, interruptions and noise are untested.
-- **Real phone calls.** No SIP trunk exists (a Twilio trial needs sign-up and phone verification). `placePhoneCall` is
-  written to LiveKit's SIP API but has never dialled. Steps in `docs/VOICE.md`.
-- **Agent hosting** on LiveKit Cloud and the text service on Render: not deployed.
-- **Live Supabase, Netlify, and real email**, as in Phase 2: everything ran against the local Postgres 16.
-- **Real devices and screen readers** for the widget (Chromium emulation only).
+- **Razorpay's real test mode.** No test keys were available, so orders, Checkout and webhooks from Razorpay itself
+  have only been exercised through unit tests (order request, signatures, event parsing) and the simulated provider.
+- **Voice latency and real speech, real phone calls, hosted agent and text service**: unchanged from Phase 3 (the
+  sandbox blocks WebRTC; there is no SIP trunk).
+- **Live Supabase, Netlify, and real email**: everything ran against the local Postgres 16. `docs/DEPLOY.md` has not
+  been followed end to end on real accounts.
+- **The guided tour across two real domains** (only checked on localhost), real devices and screen readers.
 
-## Known gaps and caveats
+## Known limitations
 
-- **Gemini's free tier** is 15 requests a minute and may use inputs for training: fine for a demo with synthetic data,
-  not for patients. The deterministic matcher covers most answers; heavy concurrent use will hit the limit and fall
-  back to "asked again, then a coordinator".
-- **The typed chat's sessions live in the text service's memory.** A restart drops calls in progress (each still has
-  its lead). Render's free instance sleeps after 15 minutes, so the first chat after a quiet spell waits about a
-  minute unless the keep-awake ping is set up.
-- **Inference credit** (US$2.50 a month) caps speech-to-text at roughly 430 minutes; the usage screen shows an
-  estimate from call durations, not LiveKit's billing.
-- **No Content-Security-Policy yet** (Phase 4 hardening). The website's voice call needs `connect-src` for the
-  LiveKit host (wss) and `media-src`/`blob:` for audio.
-- **Partner leads share the clinic board; lists are not paginated; reminders are in-app only; the inbound webhook is a
-  stub**: unchanged from Phase 2.
+- **The CSP allows inline scripts** (`'unsafe-inline'`): the pages are static per industry, so per-request nonces would
+  mean rendering every page on demand. It still restricts every other origin.
+- **`DEMO_MODE` is read when the website is built** (static pages). Changing it needs a rebuild.
+- **Booking** offers one range per weekday (no split shifts), slots of one length per pack, and India time only.
+  Experts can book only into their own calendar. There are no booking confirmation emails beyond the pack's reminder
+  sequence, and no calendar invites (ICS).
+- **Payments** have no refunds and no receipts or invoices. A started but abandoned order stays "Started".
+- **The dashboard** reads live tables on every load; fine for demo volumes, but it would need indexes or rollups at
+  scale. Lists elsewhere are not paginated.
+- **Message templates** use `{specialty}` with a generic fallback when someone chose "not sure".
+- **Gemini's free tier** may use inputs to improve Google's products: synthetic data only.
+- **LiveKit's free credit** may cover as few as about 30 voice calls a month depending on the voice
+  (`docs/FREE_TIER_REPORT.md`); typed chat is unaffected.
 - **Rotate the supplied keys.** The database password, Resend, Gemini and LiveKit keys were pasted into a chat.
 
-## Exact first steps for Phase 4
+## Before showing it to a real client (in order)
 
-1. Read `CLAUDE.md`, this file, `DECISIONS.md`, `docs/ARCHITECTURE.md` and `docs/VOICE.md`. `pnpm db:local start`,
-   migrate and seed, then `pnpm check`, then `pnpm build && pnpm test:e2e` (the CRM suite starts the text service on
-   :3290 itself).
-2. **Dashboard** (`apps/crm/app/(app)/dashboard`): SQL views or functions under RLS for the funnel, first response
-   against SLA, no-shows, load, call outcomes (`call_sessions.outcome`), sources and conversion over time. Date range
-   and specialty filters in the URL. Document every query in `docs/METRICS.md`.
-3. **Booking**: `availability_templates`, `availability_exceptions` and `appointments` with an exclusion constraint
-   (`btree_gist`, `tstzrange`) per staff member against double booking; `book_appointment` / `reschedule` / `cancel`
-   functions that move stages through `apply_stage_change` so nurture plans follow. India time everywhere.
-4. **Payments**: Razorpay test mode. Refuse keys that do not start with `rzp_test_`. Server-side orders, a signed
-   webhook (idempotent by payment id) that moves the lead to Package active.
-5. **Industry packs**: real estate, wealth advisory, home interiors, each with copy, questions, stages, sequences,
-   routing weights, a voice script with its own safety rules (wealth: never investment advice), a theme and demo seed;
-   eval scenarios per pack. `getActivePack()` becomes runtime-switchable (cookie or DB setting behind `DEMO_MODE`).
-6. **Demo kit**: `docs/PITCH.md`, `WALKTHROUGH_SCRIPT.md`, `DECK_OUTLINE.md`, the case-study page, the architecture
-   diagram (Mermaid + SVG), `pnpm demo:reset`, the guided tour. Then hardening (CSP with nonces, audit, a11y, perf),
-   `docs/FREE_TIER_REPORT.md`, `docs/DEPLOY.md`, the final `NEXT.md`, and the `phase-4-complete` tag.
+1. **Rotate every key** and move secrets into the hosting dashboards only.
+2. **Deploy following `docs/DEPLOY.md`** (Supabase in Mumbai, both Netlify sites, Render) and run the five-minute demo
+   on the real URLs; record the 90-second walkthrough there.
+3. **Razorpay test keys**: set them, add the webhook, and run a payment through Razorpay's own test checkout.
+4. **Voice on a real network and phone**: measure latency, try Hindi and noisy rooms, and decide the speech voice
+   (cost differs, see the free-tier report).
+5. **The client's own pack**: their questions, staff, stages, wording, and a review of the safety rules by someone from
+   their field (a doctor, a registered advisor, an engineer).
+6. **Legal and privacy review** of consents, the privacy notice and data retention for their use, and move Gemini to the
+   paid tier before any real personal data.
+7. **Real channels**: a verified email domain, then an Indian SMS/WhatsApp provider (DLT registration) and a SIP trunk
+   from an Indian provider for phone calls.
+8. **A third-party security review** and a basic load test; add monitoring and alerting (errors, the cron, credit
+   meters).
+9. **Product gaps that clients will ask for**: confirmation emails with calendar invites, refunds and receipts,
+   pagination, exports to their existing tools.

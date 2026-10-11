@@ -34,7 +34,7 @@
     "voice:setup": "bash scripts/voice.sh setup-agent",
     "voice:serve": "bash scripts/voice.sh run python -m healwyn_voice.server",
     "voice:agent": "bash scripts/voice.sh run python -m healwyn_voice.agent",
-    "eval:voice": "bash scripts/voice.sh run python -m healwyn_voice.eval && prettier --write --log-level warn docs/VOICE_EVAL.md"
+    "eval:voice": "bash scripts/eval-voice.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

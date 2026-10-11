@@ -218,6 +218,26 @@ def test_uses_the_model_only_when_the_matcher_cannot_place_an_answer(new_session
     assert classifier.requests == 1
 
 
+def test_an_advice_request_is_never_read_as_an_answer_by_the_model(new_session):
+    class Eager:
+        requests = 0
+
+        def classify(self, question, utterance, language):
+            self.requests += 1
+            return 'general-medicine'
+
+    classifier = Eager()
+    session = new_session(classifier=classifier)
+    run(session, 'yes')
+    reply = session.handle('should I take paracetamol for this?')
+    assert "I can't give medical advice" in reply.text
+    assert 'concern_category' not in session.answers
+    assert classifier.requests == 0
+    # The question is asked again and the next answer counts.
+    session.handle('dentist')
+    assert answers(session)['concern_category'] == 'dental'
+
+
 def test_model_output_outside_the_options_is_ignored(new_session):
     class Rogue:
         requests = 0

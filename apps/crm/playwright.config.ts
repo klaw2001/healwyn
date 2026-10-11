@@ -79,6 +79,8 @@ export default defineConfig({
             RATE_LIMIT_SALT: 'e2e',
             // Typed chat in tests: a voice call would need a microphone and the LiveKit agent.
             VOICE_BROWSER_CALLS: 'false',
+            // The industry journeys pick the website's industry with the demo bar's cookie.
+            DEMO_MODE: 'true',
           },
         },
         {

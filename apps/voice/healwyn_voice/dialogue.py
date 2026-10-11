@@ -215,9 +215,9 @@ class IntakeSession:
     def _is_free_text(self) -> bool:
         return bool(self.question) and self.question.kind in {'text', 'textarea'}
 
-    def _understand(self, question: VoiceQuestion, text: str) -> str | None:
+    def _understand(self, question: VoiceQuestion, text: str, *, use_model: bool = True) -> str | None:
         value = self.nlu.option_for(question, text)
-        if value is None and self.classifier is not None:
+        if value is None and use_model and self.classifier is not None:
             value = self.classifier.classify(question, text, self.lang)
             # Never trust a model's output: only an exact option value is accepted.
             if value not in {option.value for option in question.options}:
@@ -246,7 +246,9 @@ class IntakeSession:
             self.answers[question.id] = text[:limit]
             return self._advance(*prefix)
 
-        value = self._understand(question, text)
+        # An advice request is a question, not an answer: accept an option the caller names
+        # outright ("a kitchen, and can the wall go?"), but never let the model guess one from it.
+        value = self._understand(question, text, use_model=not advice)
         if value is not None:
             self.answers[question.id] = value
             return self._advance(*prefix)

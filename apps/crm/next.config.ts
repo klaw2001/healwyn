@@ -17,7 +17,24 @@ if (
   throw new Error('Live Razorpay keys detected (rzp_live_…). This demo runs payments in test mode only.');
 }
 
+// The CRM loads nothing from other origins. Inline scripts are Next's own (no nonces without per-request rendering
+// of every page); everything else is this origin only.
+const dev = process.env.NODE_ENV !== 'production';
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  `connect-src 'self'${dev ? ' ws:' : ''}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 const securityHeaders = [
+  { key: 'Content-Security-Policy', value: contentSecurityPolicy },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'same-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },

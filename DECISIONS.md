@@ -313,3 +313,24 @@ A review of the Phase 3 code found no authorisation bypass. Fixed before tagging
 - **Tour.** Eight steps of the five-minute path (`demoTour(pack)`), across both apps. A step's link carries `?tour=n`
   (the apps are on different origins); each tab remembers the step; the step's element gets an outline. Nothing else on
   the page changes.
+
+### Demo kit and hardening
+
+- **One diagram source.** `apps/web/lib/architecture-svg.ts` draws the architecture for the case-study page (theme
+  colours, so it re-skins and follows dark mode) and for `docs/architecture.svg` (`pnpm architecture:svg`); the Mermaid
+  version in `docs/ARCHITECTURE.md` describes the same picture for readers on GitHub.
+- **The case study claims nothing it cannot show**: no metrics, no customers; what is real and what is simulated is
+  listed.
+- **Content-Security-Policy with `'unsafe-inline'` scripts.** The website's pages are static per industry, so nonces
+  (which need per-request rendering) would cost every page its static delivery. The policy still limits scripts to this
+  origin and Razorpay's checkout, connections to this origin, Razorpay and the LiveKit host, and forbids framing,
+  plugins and form posts elsewhere. The CRM allows nothing external. `'unsafe-eval'` only in development.
+- **zod jitless.** zod 4 probes `new Function` to compile validators; under the CSP that probe is reported as a
+  violation (Lighthouse best practices 96). `z.config({ jitless: true })` validates without generating code.
+- **An advice request is never read as an answer by the model.** The Gemini eval run found the model mapping "can we
+  remove the wall to open things up?" to a service. The engine now accepts only an option the caller names outright in
+  the same sentence as an advice request; the model is not asked. Safety behaviour was already correct.
+- **`pnpm eval:voice` arguments** go through `scripts/eval-voice.sh`: pnpm appended them to the last command of the
+  previous chained script (Prettier), so `--llm` silently did nothing.
+- **The pitch script was rehearsed in a browser** and corrected (the website chat creates its own enquiry; the lead's
+  summary comes from the CRM's simulated call). See `NEXT.md`.

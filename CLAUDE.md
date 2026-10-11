@@ -15,8 +15,8 @@ The platform is built in four phases:
 3. **Routing and AI voice** (done): deterministic routing engine with explanations; a LiveKit + Gemini voice assistant
    that qualifies leads (browser voice and typed chat, a simulated dialer; real phone calls need a SIP trunk) and never
    gives medical advice.
-4. **Pitch kit**: manager dashboard, booking, Razorpay test-mode payments, an industry switcher (real estate, wealth
-   advisory, home interiors) and a demo kit.
+4. **Pitch kit** (done): manager dashboard, booking with no double booking, Razorpay test-mode payments, four industry
+   packs (clinic, real estate, wealth advisory, home interiors) with a runtime switcher, and a demo kit.
 
 Every lead flows: intake form, AI voice assistant qualifies, routing engine picks the right doctor's team, staff member
 receives the lead with an AI summary, nurture sequences follow up, close (booked, paid or lost).
@@ -36,7 +36,7 @@ All from the repo root. Node 22+, pnpm 10.
 | `pnpm contracts` / `contracts:check`    | Regenerate JSON Schema, the voice script and pydantic models from zod / fail if they are stale                  |
 | `pnpm voice:setup`                      | Python venv with the LiveKit agent runtime                                                                      |
 | `pnpm voice:serve` / `voice:agent dev`  | The assistant's text service (typed chat, simulated calls; :8090) / the LiveKit voice agent                     |
-| `pnpm eval:voice [-- --llm]`            | 43 scripted conversations through the real engine; writes `docs/VOICE_EVAL.md`; fails if a safety one fails     |
+| `pnpm eval:voice [-- --llm] [--pack x]` | 233 scripted conversations (all packs) through the real engine; writes `docs/VOICE_EVAL.md`; fails on safety    |
 | `pnpm format`                           | Prettier write                                                                                                  |
 | `pnpm typecheck`                        | `tsc` in every package (`next typegen` first for the web app)                                                   |
 | `pnpm test`                             | Vitest: core, ui (WCAG contrast), db (integration, real Postgres), web (submission pipeline)                    |
@@ -48,6 +48,8 @@ All from the repo root. Node 22+, pnpm 10.
 | `pnpm db:migrate`                       | Apply `packages/db/supabase/migrations` to `DATABASE_URL` (or via Supabase Management API with an access token) |
 | `pnpm db:seed`                          | Synthetic specialties, staff and demo leads (idempotent; never touches real leads)                              |
 | `pnpm db:types`                         | Regenerate `packages/db/src/database.types.ts` from a migrated database                                         |
+| `pnpm demo:reset [industry\|all]`       | Restore one industry's demo data (default `INDUSTRY`), remove demo enquiries, clear rate limits                 |
+| `pnpm architecture:svg`                 | Regenerate `docs/architecture.svg` (same source as the case-study page)                                         |
 
 Local database loop: `pnpm db:local start`, then `DATABASE_URL="$(pnpm -s db:local url)" pnpm db:migrate`, same for
 `db:seed`, `db:types` and `pnpm dev`. Both apps also load the root `.env` themselves (`process.loadEnvFile` in
@@ -60,14 +62,16 @@ it. Both e2e suites delete the leads they created when they finish.
 ```
 apps/
   web/        Next.js 16 App Router: public site + intake forms (server actions)
-    app/        routes; contact/ and partners/ hold the server actions
+    app/[industry]/ every page, generated once per pack (proxy.ts picks one); book/, pay/, case-study/
+    app/api/    assistant, unsubscribe, payments/razorpay (webhook), demo/industry (demo bar)
     components/ site chrome, forms (client), illustrations (SVG)
-    lib/server/ server-only: submission pipeline, lead store singleton, Resend notifier, logger, assistant
+    lib/server/ server-only: submission pipeline, lead store, notifier, logger, assistant, booking, payments
     components/assistant  the "Talk to our assistant" widget (LiveKit voice, typed fallback)
     e2e/        Playwright;  test/  Vitest
     app/unsubscribe, app/api/unsubscribe   unsubscribe page + RFC 8058 one-click endpoint
   crm/        Next.js 16 staff app (see apps/crm/README.md)
-    app/(app)/  pipeline, leads/[id], workspace, sequences; actions.ts holds every server action
+    app/(app)/  pipeline, leads/[id], workspace, sequences, bookings, availability, dashboard, assistant;
+                actions.ts, booking-actions.ts, payment-actions.ts (server actions); app/demo-actions.ts (demo bar)
     app/api/    cron/nurture (worker trigger), messages/inbound (signed reply webhook), voice/complete (call results)
     components/ board (dnd-kit), lead table, filters, profile controls and forms, shell, undo toast
     lib/server/ session (jose), auth, asStaff (RLS transaction), queries, scores, webhooks, routing, voice, dialer
@@ -75,25 +79,32 @@ apps/
   voice/      Python intake assistant: dialogue.py (the engine), safety, nlu, llm (Gemini classifier), server.py
               (text service), agent.py (LiveKit), eval; contracts.py is generated
 packages/
-  core/       brand.ts, industry packs (clinic.ts + clinic-crm.ts sequences/templates/SLA/scoring + clinic-voice.ts
-              script and safety lists + demo staff and leads), permissions.ts (roles, capabilities, lead visibility),
-              crm/ (scoring, SLA, sequence planning, templates, assignLead), routing/ (routeLead), voice/ (call result
-              contract, outcome rules), zod schemas, consent, lead payloads; contracts/ holds generated JSON
+  core/       brand.ts (BRANDS, one per pack), industries/ (four packs: <pack>.ts, -crm, -voice, -site, -demo; the
+              registry in index.ts; demo-kit.ts), permissions.ts, crm/, routing/, voice/, booking/ (slots, India
+              time), payments.ts, demo-tour.ts, zod schemas, consent, lead payloads; contracts/ holds generated JSON
   ui/         tokens.css (Tailwind v4 theme, light/dark), accessible components, nav/footer
-  db/         supabase/migrations, local-shim.sql, lead stores (supabase | postgres | memory), seed, type generator
-  messaging/  email (Resend or console), unsubscribe tokens, the nurture worker and its CLI
+  db/         supabase/migrations, local-shim.sql, lead stores (supabase | postgres | memory), seed, demo reset, types
+  messaging/  email (Resend or console), unsubscribe and booking links, Razorpay (test mode), the nurture worker
 scripts/      local-db.sh, lighthouse.mjs, voice.sh (Python venv)
-docs/         ARCHITECTURE.md, VOICE.md, VOICE_EVAL.md, PROMPTS.md (the phase prompts)
+docs/         ARCHITECTURE.md (+ architecture.svg), VOICE.md, VOICE_EVAL.md, METRICS.md, FREE_TIER_REPORT.md, DEPLOY.md,
+              PITCH.md, WALKTHROUGH_SCRIPT.md, DECK_OUTLINE.md, PROMPTS.md (the phase prompts)
 ```
 
 Workspace packages are consumed as TypeScript source (no build step); Next transpiles them via `transpilePackages`.
 
 ## Conventions
 
-- **Brand**: user-visible brand text comes only from `BRAND` in `packages/core/src/brand.ts`. A test fails if the
-  capitalised brand name appears anywhere else in code. Lowercase `healwyn` (package scope, DB names) is fine.
-- **Industry packs drive everything**: form questions, consents, stages, staff levels and sequences are read from the
-  active pack (`getActivePack()`), never hardcoded. Phase 4 adds packs; keep new features pack-driven.
+- **Brand**: user-visible brand text comes only from `BRANDS` in `packages/core/src/brand.ts` (via the pack's
+  `brand`). A test fails if any brand's short name appears anywhere else in code. Lowercase `healwyn` is fine.
+- **Industry packs drive everything**: copy, theme, questions, consents, stages, staff levels, sequences, routing,
+  booking, payments and the voice script come from the pack, never hardcoded. Which pack: on the website the page's
+  `[industry]` param (`pagePack`), in the CRM the session (`packFor(session)`), for anything acting on a lead the lead's
+  own `industry` (`packOf`). `getActivePack()` is only a default. A generic contract test (`pack.test.ts`) checks every
+  pack; new packs register in `industries/index.ts`, need eval scenarios in `apps/voice/healwyn_voice/eval_scenarios/`
+  and `pnpm contracts`. Client components get small views (`toFormPack`, `AssistantView`), never whole packs.
+- **Industry is a security boundary**: staff see only their own industry (RLS, `staff_can_see_lead`). Per-pack rules
+  SQL needs are seeded from the packs (`industry_stages`, `call_policies`, `booking_policies`): re-seed after changing
+  them.
 - **One schema, both sides**: zod schemas in `packages/core` validate in the browser and again on the server.
 - **Database writes go through SQL functions** (`submit_lead`, `withdraw_consent`, `erase_lead`, `hit_rate_limit`,
   and in the CRM `change_lead_stage`, `assign_lead`, `add_note`, …) so each operation is one transaction regardless of
@@ -115,6 +126,16 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
   speaks: Gemini only maps an answer to an allowed option, and its output is validated. Safety checks (red flags,
   advice requests, injection) run first on every turn and must pass 100% in `pnpm eval:voice`. Add a scenario for
   every safety change. After changing zod contracts or the voice script, run `pnpm contracts`.
+- **Booking**: slots come from `openSlots` (core) over a staff member's calendar; booking functions re-check the slot
+  in SQL and the exclusion constraint refuses double booking. Stage moves (booked, attended, no-show, cancel back) go
+  through the booking functions with the stage's nurture plan, never by hand. Times are India time.
+- **Payments are test mode only**: live Razorpay keys make both apps refuse to start; `payments.mode` is always `test`.
+  Every provider event (real or simulated) goes through `handlePaymentWebhook` (signature, then `record_payment_event`,
+  once per event id, forward-only). Never store provider payloads (they hold the payer's contact details).
+- **Public links that name a lead** (unsubscribe, booking, payment) are signed (`packages/messaging`) and carry `?i=`
+  for the brand. Booking and payment links expire after 30 days.
+- **Demo mode** (`DEMO_MODE=true`): demo bars, the industry cookie, demo enquiries stored as `is_demo`. It is read at
+  build time by the static website pages: set it for the build and the server.
 - **Calls** start only through `start_call` in SQL (consent, opt-out, daily caps; window and verified numbers for real
   phone calls), with rules from `call_policies`, which the seed writes from the pack (`callPolicies`): re-run
   `pnpm db:seed` after changing a pack's voice limits. Every refusal is logged as `call.refused`. Results arrive signed
@@ -159,6 +180,15 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
 - This sandbox cannot carry WebRTC media (UDP blocked, no TURN) or open LiveKit's WebSocket from headless Chromium;
   measure voice latency on a real network.
 - zod's `uuid`/`datetime` add a `pattern` next to `format`, which pydantic rejects; the contracts script drops it.
+- `next dev` writes an `AGENTS.md` into the app unless `agentRules: false` (set in both configs).
+- A `'use server'` file may export only async functions; constants imported from a `'use client'` module into a server
+  component arrive as client references, not values. Keep shared constants in plain modules.
+- pnpm appends `-- args` to the last command of a chained script: wrap chains in a shell script (`scripts/eval-voice.sh`).
+- In Playwright, `getByRole('heading', { name })` matches substrings ("Your consultation" also matches "Choose a time
+  for your consultation"): pass `exact: true`.
+- A container restart stops the local cluster: `pnpm db:local start` again (e2e skips the CRM suite without it).
+- Next's `redirect()` throws: in a `try`, call `unstable_rethrow(error)` first in the `catch`.
+- `pgrep -f` with a pattern also matches the shell running it; record PIDs when starting servers instead.
 
 ## Git rules (every phase)
 
@@ -175,9 +205,11 @@ Workspace packages are consumed as TypeScript source (no build step); Next trans
 - **No real secrets in the repo.** `.env` (repo root) is gitignored; `.env.example` lists every variable. The
   service-role key, every `*_DATABASE_URL` and every `*_SECRET` are server-only; the build fails if they reach
   `.next/static`. Before each commit, grep the staged diff for the values in `.env`.
-- **`DEMO_LOGIN` must be off outside demos.** It shows one-click logins for the seeded staff.
+- **`DEMO_LOGIN` and `DEMO_MODE` must be off outside demos** (one-click logins for the seeded staff; the demo bar with
+  Reset demo). Never give the CRM `DATABASE_URL` (owner) outside a demo.
 - **Synthetic data only.** Do not collect or log real health information. Never log the free-text concern.
-- **No analytics or third-party trackers.** Fonts are self-hosted.
+- **No analytics or third-party trackers.** Fonts are self-hosted. The CSP (in each `next.config.ts`) allows only this
+  origin, Razorpay's checkout and the LiveKit host on the website, and nothing external in the CRM.
 - **India's DPDP rules**: minimal collection, separate versioned consents with a hash of the exact wording,
   withdrawal is as easy as consent, and withdrawing the storage consent erases personal data (`withdraw_consent` +
   `erase_lead`).

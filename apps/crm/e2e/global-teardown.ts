@@ -7,7 +7,7 @@ export default async function globalTeardown() {
   if (!url || !startedAt) return;
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   try {
-    await sql`delete from public.leads where not is_demo and phone like '+9170000%' and created_at >= ${startedAt}`;
+    await sql`delete from public.leads where source <> 'seed' and phone like '+9170000%' and created_at >= ${startedAt}`;
   } finally {
     await sql.end();
   }

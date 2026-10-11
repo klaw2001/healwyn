@@ -76,6 +76,11 @@ test('security headers allow the microphone only for this site (the assistant) a
   expect(headers['permissions-policy']).toContain('camera=()');
   expect(headers['permissions-policy']).toContain('geolocation=()');
   expect(headers['x-frame-options']).toBe('DENY');
+  const csp = headers['content-security-policy'] ?? '';
+  expect(csp).toContain("default-src 'self'");
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("object-src 'none'");
+  expect(csp).not.toContain('unsafe-eval');
 });
 
 test('the home page offers the AI assistant, clearly labelled as an AI', async ({ page }) => {

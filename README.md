@@ -51,8 +51,25 @@ It is built in four phases. **Phase 1** is the foundation:
 - **Guards and evidence**: per-call and daily limits checked in SQL, a manager usage screen, and an evaluation of 43
   scripted conversations (`docs/VOICE_EVAL.md`) in which every safety scenario passes.
 
-Next: the dashboard, booking, payments, industry switcher and pitch kit (Phase 4). See `CLAUDE.md` for the plan,
-`NEXT.md` for where things stand and `docs/VOICE.md` for the assistant.
+**Phase 4** makes it pitchable:
+
+- **Four industries, one click.** Industry packs for Healwyn Clinics, Nestwyn Realty (real estate), Ledgerwyn Wealth
+  (wealth advisory) and Loomwyn Interiors (home interiors), each with its own brand, theme, copy, questions, stages,
+  sequences, routing, booking and payment settings, assistant script and safety rules. With `DEMO_MODE=true` a demo bar
+  re-skins the website, the CRM and the assistant. Industry is also a security boundary in the database.
+- **Booking**: weekly hours and time off per expert, real slots on the site (from the person's own link after their
+  enquiry) and in the CRM, rescheduling and cancelling, automatic stage changes and no-show follow-up. The database
+  refuses double booking.
+- **Test-mode payments**: Razorpay test mode, or a simulated checkout through the same signed, idempotent webhook
+  handling. Live keys are refused. A payment moves the lead to the won stage.
+- **Manager dashboard**: funnel, first response against SLA, no-shows, team load, assistant call outcomes, sources and
+  conversion over time, each documented in `docs/METRICS.md`.
+- **Demo kit**: `docs/PITCH.md` (five-minute script, talk tracks, prospect questions), `docs/WALKTHROUGH_SCRIPT.md`,
+  `docs/DECK_OUTLINE.md`, a case-study page, an architecture diagram, `pnpm demo:reset` and a guided tour.
+- **Costs and deployment**: `docs/FREE_TIER_REPORT.md` and `docs/DEPLOY.md`.
+
+See `CLAUDE.md` for conventions, `NEXT.md` for where things stand, `docs/ARCHITECTURE.md` for the design and
+`docs/VOICE.md` for the assistant.
 
 ## Run it locally
 
@@ -97,7 +114,8 @@ to `.env`, then:
 pnpm voice:setup              # apps/voice/.venv with the LiveKit agent and dev tools
 pnpm voice:serve              # text service: typed chat on the website, simulated calls from the CRM
 pnpm voice:agent dev          # optional: the voice agent (needs LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
-pnpm eval:voice               # 43 scripted conversations -> docs/VOICE_EVAL.md
+pnpm eval:voice               # 233 scripted conversations (four packs) -> docs/VOICE_EVAL.md
+pnpm demo:reset all           # restore every industry's demo data
 ```
 
 Without `GEMINI_API_KEY` (or with `VOICE_USE_LLM=false`) the assistant runs fully deterministically.
@@ -136,6 +154,9 @@ pnpm start & pnpm lighthouse  # Lighthouse (mobile) on Home and Contact; reports
 `pnpm db:local start` is running, and asserts that leads, consent records and events are stored.
 
 ## Deploy for free (Netlify)
+
+The full step-by-step guide, including Supabase roles, both sites' variables, the assistant and Razorpay test mode, is
+`docs/DEPLOY.md`. In short:
 
 Netlify's Free plan allows commercial use and runs Next.js server actions as functions. The terms were checked on
 2026-10-10; see `DECISIONS.md`.

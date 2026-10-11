@@ -2,6 +2,10 @@ import { z } from 'zod';
 import type { ConsentDefinition, IndustryPack, QualifyingQuestion } from '../industries/types';
 import { normalizeIndianMobile } from './phone';
 
+// Validate without compiling code at runtime: zod would otherwise probe `new Function`, which the
+// site's Content-Security-Policy (no 'unsafe-eval') reports as a violation in the browser.
+z.config({ jitless: true });
+
 /** Removes control characters (keeps newlines and tabs) from free text. */
 export function stripControlChars(value: string): string {
   // eslint-disable-next-line no-control-regex

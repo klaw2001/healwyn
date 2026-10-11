@@ -17,7 +17,37 @@ if (
   throw new Error('Live Razorpay keys detected (rzp_live_…). This demo runs payments in test mode only.');
 }
 
+// Content-Security-Policy. The pages are static (one per industry), so scripts
+// cannot carry per-request nonces: inline scripts are allowed, but only from
+// this origin, Razorpay's checkout and nothing else. LiveKit (browser voice) is
+// allowed by the host in LIVEKIT_URL.
+const livekit = (() => {
+  try {
+    const host = new URL(process.env.LIVEKIT_URL ?? '').host;
+    return host ? `wss://${host} https://${host}` : '';
+  } catch {
+    return '';
+  }
+})();
+const dev = process.env.NODE_ENV !== 'production';
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ''} https://checkout.razorpay.com`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://*.razorpay.com",
+  "font-src 'self'",
+  `connect-src 'self' https://*.razorpay.com ${livekit} wss://*.livekit.cloud https://*.livekit.cloud${dev ? ' ws:' : ''}`,
+  "media-src 'self' blob:",
+  'frame-src https://api.razorpay.com https://checkout.razorpay.com',
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 const securityHeaders = [
+  { key: 'Content-Security-Policy', value: contentSecurityPolicy },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },

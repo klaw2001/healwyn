@@ -37,13 +37,14 @@ Point at the demo bar: "Everything you see is a fictional brand with made-up dat
 
 ### 0:30 to 1:30: the enquiry and the assistant
 
-Go to **Contact**. Fill in the form (any name, a `70000 …` mobile number, pick a service, tick the first consent).
+Go to **Contact**. Fill in the form (any name, a `70000 …` mobile number, pick a service) and tick **both**
+consents: the second one (a call from the AI assistant) lets you run the assistant on this lead in the CRM later.
 
 > "Two separate consents, each stored with the exact wording the person saw. Withdrawing the main one erases their
 > details."
 
-Send it. On the thank-you panel, open **Talk to our assistant** (or the button on the home page) and answer three or
-four questions in typed chat.
+Send it. Then open **Talk to our assistant** (just above the thank-you panel) and answer three or four questions in
+typed chat. The chat starts its own enquiry; that is expected (someone can use the assistant without the form).
 
 > "It tells people it is an AI, asks permission first, and asks the same questions a good front desk would. It cannot
 > improvise: every line is written in advance, and the AI model is only used to understand which option someone meant.
@@ -68,9 +69,12 @@ payment)** on the simulated checkout.
 
 Switch to the CRM tab. Sign in as the **front desk** user (the coordinator role) from the demo list.
 
-- **Pipeline:** "Here is the enquiry we just sent, already in the paid stage, with its SLA timer and score."
-- Open the lead. Walk down the page:
-  - **Assistant summary**: "What the assistant learnt, in plain words, with any safety flags."
+- **Pipeline:** "Here is the enquiry we just sent, already in the paid stage, with its SLA timer and score." (Search
+  for the name in the list view if the board is busy.)
+- Open the lead and press **Simulated assistant call** (in the Contact panel): the assistant runs the same
+  conversation with a scripted caller in a few seconds, as if it had phoned them.
+- Walk down the page:
+  - **AI summary**: "What the assistant learnt, in plain words, with any safety flags."
   - **Routing suggestion** (on other new leads): "It suggests the right person and shows its reasons: language,
     seniority, spare capacity, whether they saw this person before."
   - **Booking panel**: the appointment you just made. "Staff can move or cancel it here too."
